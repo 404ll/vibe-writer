@@ -10,6 +10,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.routers.jobs import router as jobs_router
+app.include_router(jobs_router)
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
