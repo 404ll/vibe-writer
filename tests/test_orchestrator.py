@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from backend.agent.orchestrator import Orchestrator
+from backend.store import job_store
 
 @pytest.mark.asyncio
 async def test_parse_outline_extracts_chapters():
@@ -24,7 +25,9 @@ async def test_run_emits_outline_ready_event(monkeypatch):
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.orchestrator.anthropic.AsyncAnthropic", return_value=mock_client):
-        orch = Orchestrator("job-123", "AI Agents 入门", intervention_on_outline=False)
+        # Create job in store before running orchestrator
+        job = job_store.create_job("AI Agents 入门")
+        orch = Orchestrator(job.id, "AI Agents 入门", intervention_on_outline=False)
         await orch.run()
 
     event_types = [e.event for e in events]

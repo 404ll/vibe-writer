@@ -1,4 +1,5 @@
 import os
+import re
 import anthropic
 from backend.models import JobState, StageStatus, SSEEvent
 from backend.store import job_store
@@ -18,6 +19,11 @@ class Orchestrator:
             base_url=os.environ.get("ANTHROPIC_BASE_URL"),
         )
 
+    def _safe_filename(self, text: str, max_len: int = 30) -> str:
+        slug = re.sub(r'[^\w\-\u4e00-\u9fff]', '-', text)
+        slug = re.sub(r'-+', '-', slug)
+        return slug[:max_len].rstrip('-') or 'output'
+
     def _parse_outline(self, raw: str) -> list[str]:
         chapters = []
         for line in raw.strip().splitlines():
@@ -28,11 +34,10 @@ class Orchestrator:
             if line[0].isdigit():
                 dot_idx = line.find(".")
                 space_idx = line.find("、")
-                idx = min(
-                    dot_idx if dot_idx != -1 else len(line),
-                    space_idx if space_idx != -1 else len(line),
-                )
-                line = line[idx + 1:].strip()
+                if dot_idx != -1:
+                    line = line[dot_idx + 1:].strip()
+                elif space_idx != -1:
+                    line = line[space_idx + 1:].strip()
             if line:
                 chapters.append(line)
         return chapters
@@ -48,6 +53,11 @@ class Orchestrator:
 
     async def run(self):
         job = job_store.get(self.job_id)
+        if not job:
+            await push_event(self.job_id, SSEEvent(
+                event="error", data={"message": "Job not found"}
+            ))
+            return
 
         # --- Stage: PLAN ---
         await push_event(self.job_id, SSEEvent(
@@ -114,7 +124,7 @@ class Orchestrator:
         ))
 
         markdown = self._build_markdown(self.topic, written_chapters)
-        output_path = f"output/{self.topic[:30].replace(' ', '-')}.md"
+        output_path = f"output/{self._safe_filename(self.topic)}.md"
         os.makedirs("output", exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(markdown)
