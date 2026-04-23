@@ -1,6 +1,6 @@
 import asyncio
 from typing import Optional
-from backend.models import JobState, JobRequest
+from backend.models import JobState, JobRequest, InterventionConfig
 
 class JobStore:
     def __init__(self):
@@ -9,7 +9,6 @@ class JobStore:
         self._replies: dict[str, str] = {}
 
     def create_job(self, topic: str, intervention=None) -> JobState:
-        from backend.models import InterventionConfig
         job = JobState(
             topic=topic,
             intervention=intervention or InterventionConfig(),
@@ -36,7 +35,6 @@ class JobStore:
         event = self._reply_events.get(job_id)
         if event:
             await event.wait()
-            event.clear()
         return self._replies.get(job_id, "")
 
 # Singleton for use in routers
