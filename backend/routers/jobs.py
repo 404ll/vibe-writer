@@ -51,7 +51,22 @@ async def push_event(job_id: str, event: SSEEvent):
         await queue.put(event)
 
 async def _run_agent(job_id: str):
-    """Placeholder — replaced by orchestrator in Task 4."""
-    from backend.models import SSEEvent
-    await asyncio.sleep(0.1)
-    await push_event(job_id, SSEEvent(event="done", data={"message": "stub"}))
+    from backend.agent.orchestrator import Orchestrator
+    job = job_store.get(job_id)
+    if not job:
+        return
+    orch = Orchestrator(
+        job_id=job_id,
+        topic=job.topic,
+        intervention_on_outline=job.intervention.on_outline,
+    )
+    try:
+        await orch.run()
+    except Exception as e:
+        from backend.models import StageStatus
+        job = job_store.get(job_id)
+        if job:
+            job.stage = StageStatus.ERROR
+            job.error = str(e)
+            job_store.update(job)
+        await push_event(job_id, SSEEvent(event="error", data={"message": str(e)}))
