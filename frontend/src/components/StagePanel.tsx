@@ -29,7 +29,6 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
       {STAGES.map(({ key, label }, i) => {
         const done = currentIndex > i || currentStage === 'done'
         const active = STAGE_ORDER[currentIndex] === key
-        const pending = !done && !active
 
         return (
           <div key={key} style={{ display: 'flex', alignItems: 'center', flex: i < STAGES.length - 1 ? 1 : undefined }}>

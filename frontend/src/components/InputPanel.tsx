@@ -39,7 +39,6 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             fontSize: '14px',
             color: 'var(--text-h)',
             background: disabled ? '#f8fafc' : '#fff',
-            outline: 'none',
           }}
         />
         <button
