@@ -12,8 +12,7 @@ class StageStatus(str, Enum):
     ERROR = "error"
 
 class InterventionConfig(BaseModel):
-    on_outline: bool = True   # pause after outline generation
-    on_chapter: bool = False  # pause after each chapter
+    on_outline: bool = True
 
 class JobRequest(BaseModel):
     topic: str

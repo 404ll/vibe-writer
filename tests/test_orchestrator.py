@@ -197,3 +197,54 @@ async def test_orchestrator_review_full_rewrites_failed_chapters(monkeypatch):
     event_types = [e.event for e in events]
     assert "review_done" in event_types
     assert "done" in event_types
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_writes_chapters_in_parallel(monkeypatch):
+    """2 章时，_write_chapter 被并行调用，written_chapters 按大纲顺序排列"""
+    events = []
+    call_order = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一", "章节二"])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    mock_writer = MagicMock()
+    mock_writer.write = AsyncMock(return_value="章节内容")
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    mock_reviewer.review_chapter = AsyncMock(return_value=ReviewResult(passed=True, feedback=""))
+    mock_reviewer.review_full = AsyncMock(return_value=[
+        ReviewResult(passed=True, feedback=""),
+        ReviewResult(passed=True, feedback=""),
+    ])
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    # 2 章均完成，writer 各调用一次
+    assert mock_writer.write.call_count == 2
+    # 最终 written_chapters 按大纲顺序：章节一在前
+    final_job = store.get(job.id)
+    assert final_job.chapters[0]["title"] == "章节一"
+    assert final_job.chapters[1]["title"] == "章节二"
+
+    event_types = [e.event for e in events]
+    assert event_types.count("chapter_done") == 2
+    assert "done" in event_types
