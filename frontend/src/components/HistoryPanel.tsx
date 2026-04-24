@@ -24,9 +24,10 @@ function saveHistory(entries: HistoryEntry[]) {
 
 interface Props {
   currentJob: JobState | null
+  currentTopic: string
 }
 
-export function HistoryPanel({ currentJob }: Props) {
+export function HistoryPanel({ currentJob, currentTopic }: Props) {
   const [entries, setEntries] = useState<HistoryEntry[]>(loadHistory)
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function HistoryPanel({ currentJob }: Props) {
         ...prev,
         {
           id: currentJob.jobId,
-          topic: '',
+          topic: currentTopic,
           timestamp: Date.now(),
           success: currentJob.stage === 'done',
         },

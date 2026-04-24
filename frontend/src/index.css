@@ -24,6 +24,9 @@
   --danger-bg:      #fdf0f0;
   --danger-border:  #e8c0c0;
 
+  --text-on-accent:    #fff;
+  --stage-idle-bg:     #ede8df;
+
   --shadow: 0 1px 3px rgba(60, 40, 10, 0.05);
 
   --sans: 'DM Sans', system-ui, sans-serif;

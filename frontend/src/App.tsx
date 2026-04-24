@@ -24,6 +24,7 @@ export default function App() {
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
+  const [lastTopic, setLastTopic] = useState('')
 
   function addActivity(status: ActivityEntry['status'], message: string) {
     setActivityLog((prev) => [...prev, { id: ++activityIdCounter, status, message }])
@@ -101,6 +102,7 @@ export default function App() {
       body: JSON.stringify({ topic, intervention }),
     })
     const { job_id } = await res.json()
+    setLastTopic(topic)
     setJob({ ...INITIAL_JOB, jobId: job_id })
     setCompletedChapters(0)
     setAwaitingReview(false)
@@ -196,7 +198,7 @@ export default function App() {
             </div>
           )}
 
-          <HistoryPanel currentJob={job} />
+          <HistoryPanel currentJob={job} currentTopic={lastTopic} />
         </div>
 
         {/* Right column: activity log */}
