@@ -7,7 +7,11 @@ const API_BASE = 'http://localhost:8000'
 const SSE_EVENT_TYPES: SSEEventType[] = [
   'stage_update',
   'outline_ready',
+  'searching',
+  'reviewing_chapter',
   'chapter_done',
+  'reviewing_full',
+  'review_done',
   'done',
   'error',
 ]

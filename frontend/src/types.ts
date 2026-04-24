@@ -1,8 +1,19 @@
-export type StageStatus = "plan" | "write" | "export" | "done" | "error";
+export type StageStatus = "plan" | "write" | "review" | "export" | "done" | "error";
 
 export interface InterventionConfig {
   on_outline: boolean;
   on_chapter: boolean;
+}
+
+export interface ReviewResult {
+  passed: boolean;
+  feedback: string;
+}
+
+export interface ActivityEntry {
+  id: number;
+  status: "running" | "success" | "failed" | "info";
+  message: string;
 }
 
 export interface JobState {
@@ -16,7 +27,11 @@ export interface JobState {
 export type SSEEventType =
   | "stage_update"
   | "outline_ready"
+  | "searching"
+  | "reviewing_chapter"
   | "chapter_done"
+  | "reviewing_full"
+  | "review_done"
   | "done"
   | "error";
 
