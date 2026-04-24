@@ -13,8 +13,11 @@ const SSE_EVENT_TYPES: SSEEventType[] = [
   'reviewing_full',
   'review_done',
   'done',
+  'cancelled',
   'error',
 ]
+
+const TERMINAL_EVENTS = new Set(['done', 'cancelled', 'error'])
 
 /**
  * 管理 SSE 长连接的自定义 Hook，支持断点续连。
@@ -61,6 +64,9 @@ export function useJobStream(
         es!.addEventListener(type, (e: MessageEvent) => {
           const data = JSON.parse(e.data)
           onEventRef.current(type, data)
+          if (TERMINAL_EVENTS.has(type)) {
+            es?.close()
+          }
         })
       })
     }

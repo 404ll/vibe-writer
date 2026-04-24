@@ -21,6 +21,7 @@ class JobStore:
         self._reply_events: dict[str, asyncio.Event] = {}
         self._replies: dict[str, str] = {}
         self._event_logs: dict[str, list[SSEEvent]] = {}
+        self._cancel_flags: dict[str, bool] = {}
 
     def create_job(self, topic: str, intervention=None, style: str = "") -> JobState:
         """创建新 Job，分配 UUID，初始化对应的 asyncio.Event 和 event_log"""
@@ -32,6 +33,7 @@ class JobStore:
         self._jobs[job.id] = job
         self._reply_events[job.id] = asyncio.Event()
         self._event_logs[job.id] = []
+        self._cancel_flags[job.id] = False
         return job
 
     def get(self, job_id: str) -> Optional[JobState]:
@@ -74,6 +76,16 @@ class JobStore:
     def get_events(self, job_id: str) -> list[SSEEvent]:
         """返回该 job 的全部历史事件"""
         return self._event_logs.get(job_id, [])
+
+    def cancel(self, job_id: str):
+        """设置取消标志，Orchestrator 下一阶段开始前会检查并退出"""
+        self._cancel_flags[job_id] = True
+        # 如果任务正在等待用户回复，也要唤醒它让它能检查取消标志
+        if job_id in self._reply_events:
+            self._reply_events[job_id].set()
+
+    def is_cancelled(self, job_id: str) -> bool:
+        return self._cancel_flags.get(job_id, False)
 
 # 全局单例，供 routers 和 orchestrator 共享同一份状态
 job_store = JobStore()

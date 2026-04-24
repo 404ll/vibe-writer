@@ -45,7 +45,7 @@ async def stream_job(job_id: str):
                 event: SSEEvent = await queue.get()
                 yield f"event: {event.event}\ndata: {json.dumps(event.data)}\n\n"
                 # done / error 是终止信号，关闭流
-                if event.event in ("done", "error"):
+                if event.event in ("done", "cancelled", "error"):
                     break
         finally:
             # 客户端断开连接时清理队列，防止内存泄漏
@@ -64,6 +64,18 @@ async def get_job_events(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     events = job_store.get_events(job_id)
     return {"events": [{"event": e.event, "data": e.data} for e in events]}
+
+@router.post("/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """
+    请求取消正在运行的任务。
+    Orchestrator 在下一个阶段检查点检测到取消标志后，干净地退出并推送 cancelled 事件。
+    """
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_store.cancel(job_id)
+    return {"status": "ok"}
 
 @router.post("/{job_id}/reply")
 async def reply_to_job(job_id: str, req: ReplyRequest):

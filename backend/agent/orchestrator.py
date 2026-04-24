@@ -57,6 +57,10 @@ class Orchestrator:
                 if attempt > 0:
                     await asyncio.sleep(2 ** (attempt - 1))  # 1s, 2s
 
+                # 每次重试前也检查取消标志
+                if job_store.is_cancelled(self.job_id):
+                    raise asyncio.CancelledError("用户取消")
+
                 await push_event(self.job_id, SSEEvent(
                     event="searching",
                     data={"title": chapter_title, **({"retry": attempt} if attempt > 0 else {})},
@@ -97,11 +101,18 @@ class Orchestrator:
                 ))
                 return {"title": chapter_title, "content": content, "index": index, "research": research}
 
+            except asyncio.CancelledError:
+                raise  # 取消信号不能被重试逻辑吞掉，直接向上传播
             except Exception as e:
                 last_error = e
 
         # 3 次全部失败
         return {"title": chapter_title, "content": "", "index": index, "research": "", "error": str(last_error)}
+
+    def _check_cancelled(self):
+        """如果用户已请求取消，抛出异常退出流水线"""
+        if job_store.is_cancelled(self.job_id):
+            raise asyncio.CancelledError("用户取消")
 
     async def run(self):
         job = job_store.get(self.job_id)
@@ -111,6 +122,17 @@ class Orchestrator:
             ))
             return
 
+        try:
+            await self._run_pipeline(job)
+        except asyncio.CancelledError:
+            job = job_store.get(self.job_id)
+            if job:
+                job.stage = StageStatus.ERROR
+                job.error = "已取消"
+                job_store.update(job)
+            await push_event(self.job_id, SSEEvent(event="cancelled", data={}))
+
+    async def _run_pipeline(self, job):
         # ── Stage 1: PLAN ──────────────────────────────────────────
         await push_event(self.job_id, SSEEvent(
             event="stage_update", data={"stage": StageStatus.PLAN}
@@ -125,6 +147,8 @@ class Orchestrator:
 
         if self.intervention_on_outline:
             reply = await job_store.wait_for_reply(self.job_id)
+            # 等待回复后再检查——用户可能在等待期间点了取消
+            self._check_cancelled()
             if reply and reply.strip().lower() not in ("ok", "确认", "继续", "yes"):
                 revised = self._planner.parse_outline(reply)
                 chapters = revised if revised else chapters
@@ -132,6 +156,7 @@ class Orchestrator:
                 job_store.update(job)
 
         # ── Stage 2: WRITE（并行）─────────────────────────────────
+        self._check_cancelled()
         job.stage = StageStatus.WRITE
         job_store.update(job)
         await push_event(self.job_id, SSEEvent(
@@ -173,6 +198,7 @@ class Orchestrator:
         job_store.update(job)
 
         # ── Stage 3: REVIEW ────────────────────────────────────────
+        self._check_cancelled()
         job.stage = StageStatus.REVIEW
         job_store.update(job)
         await push_event(self.job_id, SSEEvent(
@@ -213,6 +239,7 @@ class Orchestrator:
         ))
 
         # ── Stage 4: EXPORT ────────────────────────────────────────
+        self._check_cancelled()
         job.stage = StageStatus.EXPORT
         job_store.update(job)
         await push_event(self.job_id, SSEEvent(

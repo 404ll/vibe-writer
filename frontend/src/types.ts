@@ -32,6 +32,7 @@ export type SSEEventType =
   | "reviewing_full"
   | "review_done"
   | "done"
+  | "cancelled"
   | "error";
 
 export interface SSEPayload {
