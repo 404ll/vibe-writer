@@ -95,11 +95,11 @@ export default function App() {
 
   useJobStream(job?.jobId ?? null, handleEvent)
 
-  async function handleSubmit(topic: string, intervention: InterventionConfig) {
+  async function handleSubmit(topic: string, intervention: InterventionConfig, style: string) {
     const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, intervention }),
+      body: JSON.stringify({ topic, intervention, style }),
     })
     const { job_id } = await res.json()
     setLastTopic(topic)

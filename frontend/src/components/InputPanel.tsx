@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import type { InterventionConfig } from '../types'
 
+const PRESET_STYLES = ['技术博客', '科普', '教程', '自定义'] as const
+type PresetStyle = typeof PRESET_STYLES[number] | ''
+
 interface Props {
-  onSubmit: (topic: string, intervention: InterventionConfig) => void
+  onSubmit: (topic: string, intervention: InterventionConfig, style: string) => void
   disabled: boolean
 }
 
 export function InputPanel({ onSubmit, disabled }: Props) {
   const [topic, setTopic] = useState('')
   const [onOutline, setOnOutline] = useState(true)
-  const [onChapter, setOnChapter] = useState(false)
+  const [selectedStyle, setSelectedStyle] = useState<PresetStyle>('')
+  const [customStyle, setCustomStyle] = useState('')
 
   function handleSubmit() {
     if (!topic.trim()) return
-    onSubmit(topic, { on_outline: onOutline, on_chapter: onChapter })
+    const style = selectedStyle === '自定义' ? customStyle.trim() : selectedStyle
+    onSubmit(topic, { on_outline: onOutline }, style)
   }
 
   return (
@@ -54,7 +59,9 @@ export function InputPanel({ onSubmit, disabled }: Props) {
           开始写作
         </button>
       </div>
-      <div style={{ display: 'flex', gap: '20px' }}>
+
+      {/* 介入配置 + 风格选择 */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
           <input
             type="checkbox"
@@ -64,16 +71,54 @@ export function InputPanel({ onSubmit, disabled }: Props) {
           />
           大纲生成后介入
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={onChapter}
-            onChange={(e) => setOnChapter(e.target.checked)}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label htmlFor="style-select" style={{ fontSize: '13px', color: 'var(--text)', whiteSpace: 'nowrap' }}>
+            写作风格
+          </label>
+          <select
+            id="style-select"
+            value={selectedStyle}
+            onChange={(e) => setSelectedStyle(e.target.value as PresetStyle)}
             disabled={disabled}
-          />
-          每章完成后介入
-        </label>
+            style={{
+              padding: '4px 8px',
+              border: '1px solid var(--border-input)',
+              borderRadius: '5px',
+              fontSize: '13px',
+              color: 'var(--text-h)',
+              background: disabled ? 'var(--input-bg)' : 'var(--card-bg)',
+              fontFamily: 'var(--sans)',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <option value="">不指定</option>
+            {PRESET_STYLES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* 自定义风格输入框 */}
+      {selectedStyle === '自定义' && (
+        <input
+          type="text"
+          placeholder="描述你想要的写作风格，例如：幽默风趣，多用类比…"
+          value={customStyle}
+          onChange={(e) => setCustomStyle(e.target.value)}
+          disabled={disabled}
+          style={{
+            padding: '7px 12px',
+            border: '1px solid var(--border-input)',
+            borderRadius: '5px',
+            fontSize: '13px',
+            color: 'var(--text-h)',
+            background: disabled ? 'var(--input-bg)' : 'var(--card-bg)',
+            fontFamily: 'var(--sans)',
+          }}
+        />
+      )}
     </div>
   )
 }
