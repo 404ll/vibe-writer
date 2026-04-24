@@ -4,6 +4,7 @@ import { StagePanel } from './components/StagePanel'
 import { ReviewPanel } from './components/ReviewPanel'
 import { ActivityPanel } from './components/ActivityPanel'
 import { useJobStream } from './hooks/useJobStream'
+import { HistoryPanel } from './components/HistoryPanel'
 import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from './types'
 
 const API_BASE = 'http://localhost:8000'
@@ -195,7 +196,7 @@ export default function App() {
             </div>
           )}
 
-          {/* HistoryPanel placeholder — will be added in Task 5 */}
+          <HistoryPanel currentJob={job} />
         </div>
 
         {/* Right column: activity log */}
