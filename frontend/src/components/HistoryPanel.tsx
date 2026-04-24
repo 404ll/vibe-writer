@@ -1,95 +1,80 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { JobState } from '../types'
-
-interface HistoryEntry {
-  id: string
-  topic: string
-  timestamp: number
-  success: boolean
-}
-
-const STORAGE_KEY = 'vibe-writer-history'
-
-function loadHistory(): HistoryEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-  } catch {
-    return []
-  }
-}
-
-function saveHistory(entries: HistoryEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-50)))
-}
+import { getArticles } from '../api'
+import type { ArticleSummary } from '../api'
 
 interface Props {
   currentJob: JobState | null
   currentTopic: string
 }
 
-export function HistoryPanel({ currentJob, currentTopic }: Props) {
-  const [entries, setEntries] = useState<HistoryEntry[]>(loadHistory)
+export function HistoryPanel({ currentJob }: Props) {
+  const navigate = useNavigate()
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
+  const [loading, setLoading] = useState(true)
 
+  async function fetchArticles() {
+    try {
+      const data = await getArticles()
+      setArticles(data)
+    } catch {
+      // 静默失败
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 初始加载
   useEffect(() => {
-    if (!currentJob || (currentJob.stage !== 'done' && currentJob.stage !== 'error')) return
-    if (!currentJob.jobId) return
+    fetchArticles()
+  }, [])
 
-    setEntries((prev) => {
-      if (prev.some((e) => e.id === currentJob.jobId)) return prev
-      const next: HistoryEntry[] = [
-        ...prev,
-        {
-          id: currentJob.jobId,
-          topic: currentTopic,
-          timestamp: Date.now(),
-          success: currentJob.stage === 'done',
-        },
-      ]
-      saveHistory(next)
-      return next
-    })
-  }, [currentJob?.stage, currentJob?.jobId, currentTopic])
+  // job 完成后重新拉取
+  useEffect(() => {
+    if (currentJob?.stage === 'done') {
+      fetchArticles()
+    }
+  }, [currentJob?.stage])
 
   return (
-    <div
-      className="card"
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-    >
-      <div className="card-label">历史记录</div>
-      {entries.length === 0 ? (
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>暂无记录</p>
+    <div className="card" style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="card-label">历史文章</div>
+
+      {loading ? (
+        <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton" style={{ height: '36px', borderRadius: '5px' }} />
+          ))}
+        </div>
+      ) : articles.length === 0 ? (
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '8px 0' }}>暂无文章</p>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {[...entries].reverse().map((entry) => (
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {articles.map((a) => (
             <div
-              key={entry.id}
+              key={a.id}
+              onClick={() => navigate(`/articles/${a.id}`)}
               style={{
+                padding: '8px 10px',
+                borderRadius: '5px',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '8px 10px',
-                background: 'var(--input-bg)',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
+                gap: '8px',
                 fontSize: '13px',
                 color: 'var(--text)',
+                transition: 'background 0.15s',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--input-bg)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: '8px', height: '8px',
-                  borderRadius: '50%',
-                  background: entry.success ? 'var(--success)' : 'var(--danger)',
-                  flexShrink: 0,
-                  display: 'inline-block',
-                }}
-              />
-              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {entry.topic || entry.id}
+              <span style={{ color: 'var(--accent)', fontSize: '8px', flexShrink: 0 }}>●</span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {a.topic}
               </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>
-                {new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(entry.timestamp))}
+              <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>
+                {a.word_count} 字
               </span>
             </div>
           ))}
