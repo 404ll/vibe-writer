@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import { ArticlePage } from './pages/ArticlePage'
 import { InputPanel } from './components/InputPanel'
 import { StagePanel } from './components/StagePanel'
 import { ReviewPanel } from './components/ReviewPanel'
@@ -119,94 +121,106 @@ export default function App() {
     })
   }
 
+  const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      flex: 1,
-      padding: '14px 16px',
-      gap: '12px',
-      minHeight: 0,
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexShrink: 0 }}>
-        <h1 style={{ fontFamily: 'var(--hand)', fontWeight: 400, fontSize: '24px', color: 'var(--text-h)', letterSpacing: '0.3px' }}>
-          vibe-writer
-        </h1>
-        <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 300 }}>
-          AI 写作助手
-        </span>
-      </div>
+    <Routes>
+      <Route path="/articles/:id" element={<ArticlePage />} />
+      <Route path="/" element={
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          padding: '14px 16px',
+          minHeight: 0,
+        }}>
+          {/* Body: left + right */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
 
-      {/* Body: left + right */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+            {/* Left column */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-        {/* Left column */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
-          <InputPanel
-            onSubmit={handleSubmit}
-            disabled={!!job && job.stage !== 'done' && job.stage !== 'error'}
-          />
-
-          {job && (
-            <StagePanel
-              currentStage={job.stage}
-              completedChapters={completedChapters}
-              totalChapters={job.outline?.length ?? 0}
-            />
-          )}
-
-          {awaitingReview && job?.outline && (
-            <ReviewPanel outline={job.outline} onConfirm={handleConfirm} />
-          )}
-
-          {job?.stage === 'done' && (
-            <div
-              role="status"
-              style={{
-                padding: '10px 14px',
-                background: 'var(--success-bg)',
-                border: '1px solid var(--success-border)',
-                borderRadius: '7px',
-                fontSize: '13px',
-                color: 'var(--success-text)',
+              {/* Hero zone — vertically centered when idle */}
+              <div style={{
+                flex: 1,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '8px',
-                flexShrink: 0,
-              }}
-            >
-              <span>✓</span>
-              <span>文章已生成并保存到 <code>output/</code> 目录</span>
+                justifyContent: 'center',
+                gap: '10px',
+                paddingBottom: isRunning ? 0 : '60px',
+                minHeight: 0,
+              }}>
+                <InputPanel
+                  onSubmit={handleSubmit}
+                  disabled={isRunning}
+                />
+
+                {job && (
+                  <StagePanel
+                    currentStage={job.stage}
+                    completedChapters={completedChapters}
+                    totalChapters={job.outline?.length ?? 0}
+                  />
+                )}
+
+                {awaitingReview && job?.outline && (
+                  <ReviewPanel outline={job.outline} onConfirm={handleConfirm} />
+                )}
+
+                {job?.stage === 'done' && (
+                  <div
+                    role="status"
+                    style={{
+                      width: '100%',
+                      maxWidth: '620px',
+                      padding: '10px 14px',
+                      background: 'var(--success-bg)',
+                      border: '1px solid var(--success-border)',
+                      borderRadius: '7px',
+                      fontSize: '13px',
+                      color: 'var(--success-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>✓</span>
+                    <span>文章已生成并保存到 <code>output/</code> 目录</span>
+                  </div>
+                )}
+
+                {job?.error && (
+                  <div
+                    role="alert"
+                    style={{
+                      width: '100%',
+                      maxWidth: '620px',
+                      padding: '10px 14px',
+                      background: 'var(--danger-bg)',
+                      border: '1px solid var(--danger-border)',
+                      borderRadius: '7px',
+                      fontSize: '13px',
+                      color: 'var(--danger)',
+                    }}
+                  >
+                    错误：{job.error}
+                  </div>
+                )}
+              </div>
+
+              {/* History strip — bottom */}
+              <HistoryPanel currentJob={job} currentTopic={lastTopic} />
             </div>
-          )}
 
-          {job?.error && (
-            <div
-              role="alert"
-              style={{
-                padding: '10px 14px',
-                background: 'var(--danger-bg)',
-                border: '1px solid var(--danger-border)',
-                borderRadius: '7px',
-                fontSize: '13px',
-                color: 'var(--danger)',
-                flexShrink: 0,
-              }}
-            >
-              错误：{job.error}
+            {/* Right column: activity log */}
+            <div style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+              <ActivityPanel entries={activityLog} />
             </div>
-          )}
 
-          <HistoryPanel currentJob={job} currentTopic={lastTopic} />
+          </div>
         </div>
-
-        {/* Right column: activity log */}
-        <div style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <ActivityPanel entries={activityLog} />
-        </div>
-
-      </div>
-    </div>
+      } />
+    </Routes>
   )
 }
