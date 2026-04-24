@@ -6,6 +6,7 @@ import uuid
 class StageStatus(str, Enum):
     PLAN = "plan"
     WRITE = "write"
+    REVIEW = "review"
     EXPORT = "export"
     DONE = "done"
     ERROR = "error"
