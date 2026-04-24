@@ -7,14 +7,14 @@ describe('InputPanel', () => {
     const onSubmit = vi.fn()
     render(<InputPanel onSubmit={onSubmit} disabled={false} />)
 
-    fireEvent.change(screen.getByPlaceholderText('输入写作主题，例如：RAG 检索增强生成'), {
+    fireEvent.change(screen.getByPlaceholderText('输入写作主题，例如：RAG 检索增强生成…'), {
       target: { value: 'AI Agents 入门' },
     })
     fireEvent.click(screen.getByText('开始写作'))
 
     expect(onSubmit).toHaveBeenCalledWith(
       'AI Agents 入门',
-      { on_outline: true }
+      { on_outline: true, on_chapter: false }
     )
   })
 
