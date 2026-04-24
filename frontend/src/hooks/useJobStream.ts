@@ -17,40 +17,59 @@ const SSE_EVENT_TYPES: SSEEventType[] = [
 ]
 
 /**
- * 管理 SSE 长连接的自定义 Hook。
+ * 管理 SSE 长连接的自定义 Hook，支持断点续连。
+ *
+ * 重连流程：
+ * 1. 先 GET /jobs/{id}/events 拉取历史事件并回放（幂等：重复事件不影响 UI）
+ * 2. 再建立 SSE 长连接接收新事件
  *
  * @param jobId  - 要订阅的 Job ID；传 null 时不建立连接
- * @param onEvent - 收到事件时的回调，参数为 (事件类型, 解析后的 data 对象)
- *
- * 设计要点：
- * - 用 useRef 存储 onEvent，避免每次父组件 re-render 导致 EventSource 重建
- *   （stale closure 问题：如果直接在 addEventListener 里用 onEvent，
- *    闭包会捕获旧版本的函数；用 ref 则始终指向最新版本）
- * - jobId 变化时，旧连接自动关闭，新连接自动建立（useEffect 的清理函数）
+ * @param onEvent - 收到事件时的回调
  */
 export function useJobStream(
   jobId: string | null,
   onEvent: (type: SSEEventType, data: Record<string, unknown>) => void
 ) {
-  // ref 让 addEventListener 里的回调始终能调用到最新的 onEvent
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
 
   useEffect(() => {
     if (!jobId) return
 
-    // 建立 SSE 长连接
-    const es = new EventSource(`${API_BASE}/jobs/${jobId}/stream`)
+    let es: EventSource | null = null
+    let cancelled = false
 
-    // 为每种事件类型分别注册监听器
-    SSE_EVENT_TYPES.forEach((type) => {
-      es.addEventListener(type, (e: MessageEvent) => {
-        const data = JSON.parse(e.data)
-        onEventRef.current(type, data)
+    async function connect() {
+      // Step 1: 回放历史事件
+      try {
+        const res = await fetch(`${API_BASE}/jobs/${jobId}/events`)
+        if (!res.ok || cancelled) return
+        const { events } = await res.json() as { events: Array<{ event: string; data: Record<string, unknown> }> }
+        for (const e of events) {
+          if (cancelled) return
+          onEventRef.current(e.event as SSEEventType, e.data)
+        }
+      } catch {
+        // 历史回放失败不阻断 SSE 连接
+      }
+
+      // Step 2: 建立 SSE 长连接接收新事件
+      if (cancelled) return
+      es = new EventSource(`${API_BASE}/jobs/${jobId}/stream`)
+
+      SSE_EVENT_TYPES.forEach((type) => {
+        es!.addEventListener(type, (e: MessageEvent) => {
+          const data = JSON.parse(e.data)
+          onEventRef.current(type, data)
+        })
       })
-    })
+    }
 
-    // 组件卸载或 jobId 变化时关闭连接，防止内存泄漏
-    return () => es.close()
+    connect()
+
+    return () => {
+      cancelled = true
+      es?.close()
+    }
   }, [jobId])
 }
