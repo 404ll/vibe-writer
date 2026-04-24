@@ -44,7 +44,7 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
                   background: done ? 'var(--accent-done)' : active ? 'var(--accent)' : 'var(--stage-idle-bg)',
                   color: done || active ? 'var(--text-on-accent)' : 'var(--text-muted)',
                   border: active ? '2px solid var(--accent)' : '2px solid transparent',
-                  boxShadow: active ? '0 0 0 3px rgba(92,74,50,0.16)' : undefined,
+                  boxShadow: active ? '0 0 0 3px var(--accent-ring)' : undefined,
                   transition: 'background 0.2s, box-shadow 0.2s',
                 }}
               >

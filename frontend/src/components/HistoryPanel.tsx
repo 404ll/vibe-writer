@@ -48,7 +48,7 @@ export function HistoryPanel({ currentJob, currentTopic }: Props) {
       saveHistory(next)
       return next
     })
-  }, [currentJob?.stage, currentJob?.jobId])
+  }, [currentJob?.stage, currentJob?.jobId, currentTopic])
 
   return (
     <div

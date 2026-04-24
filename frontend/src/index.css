@@ -27,6 +27,8 @@
   --text-on-accent:    #fff;
   --stage-idle-bg:     #ede8df;
 
+  --accent-ring:    rgba(92, 74, 50, 0.16);
+
   --shadow: 0 1px 3px rgba(60, 40, 10, 0.05);
 
   --sans: 'DM Sans', system-ui, sans-serif;
