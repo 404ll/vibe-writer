@@ -147,7 +147,7 @@ class Orchestrator:
         )
 
         for i, result in enumerate(full_results):
-            if not result.passed and i < len(written_chapters):
+            if not result.passed:
                 ch = written_chapters[i]
                 new_content = await self._writer.write(
                     topic=self.topic,

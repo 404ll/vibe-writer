@@ -29,7 +29,7 @@ class JobState(BaseModel):
     error: Optional[str] = None
 
 class SSEEvent(BaseModel):
-    event: str   # "stage_update" | "outline_ready" | "chapter_done" | "done" | "error"
+    event: str   # "stage_update" | "outline_ready" | "searching" | "reviewing_chapter" | "chapter_done" | "reviewing_full" | "review_done" | "done" | "error"
     data: dict
 
 class ReplyRequest(BaseModel):
