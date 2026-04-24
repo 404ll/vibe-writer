@@ -11,38 +11,43 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
   return (
     <div
       className="card"
-      style={{ borderLeft: '3px solid #2563eb', paddingLeft: '17px' }}
+      style={{ borderLeft: '3px solid var(--accent)', paddingLeft: '13px', flexShrink: 0 }}
     >
-      <h3 style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+      <div className="card-label">大纲确认</div>
+      <h3 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 500, color: 'var(--text-h)' }}>
         大纲已生成，请确认
       </h3>
-      <ol style={{ margin: '0 0 12px', paddingLeft: '20px', fontSize: '14px', color: '#334155', lineHeight: '1.8' }}>
+      <ol style={{ margin: '0 0 8px', paddingLeft: '18px', fontSize: '13px', color: 'var(--text)', lineHeight: '1.85' }}>
         {outline.map((ch, i) => (
           <li key={i}>{ch}</li>
         ))}
       </ol>
-      <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 10px' }}>
+      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>
         如需调整，在下方输入修改意见；直接点击确认则按此大纲写作。
       </p>
       <textarea
         aria-label="修改意见"
+        name="feedback"
         value={reply}
         onChange={(e) => setReply(e.target.value)}
-        placeholder="可选：输入修改意见，如「把第三章改成讲实战案例」"
+        placeholder="可选：输入修改意见，如「把第三章改成讲实战案例」…"
         style={{
           width: '100%',
-          height: '72px',
-          marginBottom: '10px',
-          padding: '8px 10px',
-          border: '1px solid #e2e8f0',
-          borderRadius: '4px',
+          height: '56px',
+          marginBottom: '8px',
+          padding: '7px 10px',
+          border: '1px solid var(--border-input)',
+          borderRadius: '5px',
           fontSize: '13px',
           resize: 'vertical',
           boxSizing: 'border-box',
-          color: '#334155',
+          color: 'var(--text)',
+          background: 'var(--input-bg)',
+          fontFamily: 'var(--sans)',
         }}
       />
       <button
+        type="button"
         className="btn-primary"
         onClick={() => onConfirm(reply || '确认')}
       >

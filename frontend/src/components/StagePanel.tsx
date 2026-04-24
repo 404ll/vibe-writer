@@ -1,8 +1,8 @@
 import type { StageStatus } from '../types'
 
 const STAGES: { key: StageStatus; label: string }[] = [
-  { key: 'plan', label: '规划大纲' },
-  { key: 'write', label: '撰写章节' },
+  { key: 'plan',   label: '规划大纲' },
+  { key: 'write',  label: '撰写章节' },
   { key: 'review', label: '审稿' },
   { key: 'export', label: '导出文章' },
 ]
@@ -24,32 +24,28 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
       aria-live="polite"
       aria-label="写作进度"
       className="card"
-      style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '14px 20px' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '12px 16px', flexShrink: 0 }}
     >
+      <div className="card-label" style={{ margin: 0, position: 'absolute', clip: 'rect(0,0,0,0)', width: 1, height: 1, overflow: 'hidden' }}>写作进度</div>
       {STAGES.map(({ key, label }, i) => {
-        const done = currentIndex > i || currentStage === 'done'
+        const done   = currentIndex > i || currentStage === 'done'
         const active = STAGE_ORDER[currentIndex] === key
 
         return (
           <div key={key} style={{ display: 'flex', alignItems: 'center', flex: i < STAGES.length - 1 ? 1 : undefined }}>
-            {/* 节点 */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <div
                 aria-current={active ? 'step' : undefined}
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '24px', height: '24px',
                   borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  background: done ? '#16a34a' : active ? '#2563eb' : '#f1f5f9',
-                  color: done || active ? '#fff' : '#94a3b8',
-                  border: active ? '2px solid #2563eb' : '2px solid transparent',
-                  boxShadow: active ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
-                  transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: 600,
+                  background: done ? 'var(--accent-done)' : active ? 'var(--accent)' : '#ede8df',
+                  color: done || active ? '#fff' : 'var(--text-muted)',
+                  border: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  boxShadow: active ? '0 0 0 3px rgba(92,74,50,0.16)' : undefined,
+                  transition: 'background 0.2s, box-shadow 0.2s',
                 }}
               >
                 {done ? '✓' : i + 1}
@@ -57,7 +53,7 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
               <span style={{
                 fontSize: '11px',
                 fontWeight: active ? 600 : 400,
-                color: done ? '#16a34a' : active ? '#2563eb' : '#94a3b8',
+                color: done ? 'var(--accent-done)' : active ? 'var(--accent)' : 'var(--text-muted)',
                 whiteSpace: 'nowrap',
               }}>
                 {label}
@@ -68,14 +64,11 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
                 )}
               </span>
             </div>
-            {/* 连接线 */}
             {i < STAGES.length - 1 && (
               <div style={{
-                flex: 1,
-                height: '2px',
-                background: done ? '#16a34a' : '#e2e8f0',
-                margin: '0 4px',
-                marginBottom: '18px',
+                flex: 1, height: '1.5px',
+                background: done ? 'var(--accent-done)' : 'var(--border)',
+                margin: '0 4px', marginBottom: '18px',
                 transition: 'background 0.3s',
               }} />
             )}
