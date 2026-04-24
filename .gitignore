@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Environment & secrets
+.env
+*.env.local
+
+# Database
+data/
+*.db
+*.sqlite3
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Output
+output/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Claude / Superpowers internal
+.claude/
+.superpowers/

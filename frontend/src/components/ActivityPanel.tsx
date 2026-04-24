@@ -56,6 +56,10 @@ export function ActivityPanel({ entries }: Props) {
                 fontSize: '12.5px',
                 lineHeight: '1.5',
                 borderBottom: '1px solid var(--bg)',
+                animationName: 'slideInRight',
+                animationDuration: '0.2s',
+                animationTimingFunction: 'ease-out',
+                animationFillMode: 'both',
               }}
             >
               <span
@@ -81,14 +85,6 @@ export function ActivityPanel({ entries }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-          }
-        }
-      `}</style>
     </div>
   )
 }

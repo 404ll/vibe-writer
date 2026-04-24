@@ -15,9 +15,9 @@
 
 ### 数据库
 
-- **PostgreSQL**，通过 `asyncpg` 驱动 + `SQLAlchemy 2.x async` ORM
-- **Alembic** 管理 schema 版本迁移
-- 连接字符串通过环境变量 `DATABASE_URL` 注入
+- **SQLite**，通过 `aiosqlite` 驱动 + `SQLAlchemy 2.x async` ORM
+- 启动时调用 `create_all` 自动建表，无需迁移工具
+- 连接字符串通过环境变量 `DATABASE_URL` 注入，默认 `sqlite+aiosqlite:///./data/vibe_writer.db`
 
 ### Article 表
 
@@ -41,10 +41,9 @@ CREATE TABLE articles (
 
 | 文件 | 职责 |
 |------|------|
-| `backend/database.py` | SQLAlchemy engine、session factory、Base |
+| `backend/database.py` | SQLAlchemy engine、session factory、Base、`init_db()` |
 | `backend/models_db.py` | `Article` ORM model |
 | `backend/routers/articles.py` | Articles API router |
-| `alembic/` | Alembic 迁移目录 |
 
 ### 改动现有文件
 
@@ -53,7 +52,7 @@ CREATE TABLE articles (
 | `backend/models.py` | 无改动 |
 | `backend/agent/orchestrator.py` | EXPORT 阶段写文件后，INSERT article 到 DB |
 | `backend/main.py` | 注册 articles router；启动时初始化 DB 连接 |
-| `requirements.txt` | 新增 `sqlalchemy[asyncio]`, `asyncpg`, `alembic` |
+| `requirements.txt` | 新增 `sqlalchemy[asyncio]`, `aiosqlite` |
 
 ### API
 

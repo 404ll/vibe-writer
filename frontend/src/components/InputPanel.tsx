@@ -22,7 +22,16 @@ export function InputPanel({ onSubmit, disabled }: Props) {
   }
 
   return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '620px', flexShrink: 0 }}>
+      {/* Hero title */}
+      <div style={{ fontFamily: 'var(--serif)', fontSize: '32px', color: 'var(--text-h)', letterSpacing: '0.3px', marginBottom: '2px' }}>
+        vibe-writer
+      </div>
+      <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 300, marginBottom: '8px' }}>
+        输入主题，AI 帮你写一篇完整文章
+      </div>
+
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0, width: '100%', boxShadow: '0 4px 20px rgba(60,40,10,0.10)' }}>
       <div className="card-label">写作主题</div>
       <div style={{ display: 'flex', gap: '8px' }}>
         <label htmlFor="topic-input" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
@@ -82,14 +91,17 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             onChange={(e) => setSelectedStyle(e.target.value as PresetStyle)}
             disabled={disabled}
             style={{
-              padding: '4px 8px',
+              padding: '5px 28px 5px 10px',
               border: '1px solid var(--border-input)',
               borderRadius: '5px',
               fontSize: '13px',
-              color: 'var(--text-h)',
-              background: disabled ? 'var(--input-bg)' : 'var(--card-bg)',
+              color: disabled ? 'var(--text-muted)' : 'var(--text-h)',
+              background: `${disabled ? 'var(--input-bg)' : 'var(--card-bg)'} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a09880' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center`,
               fontFamily: 'var(--sans)',
               cursor: disabled ? 'not-allowed' : 'pointer',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              minWidth: '88px',
             }}
           >
             <option value="">不指定</option>
@@ -119,6 +131,7 @@ export function InputPanel({ onSubmit, disabled }: Props) {
           }}
         />
       )}
+    </div>
     </div>
   )
 }

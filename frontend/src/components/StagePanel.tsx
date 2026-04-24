@@ -44,8 +44,11 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
                   background: done ? 'var(--accent-done)' : active ? 'var(--accent)' : 'var(--stage-idle-bg)',
                   color: done || active ? 'var(--text-on-accent)' : 'var(--text-muted)',
                   border: active ? '2px solid var(--accent)' : '2px solid transparent',
-                  boxShadow: active ? '0 0 0 3px var(--accent-ring)' : undefined,
-                  transition: 'background 0.2s, box-shadow 0.2s',
+                  transition: 'background 0.3s, box-shadow 0.3s',
+                  animationName: active ? 'pulse-ring' : 'none',
+                  animationDuration: '2s',
+                  animationTimingFunction: 'ease-in-out',
+                  animationIterationCount: 'infinite',
                 }}
               >
                 {done ? '✓' : i + 1}
@@ -63,6 +66,17 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
                   </span>
                 )}
               </span>
+              {key === 'write' && totalChapters > 0 && (
+                <div style={{ width: '48px', height: '3px', background: 'var(--stage-idle-bg)', borderRadius: '2px', overflow: 'hidden', marginTop: '3px' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(completedChapters / totalChapters) * 100}%`,
+                    background: done ? 'var(--accent-done)' : 'var(--accent)',
+                    borderRadius: '2px',
+                    transition: 'width 0.4s ease',
+                  }} />
+                </div>
+              )}
             </div>
             {i < STAGES.length - 1 && (
               <div style={{
