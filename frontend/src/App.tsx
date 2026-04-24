@@ -39,7 +39,6 @@ export default function App() {
   }
 
   const handleEvent = useCallback((type: SSEEventType, data: Record<string, unknown>) => {
-    console.log('[SSE]', type, data)
     setJob((prev) => {
       if (!prev) return prev
       switch (type) {
@@ -132,6 +131,8 @@ export default function App() {
         break
       case 'error':
         addActivity('failed', `错误：${data.message as string}`)
+        setWritingState(null)
+        localStorage.removeItem(STORAGE_KEY)
         break
     }
 
