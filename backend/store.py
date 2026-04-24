@@ -22,11 +22,12 @@ class JobStore:
         self._replies: dict[str, str] = {}
         self._event_logs: dict[str, list[SSEEvent]] = {}
 
-    def create_job(self, topic: str, intervention=None) -> JobState:
+    def create_job(self, topic: str, intervention=None, style: str = "") -> JobState:
         """创建新 Job，分配 UUID，初始化对应的 asyncio.Event 和 event_log"""
         job = JobState(
             topic=topic,
             intervention=intervention or InterventionConfig(),
+            style=style,
         )
         self._jobs[job.id] = job
         self._reply_events[job.id] = asyncio.Event()

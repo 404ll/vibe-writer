@@ -14,7 +14,7 @@ async def create_job(req: JobRequest):
     Agent 以后台 Task 形式异步运行，不阻塞本次 HTTP 响应。
     前端拿到 job_id 后立刻连接 /stream 接收进度事件。
     """
-    job = job_store.create_job(req.topic, req.intervention)
+    job = job_store.create_job(req.topic, req.intervention, req.style)
     # asyncio.create_task 把 agent 扔进事件循环后台运行
     asyncio.create_task(_run_agent(job.id))
     return {"job_id": job.id}
@@ -104,6 +104,7 @@ async def _run_agent(job_id: str):
         job_id=job_id,
         topic=job.topic,
         intervention_on_outline=job.intervention.on_outline,
+        style=job.style,
     )
     try:
         await orch.run()

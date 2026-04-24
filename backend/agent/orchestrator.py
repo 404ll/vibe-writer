@@ -26,13 +26,14 @@ class Orchestrator:
         job_id: str,
         topic: str,
         intervention_on_outline: bool = True,
+        style: str = "",
     ):
         self.job_id = job_id
         self.topic = topic
         self.intervention_on_outline = intervention_on_outline
         self._planner = PlannerAgent()
         self._search = SearchAgent()
-        self._writer = WriterAgent()
+        self._writer = WriterAgent(style=style)
         self._reviewer = ReviewAgent()
 
     def _safe_filename(self, text: str, max_len: int = 30) -> str:

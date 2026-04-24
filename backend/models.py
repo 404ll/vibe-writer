@@ -17,6 +17,7 @@ class InterventionConfig(BaseModel):
 class JobRequest(BaseModel):
     topic: str
     intervention: InterventionConfig = Field(default_factory=InterventionConfig)
+    style: str = ""
 
 class JobState(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -25,6 +26,7 @@ class JobState(BaseModel):
     outline: Optional[list[str]] = None
     chapters: list[dict] = Field(default_factory=list)
     intervention: InterventionConfig = Field(default_factory=InterventionConfig)
+    style: str = ""
     error: Optional[str] = None
 
 class SSEEvent(BaseModel):

@@ -91,3 +91,16 @@ async def test_write_without_review_feedback_unchanged():
 
     user_content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "审稿意见" not in user_content
+
+
+def test_style_instruction_injected_into_system_prompt():
+    """预设风格'科普'时，_style_instruction 包含对应指令"""
+    with patch("backend.agent.base.anthropic.AsyncAnthropic"):
+        agent = WriterAgent(style="科普")
+    assert "普通读者" in agent._style_instruction
+
+def test_custom_style_used_as_instruction():
+    """自定义风格原样作为指令"""
+    with patch("backend.agent.base.anthropic.AsyncAnthropic"):
+        agent = WriterAgent(style="幽默风趣，多用梗")
+    assert agent._style_instruction == "幽默风趣，多用梗"
