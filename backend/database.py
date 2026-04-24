@@ -12,10 +12,9 @@ class Base(DeclarativeBase):
 
 async def init_db():
     """启动时调用，自动建表（表已存在则跳过）"""
-    import os as _os
     # 确保 data/ 目录存在（内存数据库时跳过）
     if not DATABASE_URL.startswith("sqlite+aiosqlite:///:memory:"):
-        _os.makedirs("data", exist_ok=True)
+        os.makedirs(os.path.join(os.path.dirname(__file__), "..", "data"), exist_ok=True)
     from backend.models_db import Article  # noqa: F401 — 触发 Base 注册
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
