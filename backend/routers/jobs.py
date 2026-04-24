@@ -59,6 +59,7 @@ async def _run_agent(job_id: str):
         job_id=job_id,
         topic=job.topic,
         intervention_on_outline=job.intervention.on_outline,
+        intervention_on_chapter=job.intervention.on_chapter,
     )
     try:
         await orch.run()

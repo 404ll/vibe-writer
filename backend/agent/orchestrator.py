@@ -10,10 +10,11 @@ from backend.agent.prompts import (
 )
 
 class Orchestrator:
-    def __init__(self, job_id: str, topic: str, intervention_on_outline: bool = True):
+    def __init__(self, job_id: str, topic: str, intervention_on_outline: bool = True, intervention_on_chapter: bool = False):
         self.job_id = job_id
         self.topic = topic
         self.intervention_on_outline = intervention_on_outline
+        self.intervention_on_chapter = intervention_on_chapter
         self._client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY", "placeholder"),
             base_url=os.environ.get("ANTHROPIC_BASE_URL"),
@@ -114,6 +115,8 @@ class Orchestrator:
                 event="chapter_done",
                 data={"title": chapter_title, "index": len(written_chapters) - 1},
             ))
+            if self.intervention_on_chapter:
+                await job_store.wait_for_reply(self.job_id)
 
         # --- Stage: EXPORT ---
         if job:
