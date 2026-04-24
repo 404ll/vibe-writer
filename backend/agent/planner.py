@@ -17,19 +17,20 @@ class PlannerAgent(BaseAgent):
         return self._parse_outline(raw)
 
     def _parse_outline(self, raw: str) -> list[str]:
-        """解析编号列表，支持 '1. 标题' 和 '1、标题' 两种格式"""
+        """解析编号列表，支持 '1. 标题' 和 '1、标题' 两种格式，忽略非编号行"""
         chapters = []
         for line in raw.strip().splitlines():
             line = line.strip()
             if not line:
                 continue
-            if line[0].isdigit():
-                dot_idx = line.find(".")
-                space_idx = line.find("、")
-                if dot_idx != -1:
-                    line = line[dot_idx + 1:].strip()
-                elif space_idx != -1:
-                    line = line[space_idx + 1:].strip()
+            if not line[0].isdigit():
+                continue
+            dot_idx = line.find(".")
+            space_idx = line.find("、")
+            if dot_idx != -1:
+                line = line[dot_idx + 1:].strip()
+            elif space_idx != -1:
+                line = line[space_idx + 1:].strip()
             if line:
                 chapters.append(line)
         return chapters
