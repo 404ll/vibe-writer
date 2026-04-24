@@ -131,6 +131,7 @@ class Orchestrator:
                     topic=self.topic,
                     outline=outline_text,
                     chapter_title=chapter_title,
+                    research="暂无参考资料",  # TODO Task 4: replaced by WriterAgent with real research
                 ),
             )
             written_chapters.append({"title": chapter_title, "content": content})

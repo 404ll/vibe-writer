@@ -17,6 +17,9 @@ CHAPTER_USER = """文章主题：{topic}
 完整大纲：
 {outline}
 
+参考资料：
+{research}
+
 请撰写章节「{chapter_title}」的正文内容。"""
 
 RESEARCH_SYSTEM = """你是一位研究助手。用户给你一组网络搜索摘要，请提炼出其中对技术博客写作最有价值的信息。
