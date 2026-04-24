@@ -9,11 +9,10 @@ interface Props {
 export function InputPanel({ onSubmit, disabled }: Props) {
   const [topic, setTopic] = useState('')
   const [onOutline, setOnOutline] = useState(true)
-  const [onChapter, setOnChapter] = useState(false)
 
   function handleSubmit() {
     if (!topic.trim()) return
-    onSubmit(topic, { on_outline: onOutline, on_chapter: onChapter })
+    onSubmit(topic, { on_outline: onOutline })
   }
 
   return (
@@ -59,15 +58,6 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             disabled={disabled}
           />
           大纲生成后介入
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={onChapter}
-            onChange={(e) => setOnChapter(e.target.checked)}
-            disabled={disabled}
-          />
-          每章完成后介入
         </label>
       </div>
     </div>

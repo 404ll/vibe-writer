@@ -2,7 +2,6 @@ export type StageStatus = "plan" | "write" | "review" | "export" | "done" | "err
 
 export interface InterventionConfig {
   on_outline: boolean;
-  on_chapter: boolean;
 }
 
 export interface ReviewResult {
