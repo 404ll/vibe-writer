@@ -93,6 +93,22 @@ code {
   margin-bottom: 10px;
 }
 
+/* Animations */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-ring); }
+    50%       { box-shadow: 0 0 0 5px var(--accent-ring); }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+}
+
 /* Primary button */
 .btn-primary {
   background: var(--accent);
@@ -109,3 +125,62 @@ code {
 }
 .btn-primary:hover   { background: var(--accent-hover); }
 .btn-primary:disabled { background: var(--text-muted); cursor: not-allowed; }
+
+/* ── Article prose styles ── */
+.prose {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.prose h1, .prose h2, .prose h3 {
+  font-family: var(--hand);
+  color: var(--text-h);
+  margin: 1.4em 0 0.5em;
+  font-weight: 600;
+}
+.prose h1 { font-size: 1.6em; }
+.prose h2 { font-size: 1.3em; }
+.prose h3 { font-size: 1.1em; }
+.prose p { margin: 0.8em 0; }
+.prose ul, .prose ol { padding-left: 1.5em; margin: 0.8em 0; }
+.prose li { margin: 0.3em 0; }
+.prose code {
+  background: var(--input-bg);
+  border: 1px solid var(--border-input);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-family: monospace;
+}
+.prose pre {
+  background: var(--input-bg);
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.prose blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--text-muted);
+  margin: 0.8em 0;
+}
+
+/* ── Skeleton loader ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--input-bg) 25%, var(--border-input) 50%, var(--input-bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
