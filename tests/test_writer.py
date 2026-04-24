@@ -42,3 +42,6 @@ async def test_write_works_without_research():
         )
 
     assert content == "没有参考资料也能写"
+    # 验证当 research 为空时，prompt 包含"暂无参考资料"
+    user_content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "暂无参考资料" in user_content
