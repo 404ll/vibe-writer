@@ -26,7 +26,6 @@ export default function App() {
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
-  const [lastTopic, setLastTopic] = useState('')
 
   function addActivity(status: ActivityEntry['status'], message: string) {
     setActivityLog((prev) => [...prev, { id: ++activityIdCounter, status, message }])
@@ -46,6 +45,9 @@ export default function App() {
         case 'done':
           reviewUpdate = false
           return { ...prev, stage: 'done' }
+        case 'cancelled':
+          reviewUpdate = false
+          return { ...prev, stage: 'error', error: '已取消' }
         case 'error':
           return { ...prev, stage: 'error', error: data.message as string }
         default:
@@ -87,6 +89,9 @@ export default function App() {
       case 'done':
         addActivity('success', '文章已生成，保存到 output/ 目录')
         break
+      case 'cancelled':
+        addActivity('info', '任务已取消')
+        break
       case 'error':
         addActivity('failed', `错误：${data.message as string}`)
         break
@@ -104,7 +109,6 @@ export default function App() {
       body: JSON.stringify({ topic, intervention, style }),
     })
     const { job_id } = await res.json()
-    setLastTopic(topic)
     setJob({ ...INITIAL_JOB, jobId: job_id })
     setCompletedChapters(0)
     setAwaitingReview(false)
@@ -119,6 +123,11 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: reply }),
     })
+  }
+
+  async function handleCancel() {
+    if (!job) return
+    await fetch(`${API_BASE}/jobs/${job.jobId}/cancel`, { method: 'POST' })
   }
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
@@ -164,6 +173,33 @@ export default function App() {
                   />
                 )}
 
+                {isRunning && (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border-input)',
+                      borderRadius: '5px',
+                      padding: '5px 14px',
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      transition: 'color 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--danger)'
+                      e.currentTarget.style.borderColor = 'var(--danger)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--text-muted)'
+                      e.currentTarget.style.borderColor = 'var(--border-input)'
+                    }}
+                  >
+                    中断任务
+                  </button>
+                )}
+
                 {awaitingReview && job?.outline && (
                   <ReviewPanel outline={job.outline} onConfirm={handleConfirm} />
                 )}
@@ -197,20 +233,20 @@ export default function App() {
                       width: '100%',
                       maxWidth: '620px',
                       padding: '10px 14px',
-                      background: 'var(--danger-bg)',
-                      border: '1px solid var(--danger-border)',
+                      background: job.error === '已取消' ? 'var(--input-bg)' : 'var(--danger-bg)',
+                      border: `1px solid ${job.error === '已取消' ? 'var(--border)' : 'var(--danger-border)'}`,
                       borderRadius: '7px',
                       fontSize: '13px',
-                      color: 'var(--danger)',
+                      color: job.error === '已取消' ? 'var(--text-muted)' : 'var(--danger)',
                     }}
                   >
-                    错误：{job.error}
+                    {job.error === '已取消' ? '任务已取消' : `错误：${job.error}`}
                   </div>
                 )}
               </div>
 
               {/* History strip — bottom */}
-              <HistoryPanel currentJob={job} currentTopic={lastTopic} />
+              <HistoryPanel currentJob={job} />
             </div>
 
             {/* Right column: activity log */}

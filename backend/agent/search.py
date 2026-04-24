@@ -1,3 +1,4 @@
+import asyncio
 import os
 from tavily import TavilyClient
 from backend.agent.base import BaseAgent
@@ -23,7 +24,10 @@ class SearchAgent(BaseAgent):
         返回提炼后的参考要点字符串；失败时返回空字符串。
         """
         try:
-            response = self._tavily.search(query, max_results=3)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None, lambda: self._tavily.search(query, max_results=3)
+            )
             results = response.get("results", [])
             if not results:
                 return ""
