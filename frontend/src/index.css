@@ -18,6 +18,11 @@
   --accent-done:  #7a6248; /* used in component inline styles */
   --success:      #5c7a4a;
   --danger:       #8b3a3a;
+  --success-bg:     #f0f7eb;
+  --success-border: #c8ddb8;
+  --success-text:   #4a6a38;
+  --danger-bg:      #fdf0f0;
+  --danger-border:  #e8c0c0;
 
   --shadow: 0 1px 3px rgba(60, 40, 10, 0.05);
 

@@ -162,11 +162,11 @@ export default function App() {
               role="status"
               style={{
                 padding: '10px 14px',
-                background: '#f0f7eb',
-                border: '1px solid #c8ddb8',
+                background: 'var(--success-bg)',
+                border: '1px solid var(--success-border)',
                 borderRadius: '7px',
                 fontSize: '13px',
-                color: '#4a6a38',
+                color: 'var(--success-text)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -183,8 +183,8 @@ export default function App() {
               role="alert"
               style={{
                 padding: '10px 14px',
-                background: '#fdf0f0',
-                border: '1px solid #e8c0c0',
+                background: 'var(--danger-bg)',
+                border: '1px solid var(--danger-border)',
                 borderRadius: '7px',
                 fontSize: '13px',
                 color: 'var(--danger)',
