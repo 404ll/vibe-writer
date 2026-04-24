@@ -46,45 +46,61 @@ class Orchestrator:
         outline_text: str,
         index: int,
     ) -> dict:
-        """单章完整流程：搜索 → 写作 → 轻审（不通过重写一次）。返回 {title, content, index}。"""
-        await push_event(self.job_id, SSEEvent(
-            event="searching", data={"title": chapter_title}
-        ))
-        research = await self._search.search(chapter_title)
+        """单章完整流程：搜索 → 写作 → 轻审（不通过重写一次）。
+        失败时最多重试 3 次（指数退避：1s, 2s）。
+        3 次全部失败时返回含 error 字段的 dict，不抛出异常。
+        """
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                if attempt > 0:
+                    await asyncio.sleep(2 ** (attempt - 1))  # 1s, 2s
 
-        content = await self._writer.write(
-            topic=self.topic,
-            outline=outline_text,
-            chapter_title=chapter_title,
-            research=research,
-        )
+                await push_event(self.job_id, SSEEvent(
+                    event="searching",
+                    data={"title": chapter_title, **({"retry": attempt} if attempt > 0 else {})},
+                ))
+                research = await self._search.search(chapter_title)
 
-        await push_event(self.job_id, SSEEvent(
-            event="reviewing_chapter", data={"title": chapter_title}
-        ))
-        review = await self._reviewer.review_chapter(
-            chapter_title=chapter_title,
-            content=content,
-            outline=outline_text,
-        )
-        if not review.passed:
-            content = await self._writer.write(
-                topic=self.topic,
-                outline=outline_text,
-                chapter_title=chapter_title,
-                research=research,
-                review_feedback=review.feedback,
-            )
+                content = await self._writer.write(
+                    topic=self.topic,
+                    outline=outline_text,
+                    chapter_title=chapter_title,
+                    research=research,
+                )
 
-        await push_event(self.job_id, SSEEvent(
-            event="chapter_done",
-            data={
-                "title": chapter_title,
-                "index": index,
-                "review": {"passed": review.passed, "feedback": review.feedback},
-            },
-        ))
-        return {"title": chapter_title, "content": content, "index": index, "research": research}
+                await push_event(self.job_id, SSEEvent(
+                    event="reviewing_chapter", data={"title": chapter_title}
+                ))
+                review = await self._reviewer.review_chapter(
+                    chapter_title=chapter_title,
+                    content=content,
+                    outline=outline_text,
+                )
+                if not review.passed:
+                    content = await self._writer.write(
+                        topic=self.topic,
+                        outline=outline_text,
+                        chapter_title=chapter_title,
+                        research=research,
+                        review_feedback=review.feedback,
+                    )
+
+                await push_event(self.job_id, SSEEvent(
+                    event="chapter_done",
+                    data={
+                        "title": chapter_title,
+                        "index": index,
+                        "review": {"passed": review.passed, "feedback": review.feedback},
+                    },
+                ))
+                return {"title": chapter_title, "content": content, "index": index, "research": research}
+
+            except Exception as e:
+                last_error = e
+
+        # 3 次全部失败
+        return {"title": chapter_title, "content": "", "index": index, "research": "", "error": str(last_error)}
 
     async def run(self):
         job = job_store.get(self.job_id)
@@ -129,11 +145,21 @@ class Orchestrator:
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Check for failures
-        errors = [(i, r) for i, r in enumerate(results) if isinstance(r, Exception)]
-        if errors:
-            error_msgs = "; ".join(f"章节{i+1}: {r}" for i, r in errors)
-            job.error = f"章节写作失败: {error_msgs}"
+        # 意外异常（理论上不触发，_write_chapter 内部已捕获）
+        unexpected = [(i, r) for i, r in enumerate(results) if isinstance(r, Exception)]
+        if unexpected:
+            error_msgs = "; ".join(f"章节{i+1}: {r}" for i, r in unexpected)
+            job.error = f"章节写作异常: {error_msgs}"
+            job.stage = StageStatus.ERROR
+            job_store.update(job)
+            await push_event(self.job_id, SSEEvent(event="error", data={"message": job.error}))
+            return
+
+        # 3 次重试全部失败的章节
+        failed = [r for r in results if r.get("error")]
+        if failed:
+            msg = "; ".join(f"{r['title']}: {r['error']}" for r in failed)
+            job.error = f"章节写作失败: {msg}"
             job.stage = StageStatus.ERROR
             job_store.update(job)
             await push_event(self.job_id, SSEEvent(event="error", data={"message": job.error}))

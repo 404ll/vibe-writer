@@ -248,3 +248,97 @@ async def test_orchestrator_writes_chapters_in_parallel(monkeypatch):
     event_types = [e.event for e in events]
     assert event_types.count("chapter_done") == 2
     assert "done" in event_types
+
+
+@pytest.mark.asyncio
+async def test_write_chapter_retries_on_failure(monkeypatch):
+    """writer 前两次抛异常，第三次成功 → job 正常完成"""
+    events = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+    monkeypatch.setattr("backend.agent.orchestrator.asyncio.sleep", AsyncMock())
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一"])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    call_count = 0
+    async def flaky_write(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise RuntimeError("API timeout")
+        return "章节内容"
+
+    mock_writer = MagicMock()
+    mock_writer.write = flaky_write
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    mock_reviewer.review_chapter = AsyncMock(return_value=ReviewResult(passed=True, feedback=""))
+    mock_reviewer.review_full = AsyncMock(return_value=[ReviewResult(passed=True, feedback="")])
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    assert call_count == 3  # 2 次失败 + 1 次成功
+    event_types = [e.event for e in events]
+    assert "done" in event_types
+    assert "error" not in event_types
+
+
+@pytest.mark.asyncio
+async def test_write_chapter_fails_after_max_retries(monkeypatch):
+    """writer 三次全部失败 → job 进入 ERROR 状态"""
+    events = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+    monkeypatch.setattr("backend.agent.orchestrator.asyncio.sleep", AsyncMock())
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一"])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    mock_writer = MagicMock()
+    mock_writer.write = AsyncMock(side_effect=RuntimeError("API timeout"))
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    mock_reviewer.review_chapter = AsyncMock(return_value=ReviewResult(passed=True, feedback=""))
+    mock_reviewer.review_full = AsyncMock(return_value=[ReviewResult(passed=True, feedback="")])
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    event_types = [e.event for e in events]
+    assert "error" in event_types
+    assert "done" not in event_types
+    final_job = store.get(job.id)
+    from backend.models import StageStatus
+    assert final_job.stage == StageStatus.ERROR
