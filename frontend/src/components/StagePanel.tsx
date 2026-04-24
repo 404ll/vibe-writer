@@ -9,13 +9,29 @@ const STAGES: { key: StageStatus; label: string }[] = [
 
 const STAGE_ORDER: StageStatus[] = ['plan', 'write', 'review', 'export', 'done']
 
+const CHAPTER_STATUS_LABEL: Record<string, string> = {
+  searching:  '搜索中',
+  writing:    '写作中',
+  reviewing:  '审稿中',
+  done:       '完成',
+}
+
+const CHAPTER_STATUS_COLOR: Record<string, string> = {
+  searching:  'var(--accent)',
+  writing:    'var(--accent)',
+  reviewing:  'var(--accent)',
+  done:       'var(--accent-done)',
+}
+
 interface Props {
   currentStage: StageStatus | null
   completedChapters: number
   totalChapters: number
+  chapterStatus?: Record<string, 'searching' | 'writing' | 'reviewing' | 'done'>
+  outline?: string[]
 }
 
-export function StagePanel({ currentStage, completedChapters, totalChapters }: Props) {
+export function StagePanel({ currentStage, completedChapters, totalChapters, chapterStatus = {}, outline = [] }: Props) {
   const currentIndex = currentStage ? STAGE_ORDER.indexOf(currentStage) : -1
 
   return (
@@ -75,6 +91,34 @@ export function StagePanel({ currentStage, completedChapters, totalChapters }: P
                     borderRadius: '2px',
                     transition: 'width 0.4s ease',
                   }} />
+                </div>
+              )}
+              {key === 'write' && active && outline.length > 0 && (
+                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '120px' }}>
+                  {outline.map((title) => {
+                    const status = chapterStatus[title]
+                    return (
+                      <div key={title} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px' }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
+                          background: status ? CHAPTER_STATUS_COLOR[status] : 'var(--stage-idle-bg)',
+                          transition: 'background 0.3s',
+                        }} />
+                        <span style={{
+                          color: status ? (status === 'done' ? 'var(--accent-done)' : 'var(--accent)') : 'var(--text-muted)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px',
+                        }}>
+                          {title}
+                        </span>
+                        {status && status !== 'done' && (
+                          <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+                            {CHAPTER_STATUS_LABEL[status]}
+                          </span>
+                        )}
+                        {status === 'done' && <span style={{ color: 'var(--accent-done)', flexShrink: 0 }}>✓</span>}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

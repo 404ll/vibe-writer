@@ -67,6 +67,9 @@ class Orchestrator:
                 ))
                 research = await self._search.search(chapter_title)
 
+                await push_event(self.job_id, SSEEvent(
+                    event="writing_chapter", data={"title": chapter_title}
+                ))
                 content = await self._writer.write(
                     topic=self.topic,
                     outline=outline_text,

@@ -27,6 +27,7 @@ export type SSEEventType =
   | "stage_update"
   | "outline_ready"
   | "searching"
+  | "writing_chapter"
   | "reviewing_chapter"
   | "chapter_done"
   | "reviewing_full"

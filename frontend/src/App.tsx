@@ -27,6 +27,7 @@ export default function App() {
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
+  const [chapterStatus, setChapterStatus] = useState<Record<string, 'searching' | 'writing' | 'reviewing' | 'done'>>({})
 
   function addActivity(status: ActivityEntry['status'], message: string) {
     setActivityLog((prev) => [...prev, { id: ++activityIdCounter, status, message }])
@@ -60,13 +61,19 @@ export default function App() {
     switch (type) {
       case 'searching':
         addActivity('running', `搜索中：${data.title as string}`)
+        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'searching' }))
+        break
+      case 'writing_chapter':
+        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'writing' }))
         break
       case 'reviewing_chapter':
         addActivity('running', `轻审中：${data.title as string}`)
+        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'reviewing' }))
         break
       case 'chapter_done': {
         const review = data.review as ReviewResult | undefined
         setCompletedChapters((n) => n + 1)
+        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'done' }))
         if (review && !review.passed) {
           addActivity('failed', `轻审未通过：${data.title as string} → 已重写`)
         } else {
@@ -117,6 +124,7 @@ export default function App() {
     setCompletedChapters(0)
     setAwaitingReview(false)
     setActivityLog([])
+    setChapterStatus({})
   }
 
   async function handleConfirm(reply: string) {
@@ -174,6 +182,8 @@ export default function App() {
                     currentStage={job.stage}
                     completedChapters={completedChapters}
                     totalChapters={job.outline?.length ?? 0}
+                    chapterStatus={chapterStatus}
+                    outline={job.outline ?? []}
                   />
                 )}
 
