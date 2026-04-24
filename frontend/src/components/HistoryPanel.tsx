@@ -6,7 +6,6 @@ import type { ArticleSummary } from '../api'
 
 interface Props {
   currentJob: JobState | null
-  currentTopic: string
 }
 
 export function HistoryPanel({ currentJob }: Props) {
