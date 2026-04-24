@@ -14,18 +14,20 @@ class WriterAgent(BaseAgent):
         outline: str,
         chapter_title: str,
         research: str,
+        review_feedback: str = "",
     ) -> str:
         """
         调用 LLM 写章节正文。
-        research 为空时 prompt 中显示"暂无参考资料"，LLM 依靠自身知识写作。
+        research 为空时 prompt 中显示"暂无参考资料"。
+        review_feedback 非空时在 prompt 末尾追加审稿意见，用于重写场景。
         """
         research_text = research if research.strip() else "暂无参考资料"
-        return await self._call_llm(
-            CHAPTER_SYSTEM,
-            CHAPTER_USER.format(
-                topic=topic,
-                outline=outline,
-                chapter_title=chapter_title,
-                research=research_text,
-            ),
+        user_prompt = CHAPTER_USER.format(
+            topic=topic,
+            outline=outline,
+            chapter_title=chapter_title,
+            research=research_text,
         )
+        if review_feedback.strip():
+            user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
+        return await self._call_llm(CHAPTER_SYSTEM, user_prompt)
