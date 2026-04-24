@@ -53,6 +53,18 @@ async def stream_job(job_id: str):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@router.get("/{job_id}/events")
+async def get_job_events(job_id: str):
+    """
+    返回该 job 的全部历史事件，供前端重连时回放。
+    前端重连时先 GET /events 回放历史，再接 /stream 接收新事件。
+    """
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    events = job_store.get_events(job_id)
+    return {"events": [{"event": e.event, "data": e.data} for e in events]}
+
 @router.post("/{job_id}/reply")
 async def reply_to_job(job_id: str, req: ReplyRequest):
     """
@@ -69,7 +81,8 @@ async def reply_to_job(job_id: str, req: ReplyRequest):
 _stream_queues: dict[str, asyncio.Queue] = {}
 
 async def push_event(job_id: str, event: SSEEvent):
-    """Orchestrator 调用此函数向前端推送事件"""
+    """Orchestrator 调用此函数向前端推送事件，同时写入历史日志"""
+    job_store.append_event(job_id, event)
     queue = _stream_queues.get(job_id)
     if queue:
         await queue.put(event)
@@ -91,7 +104,6 @@ async def _run_agent(job_id: str):
         job_id=job_id,
         topic=job.topic,
         intervention_on_outline=job.intervention.on_outline,
-        intervention_on_chapter=job.intervention.on_chapter,
     )
     try:
         await orch.run()
