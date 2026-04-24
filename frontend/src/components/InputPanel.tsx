@@ -11,36 +11,66 @@ export function InputPanel({ onSubmit, disabled }: Props) {
   const [onOutline, setOnOutline] = useState(true)
   const [onChapter, setOnChapter] = useState(false)
 
+  function handleSubmit() {
+    if (!topic.trim()) return
+    onSubmit(topic, { on_outline: onOutline, on_chapter: onChapter })
+  }
+
   return (
-    <div style={{ padding: '1rem', borderBottom: '1px solid #eee' }}>
-      <input
-        placeholder="输入写作主题..."
-        value={topic}
-        onChange={(e) => setTopic(e.target.value)}
-        style={{ width: '60%', marginRight: '0.5rem' }}
-      />
-      <label style={{ marginRight: '0.5rem' }}>
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <label htmlFor="topic-input" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
+          写作主题
+        </label>
         <input
-          type="checkbox"
-          checked={onOutline}
-          onChange={(e) => setOnOutline(e.target.checked)}
-        />{' '}
-        大纲后介入
-      </label>
-      <label style={{ marginRight: '0.5rem' }}>
-        <input
-          type="checkbox"
-          checked={onChapter}
-          onChange={(e) => setOnChapter(e.target.checked)}
-        />{' '}
-        每章后介入
-      </label>
-      <button
-        onClick={() => onSubmit(topic, { on_outline: onOutline, on_chapter: onChapter })}
-        disabled={disabled || !topic.trim()}
-      >
-        开始写作
-      </button>
+          id="topic-input"
+          type="text"
+          placeholder="输入写作主题，例如：RAG 检索增强生成"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          autoComplete="off"
+          disabled={disabled}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            fontSize: '14px',
+            color: 'var(--text-h)',
+            background: disabled ? '#f8fafc' : '#fff',
+            outline: 'none',
+          }}
+        />
+        <button
+          className="btn-primary"
+          onClick={handleSubmit}
+          disabled={disabled || !topic.trim()}
+          aria-label="开始写作"
+        >
+          开始写作
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={onOutline}
+            onChange={(e) => setOnOutline(e.target.checked)}
+            disabled={disabled}
+          />
+          大纲生成后介入
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={onChapter}
+            onChange={(e) => setOnChapter(e.target.checked)}
+            disabled={disabled}
+          />
+          每章完成后介入
+        </label>
+      </div>
     </div>
   )
 }
