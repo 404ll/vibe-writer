@@ -342,3 +342,54 @@ async def test_write_chapter_fails_after_max_retries(monkeypatch):
     final_job = store.get(job.id)
     from backend.models import StageStatus
     assert final_job.stage == StageStatus.ERROR
+
+
+@pytest.mark.asyncio
+async def test_export_saves_article_to_db(monkeypatch):
+    """EXPORT 阶段完成后，article 写入数据库"""
+    from backend.database import init_db
+    await init_db()
+
+    events = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一"])
+    mock_planner.parse_outline = MagicMock(return_value=[])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    mock_writer = MagicMock()
+    mock_writer.write = AsyncMock(return_value="章节内容")
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    mock_reviewer.review_chapter = AsyncMock(return_value=ReviewResult(passed=True, feedback=""))
+    mock_reviewer.review_full = AsyncMock(return_value=[ReviewResult(passed=True, feedback="")])
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    from backend.database import AsyncSessionLocal
+    from backend.models_db import Article
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Article).where(Article.job_id == job.id))
+        article = result.scalar_one_or_none()
+
+    assert article is not None
+    assert article.topic == "测试主题"
+    assert article.word_count > 0

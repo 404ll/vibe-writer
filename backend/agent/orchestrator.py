@@ -225,6 +225,13 @@ class Orchestrator:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(markdown)
 
+        # 写入数据库（失败不影响主流程）
+        try:
+            await self._save_article(job.id, self.topic, markdown)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to save article to DB: %s", e)
+
         job.stage = StageStatus.DONE
         job_store.update(job)
         await push_event(self.job_id, SSEEvent(
@@ -237,3 +244,26 @@ class Orchestrator:
             lines.append(f"\n## {ch['title']}\n")
             lines.append(ch["content"])
         return "\n".join(lines)
+
+    @staticmethod
+    def _count_words(text: str) -> int:
+        """简单字数统计：中文按字符数，英文按空格分词"""
+        import re
+        chinese = len(re.findall(r'[\u4e00-\u9fff]', text))
+        english = len(re.findall(r'[a-zA-Z]+', text))
+        return chinese + english
+
+    @staticmethod
+    async def _save_article(job_id: str, topic: str, content: str):
+        from backend.database import AsyncSessionLocal
+        from backend.models_db import Article
+        word_count = Orchestrator._count_words(content)
+        async with AsyncSessionLocal() as session:
+            article = Article(
+                job_id=job_id,
+                topic=topic,
+                content=content,
+                word_count=word_count,
+            )
+            session.add(article)
+            await session.commit()
