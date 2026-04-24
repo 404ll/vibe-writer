@@ -1,5 +1,4 @@
 import pytest
-from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
 from backend.agent.reviewer import ReviewAgent, ReviewResult
 
