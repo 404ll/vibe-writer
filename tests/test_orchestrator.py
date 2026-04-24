@@ -38,6 +38,7 @@ async def test_orchestrator_calls_all_agents(monkeypatch):
 
     event_types = [e.event for e in events]
     assert "outline_ready" in event_types
+    assert event_types.count("searching") == 2  # 2 chapters → 2 searching events
     assert "chapter_done" in event_types
     assert "done" in event_types
 

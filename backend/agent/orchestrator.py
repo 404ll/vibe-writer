@@ -58,7 +58,7 @@ class Orchestrator:
         if self.intervention_on_outline:
             reply = await job_store.wait_for_reply(self.job_id)
             if reply and reply.strip().lower() not in ("ok", "确认", "继续", "yes"):
-                revised = self._planner._parse_outline(reply)
+                revised = self._planner.parse_outline(reply)
                 chapters = revised if revised else chapters
                 job.outline = chapters
                 job_store.update(job)
