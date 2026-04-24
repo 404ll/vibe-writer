@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { ArticlePage } from './pages/ArticlePage'
 import { InputPanel } from './components/InputPanel'
 import { StagePanel } from './components/StagePanel'
@@ -22,6 +22,7 @@ const INITIAL_JOB: JobState = {
 let activityIdCounter = 0
 
 export default function App() {
+  const navigate = useNavigate()
   const [job, setJob] = useState<JobState | null>(null)
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
@@ -87,7 +88,10 @@ export default function App() {
         break
       }
       case 'done':
-        addActivity('success', '文章已生成，保存到 output/ 目录')
+        addActivity('success', '文章已生成')
+        if (data.article_id) {
+          setTimeout(() => navigate(`/articles/${data.article_id}`), 800)
+        }
         break
       case 'cancelled':
         addActivity('info', '任务已取消')
@@ -98,7 +102,7 @@ export default function App() {
     }
 
     if (reviewUpdate !== null) setAwaitingReview(reviewUpdate)
-  }, [])
+  }, [navigate])
 
   useJobStream(job?.jobId ?? null, handleEvent)
 

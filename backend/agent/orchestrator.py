@@ -213,16 +213,25 @@ class Orchestrator:
             chapters=written_chapters,
         )
 
-        for i, result in enumerate(full_results):
-            if not result.passed:
+        async def _rewrite(i: int, ch: dict, feedback: str) -> tuple[int, str]:
+            new_content = await self._writer.write(
+                topic=self.topic,
+                outline=outline_text,
+                chapter_title=ch["title"],
+                research=ch.get("research", ""),
+                review_feedback=feedback,
+            )
+            return i, new_content
+
+        rewrite_tasks = [
+            _rewrite(i, written_chapters[i], result.feedback)
+            for i, result in enumerate(full_results)
+            if not result.passed
+        ]
+        if rewrite_tasks:
+            rewrite_results = await asyncio.gather(*rewrite_tasks)
+            for i, new_content in rewrite_results:
                 ch = written_chapters[i]
-                new_content = await self._writer.write(
-                    topic=self.topic,
-                    outline=outline_text,
-                    chapter_title=ch["title"],
-                    research=ch.get("research", ""),
-                    review_feedback=result.feedback,
-                )
                 written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", "")}
 
         job.chapters = written_chapters
@@ -253,16 +262,20 @@ class Orchestrator:
             f.write(markdown)
 
         # 写入数据库（失败不影响主流程）
+        article_id = None
         try:
-            await self._save_article(job.id, self.topic, markdown)
+            article_id = await self._save_article(job.id, self.topic, markdown)
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning("Failed to save article to DB: %s", e)
 
         job.stage = StageStatus.DONE
         job_store.update(job)
+        done_data: dict = {"output_path": output_path}
+        if article_id:
+            done_data["article_id"] = article_id
         await push_event(self.job_id, SSEEvent(
-            event="done", data={"output_path": output_path}
+            event="done", data=done_data
         ))
 
     def _build_markdown(self, topic: str, chapters: list[dict]) -> str:
@@ -281,7 +294,7 @@ class Orchestrator:
         return chinese + english
 
     @staticmethod
-    async def _save_article(job_id: str, topic: str, content: str):
+    async def _save_article(job_id: str, topic: str, content: str) -> str:
         from backend.database import AsyncSessionLocal
         from backend.models_db import Article
         word_count = Orchestrator._count_words(content)
@@ -294,3 +307,5 @@ class Orchestrator:
             )
             session.add(article)
             await session.commit()
+            await session.refresh(article)
+            return article.id
