@@ -1,13 +1,19 @@
 import asyncio
+import logging
 import os
 import re
+import time
+from typing import Optional
 from backend.models import StageStatus, SSEEvent
 from backend.store import job_store
 from backend.routers.jobs import push_event
 from backend.agent.planner import PlannerAgent
+from backend.agent.opinion import OpinionAgent
 from backend.agent.search import SearchAgent
 from backend.agent.writer import WriterAgent
 from backend.agent.reviewer import ReviewAgent
+
+log = logging.getLogger("vibe.orchestrator")
 
 
 class Orchestrator:
@@ -27,11 +33,14 @@ class Orchestrator:
         topic: str,
         intervention_on_outline: bool = True,
         style: str = "",
+        target_words: Optional[int] = None,
     ):
         self.job_id = job_id
         self.topic = topic
         self.intervention_on_outline = intervention_on_outline
+        self.target_words = target_words
         self._planner = PlannerAgent()
+        self._opinion = OpinionAgent()
         self._search = SearchAgent()
         self._writer = WriterAgent(style=style)
         self._reviewer = ReviewAgent()
@@ -46,6 +55,7 @@ class Orchestrator:
         chapter_title: str,
         outline_text: str,
         index: int,
+        chapter_words: Optional[int] = None,
     ) -> dict:
         """单章完整流程：搜索 → 写作 → 轻审（不通过重写一次）。
         失败时最多重试 3 次（指数退避：1s, 2s）。
@@ -61,38 +71,88 @@ class Orchestrator:
                 if job_store.is_cancelled(self.job_id):
                     raise asyncio.CancelledError("用户取消")
 
+                # 生成论点
+                await push_event(self.job_id, SSEEvent(
+                    event="generating_opinions",
+                    data={"title": chapter_title},
+                ))
+                t_op = time.monotonic()
+                opinions_text, search_queries = await self._opinion.generate(
+                    topic=self.topic,
+                    outline=outline_text,
+                    chapter_title=chapter_title,
+                )
+                log.info("[%s] opinions done  chapter=%r  elapsed=%.2fs",
+                         self.job_id[:8], chapter_title, time.monotonic() - t_op)
+                await push_event(self.job_id, SSEEvent(
+                    event="opinions_ready",
+                    data={"title": chapter_title, "opinions": opinions_text},
+                ))
+
                 await push_event(self.job_id, SSEEvent(
                     event="searching",
                     data={"title": chapter_title, **({"retry": attempt} if attempt > 0 else {})},
                 ))
-                research = await self._search.search(chapter_title)
+                t0 = time.monotonic()
+                research = await self._search.search(
+                    queries=search_queries,
+                    opinions=opinions_text,
+                )
+                log.info("[%s] search done  chapter=%r  len=%d  has_research=%s  elapsed=%.2fs",
+                         self.job_id[:8], chapter_title, len(research), bool(research.strip()), time.monotonic() - t0)
 
-                await push_event(self.job_id, SSEEvent(
-                    event="writing_chapter", data={"title": chapter_title}
-                ))
-                content = await self._writer.write(
+                # 流式写作：每个 token 实时推送给前端
+                t1 = time.monotonic()
+                content_parts: list[str] = []
+                async for token in self._writer.write_stream(
                     topic=self.topic,
                     outline=outline_text,
                     chapter_title=chapter_title,
                     research=research,
-                )
+                    opinions=opinions_text,
+                    chapter_words=chapter_words,
+                ):
+                    content_parts.append(token)
+                    await push_event(self.job_id, SSEEvent(
+                        event="writing_chapter",
+                        data={"title": chapter_title, "token": token},
+                    ))
+                content = "".join(content_parts)
+                log.info("[%s] write done   chapter=%r  tokens=%d  elapsed=%.2fs",
+                         self.job_id[:8], chapter_title, len(content), time.monotonic() - t1)
 
                 await push_event(self.job_id, SSEEvent(
                     event="reviewing_chapter", data={"title": chapter_title}
                 ))
+                t2 = time.monotonic()
                 review = await self._reviewer.review_chapter(
                     chapter_title=chapter_title,
                     content=content,
                     outline=outline_text,
                 )
+                log.info("[%s] review_ch    chapter=%r  passed=%s  elapsed=%.2fs",
+                         self.job_id[:8], chapter_title, review.passed, time.monotonic() - t2)
+
                 if not review.passed:
-                    content = await self._writer.write(
+                    log.info("[%s] rewrite      chapter=%r  feedback=%r",
+                             self.job_id[:8], chapter_title, review.feedback[:80])
+                    # 重写时也用流式（同样推送 token）
+                    rewrite_parts: list[str] = []
+                    async for token in self._writer.write_stream(
                         topic=self.topic,
                         outline=outline_text,
                         chapter_title=chapter_title,
                         research=research,
+                        opinions=opinions_text,
                         review_feedback=review.feedback,
-                    )
+                        chapter_words=chapter_words,
+                    ):
+                        rewrite_parts.append(token)
+                        await push_event(self.job_id, SSEEvent(
+                            event="writing_chapter",
+                            data={"title": chapter_title, "token": token},
+                        ))
+                    content = "".join(rewrite_parts)
 
                 await push_event(self.job_id, SSEEvent(
                     event="chapter_done",
@@ -102,14 +162,17 @@ class Orchestrator:
                         "review": {"passed": review.passed, "feedback": review.feedback},
                     },
                 ))
-                return {"title": chapter_title, "content": content, "index": index, "research": research}
+                return {"title": chapter_title, "content": content, "index": index, "research": research, "opinions": opinions_text}
 
             except asyncio.CancelledError:
                 raise  # 取消信号不能被重试逻辑吞掉，直接向上传播
             except Exception as e:
+                log.warning("[%s] chapter error chapter=%r  attempt=%d  err=%s",
+                            self.job_id[:8], chapter_title, attempt, e)
                 last_error = e
 
         # 3 次全部失败
+        log.error("[%s] chapter failed chapter=%r  err=%s", self.job_id[:8], chapter_title, last_error)
         return {"title": chapter_title, "content": "", "index": index, "research": "", "error": str(last_error)}
 
     def _check_cancelled(self):
@@ -136,11 +199,17 @@ class Orchestrator:
             await push_event(self.job_id, SSEEvent(event="cancelled", data={}))
 
     async def _run_pipeline(self, job):
+        pipeline_start = time.monotonic()
+        log.info("[%s] pipeline start  topic=%r", self.job_id[:8], self.topic)
+
         # ── Stage 1: PLAN ──────────────────────────────────────────
         await push_event(self.job_id, SSEEvent(
             event="stage_update", data={"stage": StageStatus.PLAN}
         ))
+        t0 = time.monotonic()
         chapters = await self._planner.plan(self.topic)
+        log.info("[%s] plan done  chapters=%d  elapsed=%.2fs",
+                 self.job_id[:8], len(chapters), time.monotonic() - t0)
         job.outline = chapters
         job_store.update(job)
 
@@ -167,9 +236,10 @@ class Orchestrator:
         ))
 
         outline_text = "\n".join(f"{i+1}. {c}" for i, c in enumerate(chapters))
+        chapter_words = round(self.target_words / len(chapters)) if self.target_words else None
 
         tasks = [
-            self._write_chapter(title, outline_text, i)
+            self._write_chapter(title, outline_text, i, chapter_words)
             for i, title in enumerate(chapters)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -210,11 +280,15 @@ class Orchestrator:
         await push_event(self.job_id, SSEEvent(
             event="reviewing_full", data={}
         ))
-
+        t_review = time.monotonic()
         full_results = await self._reviewer.review_full(
             topic=self.topic,
             chapters=written_chapters,
         )
+
+        failed_count = sum(1 for r in full_results if not r.passed)
+        log.info("[%s] review_full done  failed=%d/%d  elapsed=%.2fs",
+                 self.job_id[:8], failed_count, len(full_results), time.monotonic() - t_review)
 
         async def _rewrite(i: int, ch: dict, feedback: str) -> tuple[int, str]:
             new_content = await self._writer.write(
@@ -222,7 +296,9 @@ class Orchestrator:
                 outline=outline_text,
                 chapter_title=ch["title"],
                 research=ch.get("research", ""),
+                opinions=ch.get("opinions", ""),
                 review_feedback=feedback,
+                chapter_words=chapter_words,
             )
             return i, new_content
 
@@ -272,6 +348,7 @@ class Orchestrator:
             import logging
             logging.getLogger(__name__).warning("Failed to save article to DB: %s", e)
 
+        log.info("[%s] pipeline done  total_elapsed=%.2fs", self.job_id[:8], time.monotonic() - pipeline_start)
         job.stage = StageStatus.DONE
         job_store.update(job)
         done_data: dict = {"output_path": output_path}

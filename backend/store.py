@@ -23,12 +23,13 @@ class JobStore:
         self._event_logs: dict[str, list[SSEEvent]] = {}
         self._cancel_flags: dict[str, bool] = {}
 
-    def create_job(self, topic: str, intervention=None, style: str = "") -> JobState:
+    def create_job(self, topic: str, intervention=None, style: str = "", target_words: Optional[int] = None) -> JobState:
         """创建新 Job，分配 UUID，初始化对应的 asyncio.Event 和 event_log"""
         job = JobState(
             topic=topic,
             intervention=intervention or InterventionConfig(),
             style=style,
+            target_words=target_words,
         )
         self._jobs[job.id] = job
         self._reply_events[job.id] = asyncio.Event()

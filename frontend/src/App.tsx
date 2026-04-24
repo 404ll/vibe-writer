@@ -34,8 +34,12 @@ export default function App() {
   // 滑动窗口写作预览：记录最新活跃章节和累积 token
   const [writingState, setWritingState] = useState<{ title: string; buffer: string } | null>(null)
 
+  const MAX_ACTIVITY = 50
   function addActivity(status: ActivityEntry['status'], message: string) {
-    setActivityLog((prev) => [...prev, { id: ++activityIdCounter, status, message }])
+    setActivityLog((prev) => {
+      const next = [...prev, { id: ++activityIdCounter, status, message }]
+      return next.length > MAX_ACTIVITY ? next.slice(next.length - MAX_ACTIVITY) : next
+    })
   }
 
   const handleEvent = useCallback((type: SSEEventType, data: Record<string, unknown>) => {
@@ -140,11 +144,11 @@ export default function App() {
 
   useJobStream(job?.jobId ?? null, handleEvent)
 
-  async function handleSubmit(topic: string, intervention: InterventionConfig, style: string) {
+  async function handleSubmit(topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) {
     const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, intervention, style }),
+      body: JSON.stringify({ topic, intervention, style, target_words: targetWords }),
     })
     const { job_id } = await res.json()
     localStorage.setItem(STORAGE_KEY, job_id)
@@ -186,7 +190,7 @@ export default function App() {
           minHeight: 0,
         }}>
           {/* Body: left + right */}
-          <div className="app-body" style={{ display: 'flex', gap: '12px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+          <div className="app-body" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1, minHeight: 0 }}>
 
             {/* Pipeline 左侧纵向栏 */}
             {job && (
@@ -200,7 +204,7 @@ export default function App() {
             )}
 
             {/* Left column */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: isScrollable ? 0 : 'calc(100vh - 28px)' }}>
 
               {/* Hero zone — vertically centered when idle, scrollable when running */}
               <div className="hero-zone" style={{
@@ -299,7 +303,17 @@ export default function App() {
             </div>
 
             {/* Right column: activity log + history */}
-            <div className="activity-col" style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="activity-col" style={{
+              width: '280px',
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              position: 'sticky',
+              top: '14px',
+              alignSelf: isScrollable ? 'flex-start' : 'center',
+              maxHeight: 'calc(100vh - 28px)',
+            }}>
               <ActivityPanel entries={activityLog} />
               <HistoryPanel currentJob={job} />
             </div>

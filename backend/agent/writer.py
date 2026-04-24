@@ -1,3 +1,4 @@
+from typing import Optional
 from backend.agent.base import BaseAgent
 from backend.agent.prompts import CHAPTER_SYSTEM, CHAPTER_USER
 
@@ -19,31 +20,63 @@ class WriterAgent(BaseAgent):
         # 预设风格取对应指令；自定义风格原样使用；空字符串不注入
         self._style_instruction = STYLE_PROMPTS.get(style, style)
 
+    def _build_prompt(
+        self,
+        topic: str,
+        outline: str,
+        chapter_title: str,
+        research: str,
+        opinions: str,
+        review_feedback: str = "",
+        chapter_words: Optional[int] = None,
+    ) -> tuple[str, str]:
+        system = CHAPTER_SYSTEM
+        if chapter_words:
+            system += f"\n\n篇幅要求：本章目标约 {chapter_words} 字，请严格控制篇幅，不要超出太多。"
+        if self._style_instruction:
+            system += f"\n\n{self._style_instruction}"
+
+        research_text = research if research.strip() else "暂无参考资料"
+        opinions_text = opinions if opinions.strip() else "（无预设论点，自行判断）"
+        user_prompt = CHAPTER_USER.format(
+            topic=topic,
+            outline=outline,
+            chapter_title=chapter_title,
+            opinions=opinions_text,
+            research=research_text,
+        )
+        if review_feedback.strip():
+            user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
+        return system, user_prompt
+
     async def write(
         self,
         topic: str,
         outline: str,
         chapter_title: str,
         research: str,
+        opinions: str = "",
         review_feedback: str = "",
+        chapter_words: Optional[int] = None,
     ) -> str:
-        """
-        调用 LLM 写章节正文。
-        research 为空时 prompt 中显示"暂无参考资料"。
-        review_feedback 非空时在 prompt 末尾追加审稿意见，用于重写场景。
-        style 非空时在 system prompt 末尾追加风格指令。
-        """
-        system = CHAPTER_SYSTEM
-        if self._style_instruction:
-            system += f"\n\n{self._style_instruction}"
-
-        research_text = research if research.strip() else "暂无参考资料"
-        user_prompt = CHAPTER_USER.format(
-            topic=topic,
-            outline=outline,
-            chapter_title=chapter_title,
-            research=research_text,
+        system, user_prompt = self._build_prompt(
+            topic, outline, chapter_title, research, opinions, review_feedback, chapter_words
         )
-        if review_feedback.strip():
-            user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
         return await self._call_llm(system, user_prompt)
+
+    async def write_stream(
+        self,
+        topic: str,
+        outline: str,
+        chapter_title: str,
+        research: str,
+        opinions: str = "",
+        review_feedback: str = "",
+        chapter_words: Optional[int] = None,
+    ):
+        """流式写章节，异步 yield token，调用方负责拼接完整内容"""
+        system, user_prompt = self._build_prompt(
+            topic, outline, chapter_title, research, opinions, review_feedback, chapter_words
+        )
+        async for token in self._stream_llm(system, user_prompt):
+            yield token

@@ -7,6 +7,8 @@ const API_BASE = 'http://localhost:8000'
 const SSE_EVENT_TYPES: SSEEventType[] = [
   'stage_update',
   'outline_ready',
+  'generating_opinions',
+  'opinions_ready',
   'searching',
   'writing_chapter',
   'reviewing_chapter',
@@ -49,12 +51,13 @@ export function useJobStream(
         const res = await fetch(`${API_BASE}/jobs/${jobId}/events`)
         if (!res.ok || cancelled) return
         const { events } = await res.json() as { events: Array<{ event: string; data: Record<string, unknown> }> }
+        console.log('[useJobStream] replaying', events.length, 'events')
         for (const e of events) {
           if (cancelled) return
           onEventRef.current(e.event as SSEEventType, e.data)
         }
-      } catch {
-        // 历史回放失败不阻断 SSE 连接
+      } catch (err) {
+        console.error('[useJobStream] replay error', err)
       }
 
       // Step 2: 建立 SSE 长连接接收新事件

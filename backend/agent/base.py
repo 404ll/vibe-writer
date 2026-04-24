@@ -22,3 +22,19 @@ class BaseAgent:
             messages=[{"role": "user", "content": user}],
         )
         return message.content[0].text
+
+    async def _stream_llm(self, system: str, user: str, max_tokens: int = 2048):
+        """流式 LLM 调用，异步 yield 每个文本 token"""
+        async with await self._client.messages.create(
+            model=os.environ.get("MODEL_ID", "kimi-k2.5"),
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+            stream=True,
+        ) as stream:
+            async for event in stream:
+                if (
+                    event.type == "content_block_delta"
+                    and hasattr(event.delta, "text")
+                ):
+                    yield event.delta.text

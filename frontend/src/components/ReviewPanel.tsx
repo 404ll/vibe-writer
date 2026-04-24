@@ -11,17 +11,31 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
   return (
     <div
       className="card"
-      style={{ borderLeft: '3px solid var(--accent)', paddingLeft: '13px', flexShrink: 0 }}
+      style={{ width: '100%', maxWidth: '620px', flexShrink: 0 }}
     >
       <div className="card-label">大纲确认</div>
-      <h3 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 500, color: 'var(--text-h)' }}>
-        大纲已生成，请确认
-      </h3>
-      <ol style={{ margin: '0 0 8px', paddingLeft: '18px', fontSize: '13px', color: 'var(--text)', lineHeight: '1.85' }}>
+      <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-h)', margin: '0 0 10px' }}>
+        共 {outline.length} 个章节，确认后开始写作
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
         {outline.map((ch, i) => (
-          <li key={i}>{ch}</li>
+          <div
+            key={i}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 8px',
+              background: 'var(--input-bg)',
+              borderRadius: '6px',
+              fontSize: '12px', color: 'var(--text)',
+            }}
+          >
+            <span style={{ fontSize: '9px', color: 'var(--text-label)', fontWeight: 600, width: '16px', flexShrink: 0 }}>
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            {ch}
+          </div>
         ))}
-      </ol>
+      </div>
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>
         如需调整，在下方输入修改意见；直接点击确认则按此大纲写作。
       </p>

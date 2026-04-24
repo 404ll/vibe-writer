@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import type { InterventionConfig } from '../types'
+import { WORD_COUNT_OPTIONS } from '../types'
 
 const PRESET_STYLES = ['技术博客', '科普', '教程', '自定义'] as const
 type PresetStyle = typeof PRESET_STYLES[number] | ''
 
 interface Props {
-  onSubmit: (topic: string, intervention: InterventionConfig, style: string) => void
+  onSubmit: (topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) => void
   disabled: boolean
 }
 
@@ -14,11 +15,12 @@ export function InputPanel({ onSubmit, disabled }: Props) {
   const [onOutline, setOnOutline] = useState(true)
   const [selectedStyle, setSelectedStyle] = useState<PresetStyle>('')
   const [customStyle, setCustomStyle] = useState('')
+  const [targetWords, setTargetWords] = useState<number | null>(null)
 
   function handleSubmit() {
     if (!topic.trim()) return
     const style = selectedStyle === '自定义' ? customStyle.trim() : selectedStyle
-    onSubmit(topic, { on_outline: onOutline }, style)
+    onSubmit(topic, { on_outline: onOutline }, style, targetWords)
   }
 
   return (
@@ -69,47 +71,99 @@ export function InputPanel({ onSubmit, disabled }: Props) {
         </button>
       </div>
 
-      {/* 介入配置 + 风格选择 */}
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text)', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={onOutline}
-            onChange={(e) => setOnOutline(e.target.checked)}
-            disabled={disabled}
-          />
-          大纲生成后介入
-        </label>
+      {/* 分隔线 */}
+      <div style={{ height: '1px', background: 'var(--border)', margin: '0 -2px' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <label htmlFor="style-select" style={{ fontSize: '13px', color: 'var(--text)', whiteSpace: 'nowrap' }}>
-            写作风格
-          </label>
-          <select
-            id="style-select"
-            value={selectedStyle}
-            onChange={(e) => setSelectedStyle(e.target.value as PresetStyle)}
-            disabled={disabled}
-            style={{
-              padding: '5px 28px 5px 10px',
-              border: '1px solid var(--border-input)',
-              borderRadius: '5px',
-              fontSize: '13px',
-              color: disabled ? 'var(--text-muted)' : 'var(--text-h)',
-              background: `${disabled ? 'var(--input-bg)' : 'var(--card-bg)'} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a09880' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center`,
-              fontFamily: 'var(--sans)',
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              appearance: 'none',
-              WebkitAppearance: 'none',
-              minWidth: '88px',
-            }}
-          >
-            <option value="">不指定</option>
-            {PRESET_STYLES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+      {/* 介入配置 — pill 行 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-label)', fontWeight: 500, width: '52px', flexShrink: 0 }}>大纲介入</span>
+        {(['开启', '关闭'] as const).map((opt) => {
+          const isOn = opt === '开启'
+          const active = onOutline === isOn
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => !disabled && setOnOutline(isOn)}
+              disabled={disabled}
+              style={{
+                padding: '3px 10px',
+                borderRadius: '99px',
+                fontSize: '12px',
+                border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border-input)'}`,
+                color: active ? 'var(--card-bg)' : 'var(--text)',
+                background: active ? 'var(--accent)' : 'var(--input-bg)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--sans)',
+                transition: 'all 0.15s',
+                opacity: disabled ? 0.6 : 1,
+              }}
+            >
+              {active && opt === '开启' ? '✓ 开启' : opt}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 写作风格 — pill 行 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-label)', fontWeight: 500, width: '52px', flexShrink: 0 }}>写作风格</span>
+        {(['', ...PRESET_STYLES] as const).map((opt) => {
+          const label = opt === '' ? '不指定' : opt
+          const active = selectedStyle === opt
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => !disabled && setSelectedStyle(opt as PresetStyle)}
+              disabled={disabled}
+              style={{
+                padding: '3px 10px',
+                borderRadius: '99px',
+                fontSize: '12px',
+                border: `1.5px solid ${active ? 'var(--accent-active)' : 'var(--border-input)'}`,
+                color: active ? 'var(--accent-active)' : 'var(--text)',
+                background: active ? '#fff3e8' : 'var(--input-bg)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--sans)',
+                transition: 'all 0.15s',
+                opacity: disabled ? 0.6 : 1,
+              }}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 篇幅限制 — pill 行 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-label)', fontWeight: 500, width: '52px', flexShrink: 0 }}>篇幅</span>
+        {WORD_COUNT_OPTIONS.map((opt) => {
+          const active = targetWords === opt.words
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => !disabled && setTargetWords(opt.words)}
+              disabled={disabled}
+              style={{
+                padding: '3px 10px',
+                borderRadius: '99px',
+                fontSize: '12px',
+                border: `1.5px solid ${active ? 'var(--accent-active)' : 'var(--border-input)'}`,
+                color: active ? 'var(--accent-active)' : 'var(--text)',
+                background: active ? '#fff3e8' : 'var(--input-bg)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--sans)',
+                transition: 'all 0.15s',
+                opacity: disabled ? 0.6 : 1,
+              }}
+            >
+              {opt.words ? `${opt.label}（~${opt.words}字）` : opt.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* 自定义风格输入框 */}

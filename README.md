@@ -1,7 +1,74 @@
-# vibe-writer 产品设计文档
+# vibe-writer
 
-**日期：** 2026-04-23  
-**状态：** 待实现
+输入主题，AI 帮你写一篇完整文章。
+
+---
+
+## 快速启动
+
+### 环境要求
+
+- Python 3.11+
+- Node.js 18+
+
+### 1. 配置环境变量
+
+复制 `.env.example` 为 `.env`，填入 API Key：
+
+```bash
+cp .env.example .env
+```
+
+`.env` 需要包含：
+
+```
+ANTHROPIC_API_KEY=your_key
+TAVILY_API_KEY=your_key
+
+# 可选：使用自定义 LLM 端点（默认走 Anthropic 官方）
+# ANTHROPIC_BASE_URL=https://...
+# MODEL_ID=claude-opus-4-5
+```
+
+### 2. 启动后端
+
+```bash
+# 安装依赖
+python3 -m pip install -r requirements.txt
+
+# 启动（开发模式，文件变更自动重载）
+python3 -m uvicorn backend.main:app --reload
+```
+
+后端运行在 `http://localhost:8000`。
+
+### 3. 启动前端
+
+```bash
+cd frontend
+
+# 安装依赖（首次）
+npm install
+
+# 启动开发服务器
+npm run dev
+```
+
+前端运行在 `http://localhost:5173`，打开浏览器访问即可。
+
+### 运行测试
+
+```bash
+# 后端测试
+python3 -m pytest
+
+# 前端测试
+cd frontend && npm test
+```
+
+---
+
+## 技术架构
 
 ---
 

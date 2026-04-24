@@ -27,7 +27,8 @@
   --text-on-accent:    #fff;
   --stage-idle-bg:     #ede8df;
 
-  --accent-ring:    rgba(92, 74, 50, 0.16);
+  --accent-ring:    rgba(249, 115, 22, 0.35);
+  --accent-active:  #f97316;
 
   --shadow: 0 1px 3px rgba(60, 40, 10, 0.05);
 
@@ -100,8 +101,14 @@ code {
     to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes pulse-ring {
-    0%, 100% { box-shadow: 0 0 0 3px var(--accent-ring); }
-    50%       { box-shadow: 0 0 0 5px var(--accent-ring); }
+    0%, 100% {
+      box-shadow: 0 0 0 0px var(--accent-ring);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 0 6px var(--accent-ring);
+      transform: scale(1.12);
+    }
   }
   @keyframes spin {
     from { transform: rotate(0deg); }
@@ -142,8 +149,8 @@ code {
 .prose h1 { font-size: 1.6em; }
 .prose h2 { font-size: 1.3em; }
 .prose h3 { font-size: 1.1em; }
-.prose p { margin: 0.8em 0; }
-.prose ul, .prose ol { padding-left: 1.5em; margin: 0.8em 0; }
+.prose p { margin: 1em 0; }
+.prose ul, .prose ol { padding-left: 1.5em; margin: 1em 0; }
 .prose li { margin: 0.3em 0; }
 .prose code {
   background: var(--input-bg);
@@ -171,6 +178,33 @@ code {
   padding-left: 12px;
   color: var(--text-muted);
   margin: 0.8em 0;
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  /* Main two-column layout → single column */
+  .app-body {
+    flex-direction: column !important;
+  }
+
+  /* Activity panel: full width, fixed height on mobile */
+  .activity-col {
+    width: 100% !important;
+    max-height: 200px;
+  }
+
+  /* Hero zone: no bottom padding offset */
+  .hero-zone {
+    padding-bottom: 0 !important;
+    justify-content: flex-start !important;
+    padding-top: 12px;
+  }
+
+  /* Stage panel: allow wrapping on small screens */
+  .stage-panel-inner {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
 }
 
 /* ── Skeleton loader ── */

@@ -6,17 +6,24 @@ interface Props {
 }
 
 const STATUS_ICON: Record<ActivityEntry['status'], string> = {
-  running: '⟳',
-  success: '✓',
-  failed:  '✗',
-  info:    '→',
+  running: '◌',
+  success: '✦',
+  failed:  '✕',
+  info:    '◎',
 }
 
 const STATUS_COLOR: Record<ActivityEntry['status'], string> = {
-  running: 'var(--accent)',
+  running: 'var(--accent-active)',
   success: 'var(--success)',
   failed:  'var(--danger)',
   info:    'var(--text-muted)',
+}
+
+const STATUS_BG: Record<ActivityEntry['status'], string> = {
+  running: 'transparent',
+  success: 'var(--success-bg)',
+  failed:  'var(--danger-bg)',
+  info:    'transparent',
 }
 
 export function ActivityPanel({ entries }: Props) {
@@ -33,10 +40,10 @@ export function ActivityPanel({ entries }: Props) {
       aria-live="polite"
       className="card"
       style={{
-        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        maxHeight: 'calc(55vh - 28px)',
         padding: '14px 16px',
       }}
     >
@@ -51,11 +58,13 @@ export function ActivityPanel({ entries }: Props) {
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
-                gap: '8px',
-                padding: '4px 0',
-                fontSize: '12.5px',
+                gap: '7px',
+                padding: '4px 6px',
+                marginBottom: '2px',
+                borderRadius: '5px',
+                fontSize: '12px',
                 lineHeight: '1.5',
-                borderBottom: '1px solid var(--bg)',
+                background: STATUS_BG[entry.status],
                 animationName: 'slideInRight',
                 animationDuration: '0.2s',
                 animationTimingFunction: 'ease-out',
@@ -67,17 +76,24 @@ export function ActivityPanel({ entries }: Props) {
                 style={{
                   color: STATUS_COLOR[entry.status],
                   flexShrink: 0,
-                  width: '14px',
+                  width: '13px',
+                  fontSize: '11px',
+                  marginTop: '1px',
                   display: 'inline-block',
                   animationName: entry.status === 'running' ? 'spin' : 'none',
-                  animationDuration: '1s',
+                  animationDuration: '1.2s',
                   animationTimingFunction: 'linear',
                   animationIterationCount: 'infinite',
                 }}
               >
                 {STATUS_ICON[entry.status]}
               </span>
-              <span style={{ color: entry.status === 'failed' ? 'var(--danger)' : 'var(--text)' }}>
+              <span style={{
+                color: entry.status === 'failed' ? 'var(--danger)'
+                     : entry.status === 'success' ? 'var(--success-text)'
+                     : 'var(--text)',
+                flex: 1,
+              }}>
                 {entry.message}
               </span>
             </div>
