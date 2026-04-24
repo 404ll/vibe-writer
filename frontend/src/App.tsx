@@ -5,50 +5,51 @@ import { InputPanel } from './components/InputPanel'
 import { StagePanel } from './components/StagePanel'
 import { ReviewPanel } from './components/ReviewPanel'
 import { ActivityPanel } from './components/ActivityPanel'
+import { WritingPreview } from './components/WritingPreview'
 import { useJobStream } from './hooks/useJobStream'
 import { HistoryPanel } from './components/HistoryPanel'
 import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from './types'
 
 const API_BASE = 'http://localhost:8000'
 
-const INITIAL_JOB: JobState = {
-  jobId: '',
-  stage: 'plan',
-  outline: null,
-  chapters: [],
-  error: null,
+const STORAGE_KEY = 'vibe_active_job_id'
+
+function makeEmptyJob(jobId: string): JobState {
+  return { jobId, stage: 'plan', outline: null, chapters: [], error: null }
 }
 
 let activityIdCounter = 0
 
 export default function App() {
   const navigate = useNavigate()
-  const [job, setJob] = useState<JobState | null>(null)
+  // 刷新时从 localStorage 恢复 jobId，让历史事件回放重建 UI
+  const [job, setJob] = useState<JobState | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return saved ? makeEmptyJob(saved) : null
+  })
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
-  const [chapterStatus, setChapterStatus] = useState<Record<string, 'searching' | 'writing' | 'reviewing' | 'done'>>({})
+  const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>>({})
+  // 滑动窗口写作预览：记录最新活跃章节和累积 token
+  const [writingState, setWritingState] = useState<{ title: string; buffer: string } | null>(null)
 
   function addActivity(status: ActivityEntry['status'], message: string) {
     setActivityLog((prev) => [...prev, { id: ++activityIdCounter, status, message }])
   }
 
   const handleEvent = useCallback((type: SSEEventType, data: Record<string, unknown>) => {
-    let reviewUpdate: boolean | null = null
-
+    console.log('[SSE]', type, data)
     setJob((prev) => {
       if (!prev) return prev
       switch (type) {
         case 'stage_update':
           return { ...prev, stage: data.stage as JobState['stage'] }
         case 'outline_ready':
-          reviewUpdate = true
           return { ...prev, outline: data.outline as string[] }
         case 'done':
-          reviewUpdate = false
           return { ...prev, stage: 'done' }
         case 'cancelled':
-          reviewUpdate = false
           return { ...prev, stage: 'error', error: '已取消' }
         case 'error':
           return { ...prev, stage: 'error', error: data.message as string }
@@ -57,18 +58,40 @@ export default function App() {
       }
     })
 
+    // awaitingReview — 直接在外层处理，避免在 setJob updater 内赋值副作用
+    if (type === 'outline_ready') setAwaitingReview(true)
+    if (type === 'done' || type === 'cancelled') setAwaitingReview(false)
+
     // 活动日志
     switch (type) {
+      case 'generating_opinions':
+        addActivity('running', `生成论点：${data.title as string}`)
+        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'forming_opinion' }))
+        break
+      case 'opinions_ready':
+        addActivity('info', `论点就绪：${data.title as string}`)
+        break
       case 'searching':
         addActivity('running', `搜索中：${data.title as string}`)
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'searching' }))
         break
-      case 'writing_chapter':
-        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'writing' }))
+      case 'writing_chapter': {
+        const title = data.title as string
+        const token = data.token as string | undefined
+        if (token !== undefined) {
+          setWritingState((prev) =>
+            prev?.title === title
+              ? { title, buffer: prev.buffer + token }
+              : { title, buffer: token }
+          )
+          setChapterStatus((prev) => ({ ...prev, [title]: 'writing' }))
+        }
         break
+      }
       case 'reviewing_chapter':
         addActivity('running', `轻审中：${data.title as string}`)
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'reviewing' }))
+        setWritingState((prev) => prev?.title === (data.title as string) ? null : prev)
         break
       case 'chapter_done': {
         const review = data.review as ReviewResult | undefined
@@ -96,19 +119,22 @@ export default function App() {
       }
       case 'done':
         addActivity('success', '文章已生成')
+        setWritingState(null)
+        localStorage.removeItem(STORAGE_KEY)
         if (data.article_id) {
           setTimeout(() => navigate(`/articles/${data.article_id}`), 800)
         }
         break
       case 'cancelled':
         addActivity('info', '任务已取消')
+        setWritingState(null)
+        localStorage.removeItem(STORAGE_KEY)
         break
       case 'error':
         addActivity('failed', `错误：${data.message as string}`)
         break
     }
 
-    if (reviewUpdate !== null) setAwaitingReview(reviewUpdate)
   }, [navigate])
 
   useJobStream(job?.jobId ?? null, handleEvent)
@@ -120,10 +146,12 @@ export default function App() {
       body: JSON.stringify({ topic, intervention, style }),
     })
     const { job_id } = await res.json()
-    setJob({ ...INITIAL_JOB, jobId: job_id })
+    localStorage.setItem(STORAGE_KEY, job_id)
+    setJob(makeEmptyJob(job_id))
     setCompletedChapters(0)
     setAwaitingReview(false)
     setActivityLog([])
+    setWritingState(null)
     setChapterStatus({})
   }
 
@@ -143,6 +171,7 @@ export default function App() {
   }
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
+  const isScrollable = isRunning || awaitingReview
 
   return (
     <Routes>
@@ -156,35 +185,42 @@ export default function App() {
           minHeight: 0,
         }}>
           {/* Body: left + right */}
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+          <div className="app-body" style={{ display: 'flex', gap: '12px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+
+            {/* Pipeline 左侧纵向栏 */}
+            {job && (
+              <StagePanel
+                currentStage={job.stage}
+                completedChapters={completedChapters}
+                totalChapters={job.outline?.length ?? 0}
+                chapterStatus={chapterStatus}
+                outline={job.outline ?? []}
+              />
+            )}
 
             {/* Left column */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-              {/* Hero zone — vertically centered when idle */}
-              <div style={{
+              {/* Hero zone — vertically centered when idle, scrollable when running */}
+              <div className="hero-zone" style={{
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: isScrollable ? 'flex-start' : 'center',
                 gap: '10px',
-                paddingBottom: isRunning ? 0 : '60px',
+                paddingBottom: isScrollable ? '16px' : '60px',
+                paddingTop: isScrollable ? '16px' : 0,
                 minHeight: 0,
+                overflowY: isScrollable ? 'auto' : 'visible',
               }}>
                 <InputPanel
                   onSubmit={handleSubmit}
                   disabled={isRunning}
                 />
 
-                {job && (
-                  <StagePanel
-                    currentStage={job.stage}
-                    completedChapters={completedChapters}
-                    totalChapters={job.outline?.length ?? 0}
-                    chapterStatus={chapterStatus}
-                    outline={job.outline ?? []}
-                  />
+                {writingState && job?.stage === 'write' && (
+                  <WritingPreview title={writingState.title} buffer={writingState.buffer} />
                 )}
 
                 {isRunning && (
@@ -259,13 +295,12 @@ export default function App() {
                 )}
               </div>
 
-              {/* History strip — bottom */}
-              <HistoryPanel currentJob={job} />
             </div>
 
-            {/* Right column: activity log */}
-            <div style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* Right column: activity log + history */}
+            <div className="activity-col" style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <ActivityPanel entries={activityLog} />
+              <HistoryPanel currentJob={job} />
             </div>
 
           </div>
