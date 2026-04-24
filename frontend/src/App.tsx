@@ -21,19 +21,21 @@ export default function App() {
   const [completedChapters, setCompletedChapters] = useState(0)
 
   const handleEvent = useCallback((type: SSEEventType, data: Record<string, unknown>) => {
+    let reviewUpdate: boolean | null = null
+
     setJob((prev) => {
       if (!prev) return prev
       switch (type) {
         case 'stage_update':
           return { ...prev, stage: data.stage as JobState['stage'] }
         case 'outline_ready':
-          setAwaitingReview(true)
+          reviewUpdate = true
           return { ...prev, outline: data.outline as string[] }
         case 'chapter_done':
           setCompletedChapters((n) => n + 1)
           return prev
         case 'done':
-          setAwaitingReview(false)
+          reviewUpdate = false
           return { ...prev, stage: 'done' }
         case 'error':
           return { ...prev, stage: 'error', error: data.message as string }
@@ -41,6 +43,10 @@ export default function App() {
           return prev
       }
     })
+
+    if (reviewUpdate !== null) {
+      setAwaitingReview(reviewUpdate)
+    }
   }, [])
 
   useJobStream(job?.jobId ?? null, handleEvent)
@@ -59,12 +65,12 @@ export default function App() {
 
   async function handleConfirm(reply: string) {
     if (!job) return
-    setAwaitingReview(false)
     await fetch(`${API_BASE}/jobs/${job.jobId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: reply }),
     })
+    setAwaitingReview(false)
   }
 
   return (
