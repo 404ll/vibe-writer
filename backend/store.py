@@ -1,15 +1,16 @@
 import asyncio
 from typing import Optional
-from backend.models import JobState, JobRequest, InterventionConfig
+from backend.models import JobState, JobRequest, InterventionConfig, SSEEvent
 
 class JobStore:
     """
     内存中的 Job 状态存储。
 
-    每个 Job 有三张表：
+    每个 Job 有四张表：
     - _jobs:         job_id → JobState，保存完整状态
     - _reply_events: job_id → asyncio.Event，用于阻塞等待用户回复
     - _replies:      job_id → str，保存用户最新回复内容
+    - _event_logs:   job_id → list[SSEEvent]，保存历史事件供重连回放
 
     设计模式：Singleton（模块底部的 job_store 实例）
     单进程单线程（asyncio），不需要加锁。
@@ -19,15 +20,17 @@ class JobStore:
         self._jobs: dict[str, JobState] = {}
         self._reply_events: dict[str, asyncio.Event] = {}
         self._replies: dict[str, str] = {}
+        self._event_logs: dict[str, list[SSEEvent]] = {}
 
     def create_job(self, topic: str, intervention=None) -> JobState:
-        """创建新 Job，分配 UUID，初始化对应的 asyncio.Event"""
+        """创建新 Job，分配 UUID，初始化对应的 asyncio.Event 和 event_log"""
         job = JobState(
             topic=topic,
             intervention=intervention or InterventionConfig(),
         )
         self._jobs[job.id] = job
         self._reply_events[job.id] = asyncio.Event()
+        self._event_logs[job.id] = []
         return job
 
     def get(self, job_id: str) -> Optional[JobState]:
@@ -61,6 +64,15 @@ class JobStore:
         if event:
             await event.wait()
         return self._replies.get(job_id, "")
+
+    def append_event(self, job_id: str, event: SSEEvent):
+        """追加事件到历史日志，供重连时回放"""
+        if job_id in self._event_logs:
+            self._event_logs[job_id].append(event)
+
+    def get_events(self, job_id: str) -> list[SSEEvent]:
+        """返回该 job 的全部历史事件"""
+        return self._event_logs.get(job_id, [])
 
 # 全局单例，供 routers 和 orchestrator 共享同一份状态
 job_store = JobStore()

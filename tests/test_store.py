@@ -1,21 +1,30 @@
-import asyncio
 import pytest
 from backend.store import JobStore
-from backend.models import JobState, StageStatus
+from backend.models import SSEEvent
 
-def test_create_job():
+def test_event_log_empty_on_create():
     store = JobStore()
-    job = store.create_job("AI Agents 入门")
-    assert job.id is not None
-    assert job.topic == "AI Agents 入门"
-    assert job.stage == StageStatus.PLAN
+    job = store.create_job("测试主题")
+    assert store.get_events(job.id) == []
 
-def test_get_job_returns_none_for_unknown():
+def test_append_event_stores_event():
     store = JobStore()
-    assert store.get("nonexistent-id") is None
+    job = store.create_job("测试主题")
+    event = SSEEvent(event="stage_update", data={"stage": "plan"})
+    store.append_event(job.id, event)
+    events = store.get_events(job.id)
+    assert len(events) == 1
+    assert events[0].event == "stage_update"
 
-def test_set_reply_unblocks_wait():
+def test_append_multiple_events_preserves_order():
     store = JobStore()
-    job = store.create_job("test topic")
-    store.set_reply(job.id, "user reply text")
-    assert store.get_reply(job.id) == "user reply text"
+    job = store.create_job("测试主题")
+    store.append_event(job.id, SSEEvent(event="stage_update", data={"stage": "plan"}))
+    store.append_event(job.id, SSEEvent(event="outline_ready", data={"outline": ["章节一"]}))
+    store.append_event(job.id, SSEEvent(event="done", data={}))
+    events = store.get_events(job.id)
+    assert [e.event for e in events] == ["stage_update", "outline_ready", "done"]
+
+def test_get_events_unknown_job_returns_empty():
+    store = JobStore()
+    assert store.get_events("nonexistent-id") == []
