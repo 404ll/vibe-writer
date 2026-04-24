@@ -14,7 +14,8 @@
   --text-label:   #b0a090;
 
   --accent:       #5c4a32;
-  --accent-done:  #7a6248;
+  --accent-hover: #4a3a26;
+  --accent-done:  #7a6248; /* used in component inline styles */
   --success:      #5c7a4a;
   --danger:       #8b3a3a;
 
@@ -22,6 +23,7 @@
 
   --sans: 'DM Sans', system-ui, sans-serif;
   --hand: 'Kalam', cursive;
+  --mono: 'SF Mono', 'Fira Code', monospace;
 
   font: 16px/1.5 var(--sans);
   color: var(--text);
@@ -47,7 +49,7 @@ h2 { font-size: 15px; margin: 0 0 8px; }
 p  { margin: 0; }
 
 code {
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   padding: 1px 5px;
   background: var(--input-bg);
@@ -95,5 +97,5 @@ code {
   white-space: nowrap;
   transition: background 0.15s;
 }
-.btn-primary:hover   { background: #4a3a26; }
+.btn-primary:hover   { background: var(--accent-hover); }
 .btn-primary:disabled { background: var(--text-muted); cursor: not-allowed; }
