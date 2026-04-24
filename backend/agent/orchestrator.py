@@ -84,7 +84,7 @@ class Orchestrator:
                 "review": {"passed": review.passed, "feedback": review.feedback},
             },
         ))
-        return {"title": chapter_title, "content": content, "index": index}
+        return {"title": chapter_title, "content": content, "index": index, "research": research}
 
     async def run(self):
         job = job_store.get(self.job_id)
@@ -127,7 +127,18 @@ class Orchestrator:
             self._write_chapter(title, outline_text, i)
             for i, title in enumerate(chapters)
         ]
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Check for failures
+        errors = [(i, r) for i, r in enumerate(results) if isinstance(r, Exception)]
+        if errors:
+            error_msgs = "; ".join(f"章节{i+1}: {r}" for i, r in errors)
+            job.error = f"章节写作失败: {error_msgs}"
+            job.stage = StageStatus.ERROR
+            job_store.update(job)
+            await push_event(self.job_id, SSEEvent(event="error", data={"message": job.error}))
+            return
+
         # gather 保证结果顺序与任务顺序一致；sort 作为保险
         written_chapters = sorted(results, key=lambda r: r["index"])
 
@@ -156,10 +167,10 @@ class Orchestrator:
                     topic=self.topic,
                     outline=outline_text,
                     chapter_title=ch["title"],
-                    research="",
+                    research=ch.get("research", ""),
                     review_feedback=result.feedback,
                 )
-                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i}
+                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", "")}
 
         job.chapters = written_chapters
         job_store.update(job)
