@@ -154,6 +154,19 @@ class Orchestrator:
                         ))
                     content = "".join(rewrite_parts)
 
+                    # 二次审：重写后再审一次，不通过则 log warning 并接受当前内容
+                    await push_event(self.job_id, SSEEvent(
+                        event="reviewing_chapter", data={"title": chapter_title}
+                    ))
+                    review2 = await self._reviewer.review_chapter(
+                        chapter_title=chapter_title,
+                        content=content,
+                        outline=outline_text,
+                    )
+                    if not review2.passed:
+                        log.warning("[%s] rewrite still failed  chapter=%r  feedback=%r",
+                                    self.job_id[:8], chapter_title, review2.feedback[:80])
+
                 await push_event(self.job_id, SSEEvent(
                     event="chapter_done",
                     data={
@@ -311,7 +324,24 @@ class Orchestrator:
             rewrite_results = await asyncio.gather(*rewrite_tasks)
             for i, new_content in rewrite_results:
                 ch = written_chapters[i]
-                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", "")}
+                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", ""), "opinions": ch.get("opinions", "")}
+
+            # 二次全文审：重写后再审一次
+            full_results2 = await self._reviewer.review_full(
+                topic=self.topic,
+                chapters=written_chapters,
+            )
+            rewrite_tasks2 = [
+                _rewrite(i, written_chapters[i], result.feedback)
+                for i, result in enumerate(full_results2)
+                if not result.passed
+            ]
+            if rewrite_tasks2:
+                rewrite_results2 = await asyncio.gather(*rewrite_tasks2)
+                for i, new_content in rewrite_results2:
+                    ch = written_chapters[i]
+                    written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", ""), "opinions": ch.get("opinions", "")}
+                    log.warning("[%s] full_review still failed after rewrite  chapter=%r", self.job_id[:8], ch["title"])
 
         job.chapters = written_chapters
         job_store.update(job)

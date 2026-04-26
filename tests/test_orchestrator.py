@@ -393,3 +393,110 @@ async def test_export_saves_article_to_db(monkeypatch):
     assert article is not None
     assert article.topic == "测试主题"
     assert article.word_count > 0
+
+
+@pytest.mark.asyncio
+async def test_write_chapter_second_review_after_rewrite(monkeypatch):
+    """轻审不通过 → 重写 → 二次审（共调用 review_chapter 2 次）"""
+    events = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一"])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("观点内容", ["query1"]))
+
+    async def fake_write_stream(**kwargs):
+        yield "内容"
+
+    mock_writer = MagicMock()
+    mock_writer.write_stream = fake_write_stream
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    # 第1次轻审 FAILED，第2次轻审 PASSED
+    mock_reviewer.review_chapter = AsyncMock(side_effect=[
+        ReviewResult(passed=False, feedback="内容过短"),
+        ReviewResult(passed=True, feedback=""),
+    ])
+    mock_reviewer.review_full = AsyncMock(
+        return_value=[ReviewResult(passed=True, feedback="")]
+    )
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    # review_chapter 被调用 2 次（初审 + 二次审）
+    assert mock_reviewer.review_chapter.call_count == 2
+    event_types = [e.event for e in events]
+    assert "done" in event_types
+
+
+@pytest.mark.asyncio
+async def test_full_review_second_pass_after_rewrite(monkeypatch):
+    """全文重审不通过 → 重写 → 二次全文审（review_full 共调用 2 次）"""
+    events = []
+
+    async def fake_push(job_id, event):
+        events.append(event)
+
+    monkeypatch.setattr("backend.agent.orchestrator.push_event", fake_push)
+
+    mock_planner = MagicMock()
+    mock_planner.plan = AsyncMock(return_value=["章节一"])
+
+    mock_search = MagicMock()
+    mock_search.search = AsyncMock(return_value="")
+
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("观点内容", ["query1"]))
+
+    async def fake_write_stream(**kwargs):
+        yield "内容"
+
+    mock_writer = MagicMock()
+    mock_writer.write_stream = fake_write_stream
+    mock_writer.write = AsyncMock(return_value="重写内容")
+
+    from backend.agent.reviewer import ReviewResult
+    mock_reviewer = MagicMock()
+    mock_reviewer.review_chapter = AsyncMock(return_value=ReviewResult(passed=True, feedback=""))
+    # 第1次全文审 FAILED，第2次全文审 PASSED
+    mock_reviewer.review_full = AsyncMock(side_effect=[
+        [ReviewResult(passed=False, feedback="逻辑不清")],
+        [ReviewResult(passed=True, feedback="")],
+    ])
+
+    store = JobStore()
+    job = store.create_job("测试主题")
+
+    with patch("backend.agent.orchestrator.job_store", store), \
+         patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
+         patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
+         patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
+         patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
+        orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
+        await orch.run()
+
+    # review_full 被调用 2 次
+    assert mock_reviewer.review_full.call_count == 2
+    event_types = [e.event for e in events]
+    assert "done" in event_types
