@@ -346,12 +346,13 @@ class Orchestrator:
         job.chapters = written_chapters
         job_store.update(job)
 
+        final_results = full_results2 if rewrite_tasks else full_results
         await push_event(self.job_id, SSEEvent(
             event="review_done",
             data={
                 "results": [
                     {"title": written_chapters[i]["title"], "passed": r.passed, "feedback": r.feedback}
-                    for i, r in enumerate(full_results)
+                    for i, r in enumerate(final_results)
                 ]
             },
         ))
@@ -398,7 +399,6 @@ class Orchestrator:
     @staticmethod
     def _count_words(text: str) -> int:
         """简单字数统计：中文按字符数，英文按空格分词"""
-        import re
         chinese = len(re.findall(r'[\u4e00-\u9fff]', text))
         english = len(re.findall(r'[a-zA-Z]+', text))
         return chinese + english

@@ -403,7 +403,14 @@ async def test_export_saves_article_to_db(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
+    async def fake_write_stream_db(**kwargs):
+        yield "章节内容"
+
     mock_writer = MagicMock()
+    mock_writer.write_stream = fake_write_stream_db
     mock_writer.write = AsyncMock(return_value="章节内容")
 
     from backend.agent.reviewer import ReviewResult
@@ -416,6 +423,7 @@ async def test_export_saves_article_to_db(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
