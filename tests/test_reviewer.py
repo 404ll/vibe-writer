@@ -7,7 +7,7 @@ from backend.agent.reviewer import ReviewAgent, ReviewResult
 async def test_review_chapter_passed():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="PASSED")]
+    mock_message.content = [MagicMock(text='{"passed": true, "feedback": ""}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -26,7 +26,7 @@ async def test_review_chapter_passed():
 async def test_review_chapter_failed():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="FAILED\n理由：内容过短\n建议：补充实际案例")]
+    mock_message.content = [MagicMock(text='{"passed": false, "feedback": "内容过短，建议补充实际案例"}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -45,7 +45,7 @@ async def test_review_chapter_failed():
 async def test_review_full_returns_per_chapter_results():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="章节1: PASSED\n章节2: FAILED\n理由：逻辑跳跃\n建议：加过渡段")]
+    mock_message.content = [MagicMock(text='{"results": [{"passed": true, "feedback": ""}, {"passed": false, "feedback": "逻辑跳跃，建议加过渡段"}]}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
