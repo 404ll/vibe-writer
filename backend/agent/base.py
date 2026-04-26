@@ -1,5 +1,9 @@
 import os
+import json
+import logging
 import anthropic
+
+log = logging.getLogger("vibe.base")
 
 class BaseAgent:
     """
@@ -22,6 +26,15 @@ class BaseAgent:
             messages=[{"role": "user", "content": user}],
         )
         return message.content[0].text
+
+    async def _call_llm_json(self, system: str, user: str, max_tokens: int = 512) -> dict:
+        """调用 LLM 并解析 JSON 响应。解析失败时返回空 dict 并 log warning。"""
+        raw = await self._call_llm(system, user, max_tokens)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            log.warning("JSON parse failed, raw=%r", raw[:200])
+            return {}
 
     async def _stream_llm(self, system: str, user: str, max_tokens: int = 2048):
         """流式 LLM 调用，异步 yield 每个文本 token"""
