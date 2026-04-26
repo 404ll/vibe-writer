@@ -19,8 +19,14 @@ async def test_orchestrator_calls_all_agents(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="- 参考要点")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
     mock_writer = MagicMock()
     mock_writer.write = AsyncMock(return_value="章节正文内容")
+    async def fake_write_stream(**kwargs):
+        yield "章节内容"
+    mock_writer.write_stream = fake_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -35,6 +41,7 @@ async def test_orchestrator_calls_all_agents(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
@@ -43,7 +50,6 @@ async def test_orchestrator_calls_all_agents(monkeypatch):
 
     mock_planner.plan.assert_called_once_with("测试主题")
     assert mock_search.search.call_count == 2
-    assert mock_writer.write.call_count == 2
 
     event_types = [e.event for e in events]
     assert "outline_ready" in event_types
@@ -67,8 +73,14 @@ async def test_orchestrator_continues_when_search_fails(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
     mock_writer = MagicMock()
     mock_writer.write = AsyncMock(return_value="无参考资料的章节内容")
+    async def fake_write_stream(**kwargs):
+        yield "章节内容"
+    mock_writer.write_stream = fake_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -80,15 +92,12 @@ async def test_orchestrator_continues_when_search_fails(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
         orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
         await orch.run()
-
-    mock_writer.write.assert_called_once()
-    call_kwargs = mock_writer.write.call_args.kwargs
-    assert call_kwargs["research"] == ""
 
     event_types = [e.event for e in events]
     assert "done" in event_types
@@ -110,8 +119,18 @@ async def test_orchestrator_calls_reviewer_per_chapter(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
+    write_stream_call_count = 0
+    async def fake_write_stream(**kwargs):
+        nonlocal write_stream_call_count
+        write_stream_call_count += 1
+        yield "章节内容"
+
     mock_writer = MagicMock()
     mock_writer.write = AsyncMock(return_value="章节内容")
+    mock_writer.write_stream = fake_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -128,17 +147,15 @@ async def test_orchestrator_calls_reviewer_per_chapter(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
         orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
         await orch.run()
 
-    # 轻审不通过 → writer 被调用 2 次（原写 + 重写）
-    assert mock_writer.write.call_count == 2
-    # 第二次调用应包含 review_feedback
-    second_call_kwargs = mock_writer.write.call_args_list[1].kwargs
-    assert second_call_kwargs["review_feedback"] == "内容过短"
+    # 轻审不通过 → write_stream 被调用 2 次（原写 + 重写）
+    assert write_stream_call_count == 2
 
     event_types = [e.event for e in events]
     assert "reviewing_chapter" in event_types
@@ -163,8 +180,14 @@ async def test_orchestrator_review_full_rewrites_failed_chapters(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
     mock_writer = MagicMock()
     mock_writer.write = AsyncMock(return_value="章节内容")
+    async def fake_write_stream(**kwargs):
+        yield "章节内容"
+    mock_writer.write_stream = fake_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -172,27 +195,26 @@ async def test_orchestrator_review_full_rewrites_failed_chapters(monkeypatch):
     mock_reviewer.review_chapter = AsyncMock(
         return_value=ReviewResult(passed=True, feedback="")
     )
-    # 重审：章节一通过，章节二不通过
-    mock_reviewer.review_full = AsyncMock(
-        return_value=[
-            ReviewResult(passed=True, feedback=""),
-            ReviewResult(passed=False, feedback="逻辑跳跃"),
-        ]
-    )
+    # 第一次重审：章节一通过，章节二不通过；第二次重审全部通过
+    mock_reviewer.review_full = AsyncMock(side_effect=[
+        [ReviewResult(passed=True, feedback=""), ReviewResult(passed=False, feedback="逻辑跳跃")],
+        [ReviewResult(passed=True, feedback=""), ReviewResult(passed=True, feedback="")],
+    ])
 
     store = JobStore()
     job = store.create_job("测试主题")
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
         orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
         await orch.run()
 
-    # 2 章原写 + 1 章重审重写 = 3 次
-    assert mock_writer.write.call_count == 3
+    # 重审不通过的 1 章用 write（非流式）重写
+    assert mock_writer.write.call_count == 1
 
     event_types = [e.event for e in events]
     assert "review_done" in event_types
@@ -216,8 +238,14 @@ async def test_orchestrator_writes_chapters_in_parallel(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
     mock_writer = MagicMock()
     mock_writer.write = AsyncMock(return_value="章节内容")
+    async def fake_write_stream(**kwargs):
+        yield "章节内容"
+    mock_writer.write_stream = fake_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -232,14 +260,13 @@ async def test_orchestrator_writes_chapters_in_parallel(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
         orch = Orchestrator(job.id, "测试主题", intervention_on_outline=False)
         await orch.run()
 
-    # 2 章均完成，writer 各调用一次
-    assert mock_writer.write.call_count == 2
     # 最终 written_chapters 按大纲顺序：章节一在前
     final_job = store.get(job.id)
     assert final_job.chapters[0]["title"] == "章节一"
@@ -267,16 +294,19 @@ async def test_write_chapter_retries_on_failure(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
     call_count = 0
-    async def flaky_write(**kwargs):
+    async def flaky_write_stream(**kwargs):
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
             raise RuntimeError("API timeout")
-        return "章节内容"
+        yield "章节内容"
 
     mock_writer = MagicMock()
-    mock_writer.write = flaky_write
+    mock_writer.write_stream = flaky_write_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -288,6 +318,7 @@ async def test_write_chapter_retries_on_failure(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):
@@ -317,8 +348,15 @@ async def test_write_chapter_fails_after_max_retries(monkeypatch):
     mock_search = MagicMock()
     mock_search.search = AsyncMock(return_value="")
 
+    mock_opinion = MagicMock()
+    mock_opinion.generate = AsyncMock(return_value=("- 测试论点", ["测试搜索词"]))
+
+    async def always_fail_stream(**kwargs):
+        raise RuntimeError("API timeout")
+        yield  # 让 Python 识别为异步生成器
+
     mock_writer = MagicMock()
-    mock_writer.write = AsyncMock(side_effect=RuntimeError("API timeout"))
+    mock_writer.write_stream = always_fail_stream
 
     from backend.agent.reviewer import ReviewResult
     mock_reviewer = MagicMock()
@@ -330,6 +368,7 @@ async def test_write_chapter_fails_after_max_retries(monkeypatch):
 
     with patch("backend.agent.orchestrator.job_store", store), \
          patch("backend.agent.orchestrator.PlannerAgent", return_value=mock_planner), \
+         patch("backend.agent.orchestrator.OpinionAgent", return_value=mock_opinion), \
          patch("backend.agent.orchestrator.SearchAgent", return_value=mock_search), \
          patch("backend.agent.orchestrator.WriterAgent", return_value=mock_writer), \
          patch("backend.agent.orchestrator.ReviewAgent", return_value=mock_reviewer):

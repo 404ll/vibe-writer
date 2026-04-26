@@ -18,9 +18,10 @@ async def test_search_returns_research_string():
     mock_llm_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.search.TavilyClient", return_value=mock_tavily), \
-         patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_llm_client):
+         patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_llm_client), \
+         patch.dict("os.environ", {"TAVILY_API_KEY": "test-key"}):
         agent = SearchAgent()
-        result = await agent.search("AI Agent 入门")
+        result = await agent.search(queries=["AI Agent 入门"], opinions="")
 
     assert "Agent" in result
     assert isinstance(result, str)
@@ -33,7 +34,7 @@ async def test_search_returns_empty_string_on_failure():
 
     with patch("backend.agent.search.TavilyClient", return_value=mock_tavily):
         agent = SearchAgent()
-        result = await agent.search("任意主题")
+        result = await agent.search(queries=["任意主题"], opinions="")
 
     assert result == ""
 
@@ -45,6 +46,6 @@ async def test_search_returns_empty_string_when_no_results():
 
     with patch("backend.agent.search.TavilyClient", return_value=mock_tavily):
         agent = SearchAgent()
-        result = await agent.search("任意主题")
+        result = await agent.search(queries=["任意主题"], opinions="")
 
     assert result == ""
