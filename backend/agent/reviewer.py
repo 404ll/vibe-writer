@@ -70,6 +70,8 @@ class ReviewAgent(BaseAgent):
                 passed=bool(r.get("passed", True)),
                 feedback=r.get("feedback", ""),
             )
+            if isinstance(r, dict)
+            else ReviewResult(passed=True, feedback="")
             for r in data["results"]
         ]
         # 数量不匹配时用 PASSED 填充（容错）
