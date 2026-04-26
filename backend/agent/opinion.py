@@ -29,8 +29,8 @@ class OpinionAgent(BaseAgent):
             log.warning("opinion generate: JSON parse failed  chapter=%r", chapter_title)
             return "", []
 
-        opinions_list = data.get("opinions", [])
-        search_queries = data.get("search_queries", [])
+        opinions_list = [o for o in data.get("opinions", []) if isinstance(o, str)]
+        search_queries = [q for q in data.get("search_queries", []) if isinstance(q, str)]
         opinions_text = "\n".join(f"- {o}" for o in opinions_list)
 
         log.info("opinions generated  chapter=%r  opinions=%r", chapter_title, opinions_text[:100])
