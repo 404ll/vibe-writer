@@ -42,7 +42,8 @@ class Orchestrator:
         self._planner = PlannerAgent()
         self._opinion = OpinionAgent()
         self._search = SearchAgent()
-        self._writer = WriterAgent(style=style)
+        # search_fn 注入给 Writer，让它在写作时自主搜索
+        self._writer = WriterAgent(style=style, search_fn=self._search.search_one)
         self._reviewer = ReviewAgent()
 
     def _safe_filename(self, text: str, max_len: int = 30) -> str:
@@ -71,7 +72,7 @@ class Orchestrator:
                 if job_store.is_cancelled(self.job_id):
                     raise asyncio.CancelledError("用户取消")
 
-                # 生成论点
+                # 生成论点（Writer 后续会据此自主搜索）
                 await push_event(self.job_id, SSEEvent(
                     event="generating_opinions",
                     data={"title": chapter_title},
@@ -89,27 +90,15 @@ class Orchestrator:
                     data={"title": chapter_title, "opinions": opinions_text},
                 ))
 
-                await push_event(self.job_id, SSEEvent(
-                    event="searching",
-                    data={"title": chapter_title, **({"retry": attempt} if attempt > 0 else {})},
-                ))
-                t0 = time.monotonic()
-                research = await self._search.search(
-                    queries=search_queries,
-                    opinions=opinions_text,
-                )
-                log.info("[%s] search done  chapter=%r  len=%d  has_research=%s  elapsed=%.2fs",
-                         self.job_id[:8], chapter_title, len(research), bool(research.strip()), time.monotonic() - t0)
-
-                # 流式写作：每个 token 实时推送给前端
+                # 流式写作：Writer 内部自主搜索，每个 token 实时推送给前端
                 t1 = time.monotonic()
                 content_parts: list[str] = []
                 async for token in self._writer.write_stream(
                     topic=self.topic,
                     outline=outline_text,
                     chapter_title=chapter_title,
-                    research=research,
                     opinions=opinions_text,
+                    search_hints=search_queries,
                     chapter_words=chapter_words,
                 ):
                     content_parts.append(token)
@@ -142,7 +131,6 @@ class Orchestrator:
                         topic=self.topic,
                         outline=outline_text,
                         chapter_title=chapter_title,
-                        research=research,
                         opinions=opinions_text,
                         review_feedback=review.feedback,
                         chapter_words=chapter_words,
@@ -175,7 +163,7 @@ class Orchestrator:
                         "review": {"passed": review.passed, "feedback": review.feedback},
                     },
                 ))
-                return {"title": chapter_title, "content": content, "index": index, "research": research, "opinions": opinions_text}
+                return {"title": chapter_title, "content": content, "index": index, "opinions": opinions_text}
 
             except asyncio.CancelledError:
                 raise  # 取消信号不能被重试逻辑吞掉，直接向上传播
@@ -308,7 +296,6 @@ class Orchestrator:
                 topic=self.topic,
                 outline=outline_text,
                 chapter_title=ch["title"],
-                research=ch.get("research", ""),
                 opinions=ch.get("opinions", ""),
                 review_feedback=feedback,
                 chapter_words=chapter_words,
@@ -320,17 +307,19 @@ class Orchestrator:
             for i, result in enumerate(full_results)
             if not result.passed
         ]
+        final_results = full_results
         if rewrite_tasks:
             rewrite_results = await asyncio.gather(*rewrite_tasks)
             for i, new_content in rewrite_results:
                 ch = written_chapters[i]
-                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", ""), "opinions": ch.get("opinions", "")}
+                written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "opinions": ch.get("opinions", "")}
 
             # 二次全文审：重写后再审一次
             full_results2 = await self._reviewer.review_full(
                 topic=self.topic,
                 chapters=written_chapters,
             )
+            final_results = full_results2
             rewrite_tasks2 = [
                 _rewrite(i, written_chapters[i], result.feedback)
                 for i, result in enumerate(full_results2)
@@ -340,13 +329,11 @@ class Orchestrator:
                 rewrite_results2 = await asyncio.gather(*rewrite_tasks2)
                 for i, new_content in rewrite_results2:
                     ch = written_chapters[i]
-                    written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "research": ch.get("research", ""), "opinions": ch.get("opinions", "")}
+                    written_chapters[i] = {"title": ch["title"], "content": new_content, "index": i, "opinions": ch.get("opinions", "")}
                     log.warning("[%s] full_review still failed after rewrite  chapter=%r", self.job_id[:8], ch["title"])
 
         job.chapters = written_chapters
         job_store.update(job)
-
-        final_results = full_results2 if rewrite_tasks else full_results
         await push_event(self.job_id, SSEEvent(
             event="review_done",
             data={

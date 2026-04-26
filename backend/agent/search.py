@@ -46,6 +46,30 @@ class SearchAgent(BaseAgent):
             log.warning("search failed  query=%r  err=%s", query, e)
             return []
 
+    async def search_one(self, query: str) -> str:
+        """
+        Writer 工具调用的入口：单次搜索并提炼结果。
+        供 WriterAgent 通过 search_fn 注入后按需调用。
+        """
+        if not os.environ.get("TAVILY_API_KEY"):
+            log.warning("search_one skipped (no TAVILY_API_KEY)")
+            return "（搜索不可用）"
+
+        results = await self._search_one(query)
+        if not results:
+            return "（未找到相关资料）"
+
+        snippets = "\n\n".join(
+            f"[{i+1}] {r['content']}" for i, r in enumerate(results)
+        )
+        distilled = await self._call_llm(
+            RESEARCH_SYSTEM,
+            RESEARCH_USER.format(query=query, snippets=snippets),
+            max_tokens=600,
+        )
+        log.info("search_one done  query=%r  len=%d", query, len(distilled))
+        return distilled
+
     async def search(self, queries: list[str], opinions: str) -> str:
         """
         根据论点驱动的搜索词列表搜索并提炼参考资料。

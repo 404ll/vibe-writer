@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Callable, Awaitable
 from backend.agent.base import BaseAgent
 from backend.agent.prompts import CHAPTER_SYSTEM, CHAPTER_USER
 
@@ -8,25 +8,53 @@ STYLE_PROMPTS = {
     "教程":     "写作风格：手把手教学，步骤清晰，每步有预期结果，适合初学者跟随操作。",
 }
 
+# Writer 可调用的工具定义（Anthropic tool_use 格式）
+WRITER_TOOLS = [
+    {
+        "name": "search",
+        "description": "搜索与当前章节相关的资料。当你需要具体数据、案例或技术细节来支撑论点时调用。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜索词，5-15 字，聚焦于能找到支撑证据或数据的角度",
+                }
+            },
+            "required": ["query"],
+        },
+    }
+]
+
+
 class WriterAgent(BaseAgent):
     """
-    负责根据章节标题、大纲和参考资料撰写章节正文。
-    输入：topic, outline, chapter_title, research, style（可选）
-    输出：章节正文 Markdown 字符串
+    负责根据章节标题、大纲和核心论点撰写章节正文。
+
+    从流水线 Agent 升级为自主 Agent：
+    - 不再被动接收 research，而是在写作过程中主动调用 search 工具
+    - 通过 _call_llm_with_tools 实现 ReAct loop
+    - search_fn 由外部注入，保持 WriterAgent 与搜索实现解耦
     """
 
-    def __init__(self, style: str = ""):
+    def __init__(
+        self,
+        style: str = "",
+        search_fn: Optional[Callable[[str], Awaitable[str]]] = None,
+    ):
         super().__init__()
-        # 预设风格取对应指令；自定义风格原样使用；空字符串不注入
         self._style_instruction = STYLE_PROMPTS.get(style, style)
+        # 注入的搜索函数：async (query: str) -> str
+        # 为 None 时 Writer 仍可运行，只是没有搜索能力
+        self._search_fn = search_fn
 
     def _build_prompt(
         self,
         topic: str,
         outline: str,
         chapter_title: str,
-        research: str,
         opinions: str,
+        search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
     ) -> tuple[str, str]:
@@ -35,16 +63,21 @@ class WriterAgent(BaseAgent):
             system += f"\n\n篇幅要求：本章目标约 {chapter_words} 字，请严格控制篇幅，不要超出太多。"
         if self._style_instruction:
             system += f"\n\n{self._style_instruction}"
+        if self._search_fn:
+            system += "\n\n你可以调用 search 工具获取资料，在需要具体数据或案例时主动搜索，搜索次数不超过 3 次。"
 
-        research_text = research if research.strip() else "暂无参考资料"
         opinions_text = opinions if opinions.strip() else "（无预设论点，自行判断）"
+        hints_text = ""
+        if search_hints:
+            hints_text = "\n\n搜索方向建议（可参考，也可自行判断）：\n" + "\n".join(f"- {q}" for q in search_hints)
+
         user_prompt = CHAPTER_USER.format(
             topic=topic,
             outline=outline,
             chapter_title=chapter_title,
             opinions=opinions_text,
-            research=research_text,
-        )
+            research="（请通过 search 工具自行获取所需资料）" if self._search_fn else "暂无参考资料",
+        ) + hints_text
         if review_feedback.strip():
             user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
         return system, user_prompt
@@ -54,14 +87,21 @@ class WriterAgent(BaseAgent):
         topic: str,
         outline: str,
         chapter_title: str,
-        research: str,
         opinions: str = "",
+        search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
     ) -> str:
         system, user_prompt = self._build_prompt(
-            topic, outline, chapter_title, research, opinions, review_feedback, chapter_words
+            topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
         )
+        if self._search_fn:
+            return await self._call_llm_with_tools(
+                system=system,
+                user=user_prompt,
+                tools=WRITER_TOOLS,
+                tool_handlers={"search": lambda query: self._search_fn(query)},
+            )
         return await self._call_llm(system, user_prompt)
 
     async def write_stream(
@@ -69,14 +109,26 @@ class WriterAgent(BaseAgent):
         topic: str,
         outline: str,
         chapter_title: str,
-        research: str,
         opinions: str = "",
+        search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
     ):
-        """流式写章节，异步 yield token，调用方负责拼接完整内容"""
+        """流式写章节，异步 yield token，调用方负责拼接完整内容。
+        注意：tool_use 阶段（搜索中）不产生 token，前端会有短暂停顿。
+        """
         system, user_prompt = self._build_prompt(
-            topic, outline, chapter_title, research, opinions, review_feedback, chapter_words
+            topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
         )
-        async for token in self._stream_llm(system, user_prompt):
-            yield token
+        if self._search_fn:
+            # tool_use 模式不支持真正的流式，先完整生成再 yield
+            content = await self._call_llm_with_tools(
+                system=system,
+                user=user_prompt,
+                tools=WRITER_TOOLS,
+                tool_handlers={"search": lambda query: self._search_fn(query)},
+            )
+            yield content
+        else:
+            async for token in self._stream_llm(system, user_prompt):
+                yield token
