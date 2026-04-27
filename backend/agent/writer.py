@@ -8,46 +8,49 @@ STYLE_PROMPTS = {
     "教程":     "写作风格：手把手教学，步骤清晰，每步有预期结果，适合初学者跟随操作。",
 }
 
-# Writer 可调用的工具定义（Anthropic tool_use 格式）
-WRITER_TOOLS = [
-    {
-        "name": "search",
-        "description": "搜索与当前章节相关的资料。当你需要具体数据、案例或技术细节来支撑论点时调用。",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "搜索词，5-15 字，聚焦于能找到支撑证据或数据的角度",
-                }
+# 始终可用的工具
+DIAGRAM_TOOL = {
+    "name": "generate_diagram",
+    "description": (
+        "为当前章节生成一张 Mermaid 图表。"
+        "当章节涉及流程、架构、状态机、时序等结构性内容时调用。"
+        "纯概念性或叙述性章节不需要配图。"
+    ),
+    "input_schema": {
+        "type": "object",
+        "required": ["diagram_type", "mermaid_code"],
+        "properties": {
+            "diagram_type": {
+                "type": "string",
+                "enum": ["flowchart", "sequenceDiagram", "stateDiagram", "graph"],
+                "description": "图表类型",
             },
-            "required": ["query"],
+            "mermaid_code": {
+                "type": "string",
+                "description": "完整的 Mermaid 代码，不含 ```mermaid 包裹",
+            },
         },
     },
-    {
-        "name": "generate_diagram",
-        "description": (
-            "为当前章节生成一张 Mermaid 图表。"
-            "当章节涉及流程、架构、状态机、时序等结构性内容时调用。"
-            "纯概念性或叙述性章节不需要配图。"
-        ),
-        "input_schema": {
-            "type": "object",
-            "required": ["diagram_type", "mermaid_code"],
-            "properties": {
-                "diagram_type": {
-                    "type": "string",
-                    "enum": ["flowchart", "sequenceDiagram", "stateDiagram", "graph"],
-                    "description": "图表类型",
-                },
-                "mermaid_code": {
-                    "type": "string",
-                    "description": "完整的 Mermaid 代码，不含 ```mermaid 包裹",
-                },
-            },
+}
+
+# search 工具（仅当 search_fn 注入时使用）
+SEARCH_TOOL = {
+    "name": "search",
+    "description": "搜索与当前章节相关的资料。当你需要具体数据、案例或技术细节来支撑论点时调用。",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "搜索词，5-15 字，聚焦于能找到支撑证据或数据的角度",
+            }
         },
-    }
-]
+        "required": ["query"],
+    },
+}
+
+# 向后兼容（WRITER_TOOLS 保留，包含两个工具）
+WRITER_TOOLS = [SEARCH_TOOL, DIAGRAM_TOOL]
 
 
 class WriterAgent(BaseAgent):
@@ -122,17 +125,17 @@ class WriterAgent(BaseAgent):
         system, user_prompt = self._build_prompt(
             topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
         )
+        tools = [DIAGRAM_TOOL]
+        handlers = {"generate_diagram": self._handle_diagram}
         if self._search_fn:
-            return await self._call_llm_with_tools(
-                system=system,
-                user=user_prompt,
-                tools=WRITER_TOOLS,
-                tool_handlers={
-                    "search": lambda query: self._search_fn(query),
-                    "generate_diagram": self._handle_diagram,
-                },
-            )
-        return await self._call_llm(system, user_prompt)
+            tools = [SEARCH_TOOL, DIAGRAM_TOOL]
+            handlers["search"] = lambda query: self._search_fn(query)
+        return await self._call_llm_with_tools(
+            system=system,
+            user=user_prompt,
+            tools=tools,
+            tool_handlers=handlers,
+        )
 
     async def write_stream(
         self,
@@ -150,18 +153,16 @@ class WriterAgent(BaseAgent):
         system, user_prompt = self._build_prompt(
             topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
         )
+        tools = [DIAGRAM_TOOL]
+        handlers = {"generate_diagram": self._handle_diagram}
         if self._search_fn:
-            # tool_use 模式不支持真正的流式，先完整生成再 yield
-            content = await self._call_llm_with_tools(
-                system=system,
-                user=user_prompt,
-                tools=WRITER_TOOLS,
-                tool_handlers={
-                    "search": lambda query: self._search_fn(query),
-                    "generate_diagram": self._handle_diagram,
-                },
-            )
-            yield content
-        else:
-            async for token in self._stream_llm(system, user_prompt):
-                yield token
+            tools = [SEARCH_TOOL, DIAGRAM_TOOL]
+            handlers["search"] = lambda query: self._search_fn(query)
+        # tool_use 模式不支持真正的流式，先完整生成再 yield
+        content = await self._call_llm_with_tools(
+            system=system,
+            user=user_prompt,
+            tools=tools,
+            tool_handlers=handlers,
+        )
+        yield content
