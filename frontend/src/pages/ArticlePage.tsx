@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getArticle } from '../api'
+import { getArticle, patchArticle } from '../api'
 import type { ArticleDetail } from '../api'
 
 interface TocEntry {
@@ -36,6 +36,9 @@ export function ArticlePage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [activeSlug, setActiveSlug] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -70,6 +73,29 @@ export function ArticlePage() {
     a.download = `${article.topic}.md`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function handleEdit() {
+    if (!article) return
+    setEditContent(article.content)
+    setIsEditing(true)
+  }
+
+  async function handleSave() {
+    if (!article || !id) return
+    setSaving(true)
+    try {
+      await patchArticle(id, editContent)
+      setArticle({ ...article, content: editContent })
+      setIsEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleCancel() {
+    setIsEditing(false)
+    setEditContent('')
   }
 
   if (loading) {
@@ -130,13 +156,48 @@ export function ArticlePage() {
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>
           {article.word_count?.toLocaleString()} 字
         </span>
-        <button
-          className="btn-primary"
-          onClick={handleDownload}
-          style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
-        >
-          ↓ 下载
-        </button>
+        {isEditing ? (
+          <>
+            <button
+              className="btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
+            >
+              {saving ? '保存中…' : '✓ 保存'}
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{
+                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
+                background: 'none', border: '1px solid var(--border)',
+                borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)',
+              }}
+            >
+              ✕ 取消
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleEdit}
+              style={{
+                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
+                background: 'none', border: '1px solid var(--border)',
+                borderRadius: '4px', cursor: 'pointer', color: 'var(--text)',
+              }}
+            >
+              ✎ 编辑
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleDownload}
+              style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
+            >
+              ↓ 下载
+            </button>
+          </>
+        )}
       </header>
 
       {/* ── 主体 ── */}
@@ -198,18 +259,59 @@ export function ArticlePage() {
 
         {/* 正文 */}
         <main style={{ padding: '48px 0 100px', minWidth: 0 }}>
-          <div className="prose">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => <h1 id={slugify(String(children))}>{children}</h1>,
-                h2: ({ children }) => <h2 id={slugify(String(children))}>{children}</h2>,
-                h3: ({ children }) => <h3 id={slugify(String(children))}>{children}</h3>,
-              }}
-            >
-              {article.content}
-            </ReactMarkdown>
-          </div>
+          {isEditing ? (
+            /* 编辑态：左右分栏 */
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', height: 'calc(100vh - 120px)' }}>
+              {/* 左栏：预览 */}
+              <div style={{
+                overflowY: 'auto',
+                paddingRight: '16px',
+                borderRight: '1px solid var(--border)',
+              }}>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>预览</p>
+                <div className="prose">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {editContent}
+                  </ReactMarkdown>
+                </div>
+              </div>
+              {/* 右栏：编辑 */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <p style={{ fontSize: '11px', color: 'var(--accent)', marginBottom: '16px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>编辑 Markdown</p>
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  style={{
+                    flex: 1,
+                    border: '1.5px solid var(--accent)',
+                    borderRadius: '6px',
+                    padding: '16px',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    lineHeight: '1.7',
+                    color: 'var(--text)',
+                    background: 'var(--bg)',
+                    resize: 'none',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            /* 阅读态：原有渲染 */
+            <div className="prose">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ children }) => <h1 id={slugify(String(children))}>{children}</h1>,
+                  h2: ({ children }) => <h2 id={slugify(String(children))}>{children}</h2>,
+                  h3: ({ children }) => <h3 id={slugify(String(children))}>{children}</h3>,
+                }}
+              >
+                {article.content}
+              </ReactMarkdown>
+            </div>
+          )}
         </main>
 
         {/* 右侧空白占位（保持居中） */}
