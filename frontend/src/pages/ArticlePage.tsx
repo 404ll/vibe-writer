@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getArticle, patchArticle } from '../api'
-import type { ArticleDetail } from '../api'
+import { getArticle, patchArticle, getVersions, getVersion, restoreVersion } from '../api'
+import type { ArticleDetail, ArticleVersionSummary } from '../api'
 
 interface TocEntry {
   title: string
@@ -39,6 +39,10 @@ export function ArticlePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [versions, setVersions] = useState<ArticleVersionSummary[]>([])
+  const [previewContent, setPreviewContent] = useState<string | null>(null)
+  const [previewVersionId, setPreviewVersionId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -96,6 +100,31 @@ export function ArticlePage() {
   function handleCancel() {
     setIsEditing(false)
     setEditContent('')
+  }
+
+  async function handleShowHistory() {
+    if (!id) return
+    const list = await getVersions(id)
+    setVersions(list)
+    setPreviewContent(null)
+    setPreviewVersionId(null)
+    setShowHistory(true)
+  }
+
+  async function handlePreviewVersion(versionId: number) {
+    if (!id) return
+    const v = await getVersion(id, versionId)
+    setPreviewContent(v.content)
+    setPreviewVersionId(versionId)
+  }
+
+  async function handleRestoreVersion() {
+    if (!id || previewVersionId === null || !article) return
+    await restoreVersion(id, previewVersionId)
+    setArticle({ ...article, content: previewContent! })
+    setShowHistory(false)
+    setPreviewContent(null)
+    setPreviewVersionId(null)
   }
 
   if (loading) {
@@ -179,6 +208,16 @@ export function ArticlePage() {
           </>
         ) : (
           <>
+            <button
+              onClick={handleShowHistory}
+              style={{
+                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
+                background: 'none', border: '1px solid var(--border)',
+                borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)',
+              }}
+            >
+              历史
+            </button>
             <button
               onClick={handleEdit}
               style={{
@@ -318,6 +357,72 @@ export function ArticlePage() {
         <div />
 
       </div>
+
+      {/* 历史版本侧边栏 */}
+      {showHistory && (
+        <div style={{
+          position: 'fixed', top: 0, right: 0, bottom: 0, width: '360px',
+          background: 'var(--bg)', borderLeft: '1px solid var(--border)',
+          zIndex: 30, display: 'flex', flexDirection: 'column',
+          boxShadow: '-4px 0 16px rgba(0,0,0,0.08)',
+        }}>
+          {/* 侧边栏 header */}
+          <div style={{
+            padding: '16px 20px', borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontWeight: 600, fontSize: '14px' }}>历史版本</span>
+            <button
+              onClick={() => setShowHistory(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--text-muted)' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* 版本列表 */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+            {versions.map((v) => (
+              <div
+                key={v.id}
+                onClick={() => handlePreviewVersion(v.id)}
+                style={{
+                  padding: '12px 20px', cursor: 'pointer',
+                  background: previewVersionId === v.id ? 'var(--surface)' : 'transparent',
+                  borderLeft: previewVersionId === v.id ? '3px solid var(--accent)' : '3px solid transparent',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ fontSize: '13px', color: 'var(--text)' }}>
+                  {new Date(v.saved_at).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {v.word_count.toLocaleString()} 字
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 预览区 */}
+          {previewContent !== null && (
+            <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px', maxHeight: '40vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>预览</span>
+                <button
+                  className="btn-primary"
+                  onClick={handleRestoreVersion}
+                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                >
+                  恢复此版本
+                </button>
+              </div>
+              <div className="prose" style={{ fontSize: '12px' }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
