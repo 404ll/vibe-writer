@@ -89,7 +89,7 @@ async def get_version(article_id: str, version_id: int):
         version = await session.get(ArticleVersion, version_id)
         if not version or version.article_id != article_id:
             raise HTTPException(status_code=404, detail="Version not found")
-    return {"id": version.id, "content": version.content, "saved_at": version.saved_at.isoformat()}
+        return {"id": version.id, "content": version.content, "saved_at": version.saved_at.isoformat()}
 
 
 @router.post("/{article_id}/versions/{version_id}/restore")
