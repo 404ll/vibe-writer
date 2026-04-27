@@ -113,6 +113,8 @@ export function ArticlePage() {
       await patchArticle(id, editContent)
       setArticle({ ...article, content: editContent })
       setIsEditing(false)
+    } catch {
+      alert('保存失败，请重试')
     } finally {
       setSaving(false)
     }
@@ -141,11 +143,15 @@ export function ArticlePage() {
 
   async function handleRestoreVersion() {
     if (!id || previewVersionId === null || !article) return
-    await restoreVersion(id, previewVersionId)
-    setArticle({ ...article, content: previewContent! })
-    setShowHistory(false)
-    setPreviewContent(null)
-    setPreviewVersionId(null)
+    try {
+      await restoreVersion(id, previewVersionId)
+      setArticle({ ...article, content: previewContent! })
+      setShowHistory(false)
+      setPreviewContent(null)
+      setPreviewVersionId(null)
+    } catch {
+      alert('恢复失败，请重试')
+    }
   }
 
   if (loading) {

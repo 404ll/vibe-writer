@@ -54,18 +54,18 @@ async def test_restore_version():
             await session.refresh(article)
             article_id = article.id
 
-        # 保存 v2
+        # 保存 v2（PATCH 会把 v1 存为快照，再覆盖为 v2）
         await client.patch(f"/articles/{article_id}", json={"content": "v2 content"})
 
-        # 获取版本列表，拿到最新那条（v2 保存的）
+        # 获取版本列表，最新那条是 v1 的快照（保存前的旧内容）
         resp = await client.get(f"/articles/{article_id}/versions")
         versions = resp.json()["versions"]
-        version_id = versions[0]["id"]  # 最新的一条
+        version_id = versions[0]["id"]  # 最新快照 = v1
 
-        # 恢复
+        # 恢复 v1
         resp = await client.post(f"/articles/{article_id}/versions/{version_id}/restore")
         assert resp.status_code == 200
 
-        # 当前内容应该等于 v2
+        # 当前内容应该回到 v1
         resp = await client.get(f"/articles/{article_id}")
-        assert resp.json()["content"] == "v2 content"
+        assert resp.json()["content"] == "v1 content"

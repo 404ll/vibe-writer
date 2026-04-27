@@ -49,14 +49,15 @@ async def patch_article(article_id: str, req: ArticlePatchRequest):
         article = await session.get(Article, article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
-        article.content = req.content
-        article.word_count = len(req.content.replace(" ", ""))
-        version = ArticleVersion(
+        # 先把当前内容存为历史快照，再覆盖，防止原始版本丢失
+        old_version = ArticleVersion(
             article_id=article_id,
-            content=req.content,
+            content=article.content,
             word_count=article.word_count,
         )
-        session.add(version)
+        session.add(old_version)
+        article.content = req.content
+        article.word_count = len(req.content.replace(" ", ""))
         await session.commit()
     return {"status": "ok"}
 
