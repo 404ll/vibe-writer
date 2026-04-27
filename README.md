@@ -191,3 +191,45 @@ frontend/
 │   └── types.ts
 tests/                   pytest 单元测试
 ```
+
+---
+
+## 演进记录
+
+### v2：LangGraph 重构（2026-04）
+
+**动机：** 原版 `Orchestrator` 把业务逻辑、控制流、基础设施（SSE 推流、日志、重试）全部混在一起，`review 失败最多重写两次` 这类规则硬编码在 Python 里，难以修改和扩展。
+
+**核心变化：**
+
+| | v1（流水线） | v2（LangGraph） |
+|---|---|---|
+| 控制流 | Python `if/else` 硬编码 | 条件边 `should_rewrite()` |
+| 状态管理 | 全局可变 `JobStore` | 类型化 `WriterState`（TypedDict） |
+| 阶段追踪 | 手动维护 `StageStatus` 字段 | 图结构本身即状态，无需额外记录 |
+| 持久化 | 纯内存，重启丢失 | LangGraph checkpointer → SQLite |
+| 入口 | `Orchestrator.run()` | `graph.ainvoke(initial_state)` |
+
+**删除：** `backend/agent/orchestrator.py`
+
+**新增：** `backend/agent/graph.py`（节点 + 条件边 + `build_graph()`）
+
+详细思考过程记录在博客：[我把自己写的 AI 写作 Agent 重构了一遍](https://elemen-in-here.vercel.app/blog/frontend/vibe-writer-langgraph)
+
+### v3：文章编辑态 + 历史版本 + Mermaid 配图（2026-04）
+
+**动机：** 生成的文章需要能修改，修改需要有历史回溯；WriterAgent 在写作时应该能自主决定是否配图，而不是靠外部触发。
+
+**核心变化：**
+
+| 功能 | 实现方式 |
+|---|---|
+| 文章编辑态 | 结果页左右分栏（左预览、右 Markdown），手动保存 |
+| 历史版本 | 每次保存前自动存旧内容快照，侧边栏可预览 + 恢复 |
+| Mermaid 配图 | WriterAgent 新增 `generate_diagram` tool，LLM 自主决定是否调用 |
+| 前端渲染 | `MermaidBlock` 组件，阅读态和编辑预览均支持 Mermaid 渲染 |
+
+**新增：**
+- `backend/routers/articles.py`：`PATCH /{id}`、`GET /{id}/versions`、`POST /{id}/versions/{vid}/restore`
+- `backend/models_db.py`：`ArticleVersion` 表（全文快照）
+- `frontend/src/pages/ArticlePage.tsx`：编辑态、历史侧边栏、MermaidBlock
