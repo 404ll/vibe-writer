@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getArticle, patchArticle, getVersions, getVersion, restoreVersion } from '../api'
 import type { ArticleDetail, ArticleVersionSummary } from '../api'
+import mermaid from 'mermaid'
 
 interface TocEntry {
   title: string
@@ -29,6 +30,22 @@ function extractToc(markdown: string): TocEntry[] {
     .filter(Boolean) as TocEntry[]
 }
 
+function MermaidBlock({ code }: { code: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const idRef = useRef(`mermaid-${Math.random().toString(36).slice(2)}`)
+
+  useEffect(() => {
+    if (!ref.current) return
+    mermaid.render(idRef.current, code).then(({ svg }) => {
+      if (ref.current) ref.current.innerHTML = svg
+    }).catch(() => {
+      if (ref.current) ref.current.textContent = code
+    })
+  }, [code])
+
+  return <div ref={ref} style={{ margin: '16px 0' }} />
+}
+
 export function ArticlePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -51,6 +68,10 @@ export function ArticlePage() {
       .catch((e) => { if (e.message === 'Article not found') setNotFound(true) })
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral' })
+  }, [])
 
   useEffect(() => {
     if (!article) return
@@ -309,7 +330,16 @@ export function ArticlePage() {
               }}>
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>预览</p>
                 <div className="prose">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code: ({ className, children }) => {
+                        const lang = /language-(\w+)/.exec(className || '')?.[1]
+                        if (lang === 'mermaid') return <MermaidBlock code={String(children).trim()} />
+                        return <code className={className}>{children}</code>
+                      },
+                    }}
+                  >
                     {editContent}
                   </ReactMarkdown>
                 </div>
@@ -345,6 +375,11 @@ export function ArticlePage() {
                   h1: ({ children }) => <h1 id={slugify(String(children))}>{children}</h1>,
                   h2: ({ children }) => <h2 id={slugify(String(children))}>{children}</h2>,
                   h3: ({ children }) => <h3 id={slugify(String(children))}>{children}</h3>,
+                  code: ({ className, children }) => {
+                    const lang = /language-(\w+)/.exec(className || '')?.[1]
+                    if (lang === 'mermaid') return <MermaidBlock code={String(children).trim()} />
+                    return <code className={className}>{children}</code>
+                  },
                 }}
               >
                 {article.content}
