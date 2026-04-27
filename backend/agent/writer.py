@@ -23,6 +23,29 @@ WRITER_TOOLS = [
             },
             "required": ["query"],
         },
+    },
+    {
+        "name": "generate_diagram",
+        "description": (
+            "为当前章节生成一张 Mermaid 图表。"
+            "当章节涉及流程、架构、状态机、时序等结构性内容时调用。"
+            "纯概念性或叙述性章节不需要配图。"
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["diagram_type", "mermaid_code"],
+            "properties": {
+                "diagram_type": {
+                    "type": "string",
+                    "enum": ["flowchart", "sequenceDiagram", "stateDiagram", "graph"],
+                    "description": "图表类型",
+                },
+                "mermaid_code": {
+                    "type": "string",
+                    "description": "完整的 Mermaid 代码，不含 ```mermaid 包裹",
+                },
+            },
+        },
     }
 ]
 
@@ -82,6 +105,10 @@ class WriterAgent(BaseAgent):
             user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
         return system, user_prompt
 
+    async def _handle_diagram(self, diagram_type: str, mermaid_code: str) -> str:
+        """将 LLM 生成的 Mermaid 代码包装成 fenced code block 返回给 LLM"""
+        return f"```mermaid\n{mermaid_code}\n```\n\n（图表已生成，请将以上代码块插入章节正文的合适位置）"
+
     async def write(
         self,
         topic: str,
@@ -100,7 +127,10 @@ class WriterAgent(BaseAgent):
                 system=system,
                 user=user_prompt,
                 tools=WRITER_TOOLS,
-                tool_handlers={"search": lambda query: self._search_fn(query)},
+                tool_handlers={
+                    "search": lambda query: self._search_fn(query),
+                    "generate_diagram": self._handle_diagram,
+                },
             )
         return await self._call_llm(system, user_prompt)
 
@@ -126,7 +156,10 @@ class WriterAgent(BaseAgent):
                 system=system,
                 user=user_prompt,
                 tools=WRITER_TOOLS,
-                tool_handlers={"search": lambda query: self._search_fn(query)},
+                tool_handlers={
+                    "search": lambda query: self._search_fn(query),
+                    "generate_diagram": self._handle_diagram,
+                },
             )
             yield content
         else:
