@@ -39,3 +39,33 @@ async def test_article_versions_table_exists():
         assert len(versions) >= 1
         assert "saved_at" in versions[0]
         assert "word_count" in versions[0]
+
+
+@pytest.mark.asyncio
+async def test_restore_version():
+    """restore 后当前文章内容变成历史版本的内容"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        from backend.database import AsyncSessionLocal
+        from backend.models_db import Article
+        async with AsyncSessionLocal() as session:
+            article = Article(job_id="test-job-restore", topic="test", content="v1 content", word_count=10)
+            session.add(article)
+            await session.commit()
+            await session.refresh(article)
+            article_id = article.id
+
+        # 保存 v2
+        await client.patch(f"/articles/{article_id}", json={"content": "v2 content"})
+
+        # 获取版本列表，拿到最新那条（v2 保存的）
+        resp = await client.get(f"/articles/{article_id}/versions")
+        versions = resp.json()["versions"]
+        version_id = versions[0]["id"]  # 最新的一条
+
+        # 恢复
+        resp = await client.post(f"/articles/{article_id}/versions/{version_id}/restore")
+        assert resp.status_code == 200
+
+        # 当前内容应该等于 v2
+        resp = await client.get(f"/articles/{article_id}")
+        assert resp.json()["content"] == "v2 content"

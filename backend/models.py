@@ -37,3 +37,29 @@ class SSEEvent(BaseModel):
 
 class ReplyRequest(BaseModel):
     message: str
+
+
+# ── LangGraph 状态定义 ─────────────────────────────────────────
+
+from typing import TypedDict
+
+class ChapterState(TypedDict):
+    title: str
+    content: str
+    review_passed: bool
+    review_feedback: str
+    rewrite_count: int
+
+class WriterState(TypedDict):
+    topic: str
+    style: str
+    target_words: Optional[int]
+    outline: list[str]
+    chapters: list[ChapterState]
+    rewrite_count: int       # 全文重审轮次
+    error: Optional[str]
+    final_content: str
+
+
+class ArticlePatchRequest(BaseModel):
+    content: str
