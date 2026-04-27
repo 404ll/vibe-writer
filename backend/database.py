@@ -15,6 +15,6 @@ async def init_db():
     # 确保 data/ 目录存在（内存数据库时跳过）
     if not DATABASE_URL.startswith("sqlite+aiosqlite:///:memory:"):
         os.makedirs(os.path.join(os.path.dirname(__file__), "..", "data"), exist_ok=True)
-    from backend.models_db import Article  # noqa: F401 — 触发 Base 注册
+    from backend.models_db import Article, ArticleVersion  # noqa: F401 — 触发 Base 注册
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
