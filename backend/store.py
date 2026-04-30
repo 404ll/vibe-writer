@@ -72,6 +72,9 @@ class JobStore:
         return self._event_logs.get(job_id, [])
 
     def cancel(self, job_id: str):
+        # job 已 cleanup（不在 _cancel_flags）时忽略，避免重新写入内存
+        if job_id not in self._cancel_flags:
+            return
         self._cancel_flags[job_id] = True
         if job_id in self._reply_events:
             self._reply_events[job_id].set()

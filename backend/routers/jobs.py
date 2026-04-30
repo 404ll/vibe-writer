@@ -68,9 +68,7 @@ async def get_job_events(job_id: str):
 
 @router.post("/{job_id}/cancel")
 async def cancel_job(job_id: str):
-    """请求取消正在运行的任务。"""
-    if not job_store.exists(job_id):
-        raise HTTPException(status_code=404, detail="Job not found")
+    """请求取消正在运行的任务。job 已结束时幂等返回 ok。"""
     job_store.cancel(job_id)
     return {"status": "ok"}
 
