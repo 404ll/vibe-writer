@@ -102,7 +102,6 @@ async def _run_agent(job_id: str):
     checkpointer 用 async with 管理生命周期，确保连接在 job 结束后关闭。
     """
     from backend.agent.graph import build_graph
-    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
     meta = job_store.get_meta(job_id)
     if not meta:
@@ -120,18 +119,19 @@ async def _run_agent(job_id: str):
     }
 
     try:
-        async with AsyncSqliteSaver.from_conn_string("writer_checkpoints.db") as checkpointer:
-            graph = build_graph(
-                job_id=job_id,
-                style=meta["style"],
-                target_words=meta["target_words"],
-                push_event=push_event,
-                checkpointer=checkpointer,
-            )
-            await graph.ainvoke(
-                initial_state,
-                config={"configurable": {"thread_id": job_id}},
-            )
+        intervention = meta.get("intervention")
+        on_outline = intervention.on_outline if intervention else True
+        graph = build_graph(
+            job_id=job_id,
+            style=meta["style"],
+            target_words=meta["target_words"],
+            push_event=push_event,
+            wait_for_reply=job_store.wait_for_reply if on_outline else None,
+        )
+        await graph.ainvoke(
+            initial_state,
+            config={"configurable": {"thread_id": job_id}},
+        )
     except Exception as e:
         log.error("graph failed  job_id=%s  err=%s", job_id, e)
         await push_event(job_id, SSEEvent(event="error", data={"message": str(e)}))

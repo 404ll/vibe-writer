@@ -22,6 +22,7 @@ from backend.agent.reviewer import ReviewAgent
 log = logging.getLogger("vibe.graph")
 
 PushEventFn = Callable[[str, SSEEvent], Awaitable[None]]
+WaitForReplyFn = Callable[[str], Awaitable[str]]
 
 
 # ── Agent 工厂 ────────────────────────────────────────────────
@@ -37,11 +38,23 @@ def _make_agents(style: str, search_fn) -> dict:
 
 # ── 节点函数 ──────────────────────────────────────────────────
 
-async def plan_node(state: WriterState, agents: dict, job_id: str, push_event: PushEventFn) -> dict:
-    """生成大纲"""
+async def plan_node(
+    state: WriterState,
+    agents: dict,
+    job_id: str,
+    push_event: PushEventFn,
+    wait_for_reply: Optional[WaitForReplyFn] = None,
+) -> dict:
+    """生成大纲，若开启 human-in-the-loop 则挂起等待用户确认"""
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.PLAN}))
     chapters = await agents["planner"].plan(state["topic"])
     await push_event(job_id, SSEEvent(event="outline_ready", data={"outline": chapters}))
+
+    if wait_for_reply:
+        log.info("[%s] waiting for outline confirmation", job_id[:8])
+        await wait_for_reply(job_id)
+        log.info("[%s] outline confirmed", job_id[:8])
+
     log.info("[%s] plan done  chapters=%d", job_id[:8], len(chapters))
     return {
         "outline": chapters,
@@ -79,30 +92,69 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
             outline=outline_text,
             chapter_title=ch["title"],
         )
+        await push_event(job_id, SSEEvent(event="opinions_ready", data={"title": ch["title"]}))
 
-        content_parts: list[str] = []
-        async for token in agents["writer"].write_stream(
-            topic=state["topic"],
-            outline=outline_text,
+        # 包装 search_fn：在真正执行搜索前推送 searching 事件
+        base_search_fn = agents["writer"]._search_fn
+        async def _search_with_event(query: str) -> str:
+            await push_event(job_id, SSEEvent(event="searching", data={"title": ch["title"], "query": query}))
+            return await base_search_fn(query)
+
+        chapter_writer = WriterAgent(
+            style=agents["writer"]._style_instruction,
+            search_fn=_search_with_event if base_search_fn else None,
+        )
+
+        async def _write_content(feedback: str = "") -> str:
+            """写一次章节，返回完整内容字符串。"""
+            parts: list[str] = []
+            async for token in chapter_writer.write_stream(
+                topic=state["topic"],
+                outline=outline_text,
+                chapter_title=ch["title"],
+                opinions=opinions_text,
+                search_hints=search_queries,
+                chapter_words=chapter_words,
+                review_feedback=feedback,
+            ):
+                parts.append(token)
+                await push_event(job_id, SSEEvent(
+                    event="writing_chapter",
+                    data={"title": ch["title"], "token": token},
+                ))
+            return "".join(parts)
+
+        # 第一次写作
+        content = await _write_content(feedback=ch["review_feedback"])
+
+        # 轻审：检查连贯性和完整度
+        await push_event(job_id, SSEEvent(event="reviewing_chapter", data={"title": ch["title"]}))
+        light_review = await agents["reviewer"].review_chapter(
             chapter_title=ch["title"],
-            opinions=opinions_text,
-            search_hints=search_queries,
-            chapter_words=chapter_words,
-            review_feedback=ch["review_feedback"],
-        ):
-            content_parts.append(token)
-            await push_event(job_id, SSEEvent(
-                event="writing_chapter",
-                data={"title": ch["title"], "token": token},
-            ))
+            content=content,
+            outline=outline_text,
+        )
+        log.info("[%s] light review  title=%r  passed=%s", job_id[:8], ch["title"], light_review.passed)
 
+        if not light_review.passed:
+            # 轻审不通过：带着 feedback 重写一次，重写后直接接受（不再审）
+            log.info("[%s] rewriting chapter  title=%r", job_id[:8], ch["title"])
+            content = await _write_content(feedback=light_review.feedback)
+
+        await push_event(job_id, SSEEvent(
+            event="chapter_done",
+            data={
+                "title": ch["title"],
+                "review": {"passed": light_review.passed, "feedback": light_review.feedback},
+            },
+        ))
         log.info("[%s] chapter done  title=%r", job_id[:8], ch["title"])
         return ChapterState(
             title=ch["title"],
-            content="".join(content_parts),
-            review_passed=False,
-            review_feedback=ch["review_feedback"],
-            rewrite_count=ch["rewrite_count"],
+            content=content,
+            review_passed=False,          # 留给全文重审判断
+            review_feedback=light_review.feedback if not light_review.passed else "",
+            rewrite_count=ch["rewrite_count"] + (0 if light_review.passed else 1),
         )
 
     updated = list(await asyncio.gather(*[write_one(ch) for ch in state["chapters"]]))
@@ -161,8 +213,11 @@ async def export_node(state: WriterState, job_id: str, push_event: PushEventFn) 
     slug = re.sub(r'[^\w\-\u4e00-\u9fff]', '-', state["topic"])[:30].rstrip('-') or 'output'
     output_path = f"output/{slug}.md"
     os.makedirs("output", exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(markdown)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: open(output_path, "w", encoding="utf-8").write(markdown),
+    )
 
     log.info("[%s] export done  path=%r", job_id[:8], output_path)
     await push_event(job_id, SSEEvent(event="done", data={"output_path": output_path}))
@@ -187,7 +242,14 @@ def should_rewrite(state: WriterState) -> str:
 
 # ── 组装图 ────────────────────────────────────────────────────
 
-def build_graph(job_id: str, style: str, target_words: Optional[int], push_event: PushEventFn, checkpointer=None):
+def build_graph(
+    job_id: str,
+    style: str,
+    target_words: Optional[int],
+    push_event: PushEventFn,
+    checkpointer=None,
+    wait_for_reply: Optional[WaitForReplyFn] = None,
+):
     """
     构建并编译 LangGraph 图。
     每次任务创建时调用一次。
@@ -196,13 +258,14 @@ def build_graph(job_id: str, style: str, target_words: Optional[int], push_event
     LangGraph 节点签名只接收 state，但节点需要访问 agent 实例和 job_id。
     闭包让节点携带这些上下文，同时保持签名兼容。
 
+    wait_for_reply: 非 None 时，plan_node 在推送大纲后挂起等待用户确认（human-in-the-loop）。
     checkpointer 由调用方（_run_agent）管理生命周期，通过参数注入。
     """
     search = SearchAgent()
     agents = _make_agents(style=style, search_fn=search.search_one)
 
     async def _plan(state: WriterState):
-        return await plan_node(state, agents, job_id, push_event)
+        return await plan_node(state, agents, job_id, push_event, wait_for_reply)
 
     async def _write(state: WriterState):
         return await write_node(state, agents, job_id, push_event)

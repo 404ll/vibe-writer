@@ -43,16 +43,18 @@ def test_get_events_returns_404_for_unknown_job():
 
 def test_push_event_writes_to_event_log():
     """push_event 调用后，event_log 中有对应记录"""
+    import uuid
     from backend.routers.jobs import push_event
     from backend.store import job_store
 
     store = JobStore()
-    job = store.create_job("测试主题")
+    job_id = str(uuid.uuid4())
+    store.create_job(job_id=job_id, topic="测试主题")
 
     with patch("backend.routers.jobs.job_store", store):
         event = SSEEvent(event="stage_update", data={"stage": "plan"})
-        asyncio.get_event_loop().run_until_complete(push_event(job.id, event))
+        asyncio.get_event_loop().run_until_complete(push_event(job_id, event))
 
-    events = store.get_events(job.id)
+    events = store.get_events(job_id)
     assert len(events) == 1
     assert events[0].event == "stage_update"
