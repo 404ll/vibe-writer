@@ -127,11 +127,15 @@ async def _run_agent(job_id: str):
             target_words=meta["target_words"],
             push_event=push_event,
             wait_for_reply=job_store.wait_for_reply if on_outline else None,
+            is_cancelled=job_store.is_cancelled,
         )
         await graph.ainvoke(
             initial_state,
             config={"configurable": {"thread_id": job_id}},
         )
+    except asyncio.CancelledError:
+        log.info("job cancelled  job_id=%s", job_id)
+        await push_event(job_id, SSEEvent(event="cancelled", data={}))
     except Exception as e:
         log.error("graph failed  job_id=%s  err=%s", job_id, e)
         await push_event(job_id, SSEEvent(event="error", data={"message": str(e)}))

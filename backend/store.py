@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from typing import Optional
 from backend.models import SSEEvent, InterventionConfig
+
+log = logging.getLogger("vibe.store")
 
 
 class JobStore:
@@ -49,10 +52,13 @@ class JobStore:
     def get_reply(self, job_id: str) -> Optional[str]:
         return self._replies.get(job_id)
 
-    async def wait_for_reply(self, job_id: str) -> str:
+    async def wait_for_reply(self, job_id: str, timeout: float = 3600.0) -> str:
         event = self._reply_events.get(job_id)
         if event:
-            await event.wait()
+            try:
+                await asyncio.wait_for(event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                log.warning("wait_for_reply timed out  job_id=%s", job_id)
         return self._replies.get(job_id, "")
 
     def append_event(self, job_id: str, event: SSEEvent):

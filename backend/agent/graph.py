@@ -13,6 +13,8 @@ from typing import Optional, Callable, Awaitable
 from langgraph.graph import StateGraph, START, END
 
 from backend.models import WriterState, ChapterState, SSEEvent, StageStatus
+from backend.database import AsyncSessionLocal
+from backend.models_db import Article
 from backend.agent.planner import PlannerAgent
 from backend.agent.opinion import OpinionAgent
 from backend.agent.search import SearchAgent
@@ -38,12 +40,16 @@ def _make_agents(style: str, search_fn) -> dict:
 
 # ── 节点函数 ──────────────────────────────────────────────────
 
+IsCancelledFn = Callable[[str], bool]
+
+
 async def plan_node(
     state: WriterState,
     agents: dict,
     job_id: str,
     push_event: PushEventFn,
     wait_for_reply: Optional[WaitForReplyFn] = None,
+    is_cancelled: Optional[IsCancelledFn] = None,
 ) -> dict:
     """生成大纲，若开启 human-in-the-loop 则挂起等待用户确认"""
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.PLAN}))
@@ -54,6 +60,10 @@ async def plan_node(
         log.info("[%s] waiting for outline confirmation", job_id[:8])
         await wait_for_reply(job_id)
         log.info("[%s] outline confirmed", job_id[:8])
+
+    if is_cancelled and is_cancelled(job_id):
+        log.info("[%s] cancelled after outline", job_id[:8])
+        raise asyncio.CancelledError()
 
     log.info("[%s] plan done  chapters=%d", job_id[:8], len(chapters))
     return {
@@ -214,13 +224,28 @@ async def export_node(state: WriterState, job_id: str, push_event: PushEventFn) 
     output_path = f"output/{slug}.md"
     os.makedirs("output", exist_ok=True)
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        lambda: open(output_path, "w", encoding="utf-8").write(markdown),
-    )
 
-    log.info("[%s] export done  path=%r", job_id[:8], output_path)
-    await push_event(job_id, SSEEvent(event="done", data={"output_path": output_path}))
+    def _write_file():
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(markdown)
+
+    await loop.run_in_executor(None, _write_file)
+
+    # 写入数据库
+    word_count = len(markdown.replace(" ", "").replace("\n", ""))
+    async with AsyncSessionLocal() as session:
+        article = Article(
+            job_id=job_id,
+            topic=state["topic"],
+            content=markdown,
+            word_count=word_count,
+        )
+        session.add(article)
+        await session.commit()
+        article_id = article.id
+
+    log.info("[%s] export done  path=%r  article_id=%s", job_id[:8], output_path, article_id)
+    await push_event(job_id, SSEEvent(event="done", data={"output_path": output_path, "article_id": article_id}))
     return {"final_content": markdown}
 
 
@@ -249,6 +274,7 @@ def build_graph(
     push_event: PushEventFn,
     checkpointer=None,
     wait_for_reply: Optional[WaitForReplyFn] = None,
+    is_cancelled: Optional[IsCancelledFn] = None,
 ):
     """
     构建并编译 LangGraph 图。
@@ -265,7 +291,7 @@ def build_graph(
     agents = _make_agents(style=style, search_fn=search.search_one)
 
     async def _plan(state: WriterState):
-        return await plan_node(state, agents, job_id, push_event, wait_for_reply)
+        return await plan_node(state, agents, job_id, push_event, wait_for_reply, is_cancelled)
 
     async def _write(state: WriterState):
         return await write_node(state, agents, job_id, push_event)

@@ -27,7 +27,7 @@ class SearchAgent(BaseAgent):
     async def _search_one(self, query: str) -> list[dict]:
         """对单个查询词执行 Tavily 搜索，返回结果列表，失败返回空列表。"""
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
                 None,
                 lambda: self._tavily.search(
