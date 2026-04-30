@@ -80,7 +80,7 @@ async def reply_to_job(job_id: str, req: ReplyRequest):
     """用户在介入节点提交回复，唤醒挂起的 wait_for_reply()。"""
     if not job_store.exists(job_id):
         raise HTTPException(status_code=404, detail="Job not found")
-    job_store.set_reply(job_id, req.message)
+    job_store.set_reply(job_id, req)
     return {"status": "ok"}
 
 

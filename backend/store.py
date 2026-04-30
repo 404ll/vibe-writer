@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Optional
-from backend.models import SSEEvent, InterventionConfig
+from backend.models import SSEEvent, InterventionConfig, ReplyRequest
 
 log = logging.getLogger("vibe.store")
 
@@ -21,7 +21,7 @@ class JobStore:
     def __init__(self):
         self._meta: dict[str, dict] = {}
         self._reply_events: dict[str, asyncio.Event] = {}
-        self._replies: dict[str, str] = {}
+        self._replies: dict[str, ReplyRequest] = {}
         self._event_logs: dict[str, list[SSEEvent]] = {}
         self._cancel_flags: dict[str, bool] = {}
 
@@ -44,22 +44,25 @@ class JobStore:
     def exists(self, job_id: str) -> bool:
         return job_id in self._meta or job_id in self._event_logs
 
-    def set_reply(self, job_id: str, message: str):
-        self._replies[job_id] = message
+    def set_reply(self, job_id: str, req: ReplyRequest):
+        self._replies[job_id] = req
+        # 重置 Event，允许 plan_node 在二次确认时再次 wait
         if job_id in self._reply_events:
+            self._reply_events[job_id].clear()
             self._reply_events[job_id].set()
 
-    def get_reply(self, job_id: str) -> Optional[str]:
+    def get_reply(self, job_id: str) -> Optional[ReplyRequest]:
         return self._replies.get(job_id)
 
-    async def wait_for_reply(self, job_id: str, timeout: float = 3600.0) -> str:
+    async def wait_for_reply(self, job_id: str, timeout: float = 3600.0) -> ReplyRequest:
         event = self._reply_events.get(job_id)
         if event:
+            event.clear()
             try:
                 await asyncio.wait_for(event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
                 log.warning("wait_for_reply timed out  job_id=%s", job_id)
-        return self._replies.get(job_id, "")
+        return self._replies.get(job_id) or ReplyRequest(message="")
 
     def append_event(self, job_id: str, event: SSEEvent):
         if job_id in self._event_logs:

@@ -37,6 +37,7 @@ class SSEEvent(BaseModel):
 
 class ReplyRequest(BaseModel):
     message: str
+    outline: Optional[list[str]] = None
 
 
 # ── LangGraph 状态定义 ─────────────────────────────────────────

@@ -62,7 +62,9 @@ export default function App() {
     })
 
     // awaitingReview — 直接在外层处理，避免在 setJob updater 内赋值副作用
+    // outline_ready 可能触发多次（LLM 修改后重推），每次都要展示确认面板
     if (type === 'outline_ready') setAwaitingReview(true)
+    if (type === 'stage_update' && (data.stage === 'write')) setAwaitingReview(false)
     if (type === 'done' || type === 'cancelled') setAwaitingReview(false)
 
     // 活动日志
@@ -160,13 +162,13 @@ export default function App() {
     setChapterStatus({})
   }
 
-  async function handleConfirm(reply: string) {
+  async function handleConfirm(reply: string, outline: string[]) {
     if (!job) return
     setAwaitingReview(false)
     await fetch(`${API_BASE}/jobs/${job.jobId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: reply }),
+      body: JSON.stringify({ message: reply, outline }),
     })
   }
 
@@ -256,7 +258,11 @@ export default function App() {
                 )}
 
                 {awaitingReview && job?.outline && (
-                  <ReviewPanel outline={job.outline} onConfirm={handleConfirm} />
+                  <ReviewPanel
+                    key={job.outline.join('|')}
+                    outline={job.outline}
+                    onConfirm={handleConfirm}
+                  />
                 )}
 
                 {job?.stage === 'done' && (

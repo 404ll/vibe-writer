@@ -2,11 +2,21 @@ import { useState } from 'react'
 
 interface Props {
   outline: string[]
-  onConfirm: (reply: string) => void
+  onConfirm: (reply: string, outline: string[]) => void
 }
 
 export function ReviewPanel({ outline, onConfirm }: Props) {
+  const [chapters, setChapters] = useState<string[]>(outline)
   const [reply, setReply] = useState('')
+
+  function updateChapter(i: number, value: string) {
+    setChapters((prev) => prev.map((ch, idx) => (idx === i ? value : ch)))
+  }
+
+  function deleteChapter(i: number) {
+    if (chapters.length <= 1) return
+    setChapters((prev) => prev.filter((_, idx) => idx !== i))
+  }
 
   return (
     <div
@@ -15,36 +25,67 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
     >
       <div className="card-label">大纲确认</div>
       <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-h)', margin: '0 0 10px' }}>
-        共 {outline.length} 个章节，确认后开始写作
+        共 {chapters.length} 个章节，可直接编辑标题或删除章节
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
-        {outline.map((ch, i) => (
+        {chapters.map((ch, i) => (
           <div
             key={i}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '5px 8px',
+              padding: '4px 8px',
               background: 'var(--input-bg)',
               borderRadius: '6px',
-              fontSize: '12px', color: 'var(--text)',
             }}
           >
             <span style={{ fontSize: '9px', color: 'var(--text-label)', fontWeight: 600, width: '16px', flexShrink: 0 }}>
               {String(i + 1).padStart(2, '0')}
             </span>
-            {ch}
+            <input
+              value={ch}
+              onChange={(e) => updateChapter(i, e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'transparent',
+                fontSize: '12px',
+                color: 'var(--text)',
+                fontFamily: 'var(--sans)',
+                outline: 'none',
+                padding: '2px 0',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => deleteChapter(i)}
+              disabled={chapters.length <= 1}
+              title="删除此章节"
+              style={{
+                border: 'none',
+                background: 'none',
+                cursor: chapters.length <= 1 ? 'not-allowed' : 'pointer',
+                color: chapters.length <= 1 ? 'var(--text-label)' : 'var(--text-muted)',
+                fontSize: '14px',
+                lineHeight: 1,
+                padding: '2px 4px',
+                flexShrink: 0,
+                opacity: chapters.length <= 1 ? 0.3 : 1,
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>
-        如需调整，在下方输入修改意见；直接点击确认则按此大纲写作。
+        还可在下方输入修改建议，AI 会在此基础上进一步调整。
       </p>
       <textarea
         aria-label="修改意见"
         name="feedback"
         value={reply}
         onChange={(e) => setReply(e.target.value)}
-        placeholder="可选：输入修改意见，如「把第三章改成讲实战案例」…"
+        placeholder="可选：如「在第二章后加一章讲实战案例」…"
         style={{
           width: '100%',
           height: '56px',
@@ -63,7 +104,7 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
       <button
         type="button"
         className="btn-primary"
-        onClick={() => onConfirm(reply || '确认')}
+        onClick={() => onConfirm(reply, chapters)}
       >
         确认继续
       </button>

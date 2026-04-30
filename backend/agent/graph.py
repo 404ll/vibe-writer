@@ -12,7 +12,7 @@ import re
 from typing import Optional, Callable, Awaitable
 from langgraph.graph import StateGraph, START, END
 
-from backend.models import WriterState, ChapterState, SSEEvent, StageStatus
+from backend.models import WriterState, ChapterState, SSEEvent, StageStatus, ReplyRequest
 from backend.database import AsyncSessionLocal
 from backend.models_db import Article
 from backend.agent.planner import PlannerAgent
@@ -20,11 +20,12 @@ from backend.agent.opinion import OpinionAgent
 from backend.agent.search import SearchAgent
 from backend.agent.writer import WriterAgent
 from backend.agent.reviewer import ReviewAgent
+from backend.agent.prompts import OUTLINE_REVISE_SYSTEM, OUTLINE_REVISE_USER
 
 log = logging.getLogger("vibe.graph")
 
 PushEventFn = Callable[[str, SSEEvent], Awaitable[None]]
-WaitForReplyFn = Callable[[str], Awaitable[str]]
+WaitForReplyFn = Callable[[str], Awaitable[ReplyRequest]]
 
 
 # ── Agent 工厂 ────────────────────────────────────────────────
@@ -51,15 +52,47 @@ async def plan_node(
     wait_for_reply: Optional[WaitForReplyFn] = None,
     is_cancelled: Optional[IsCancelledFn] = None,
 ) -> dict:
-    """生成大纲，若开启 human-in-the-loop 则挂起等待用户确认"""
+    """生成大纲，若开启 human-in-the-loop 则挂起等待用户确认。
+
+    确认循环：
+    1. 推送 outline_ready，等待用户
+    2. 用户传来编辑后的 outline（直接替换）和/或文字建议（LLM 修改）
+    3. 如有修改，重新推送 outline_ready 让用户再次确认
+    4. 用户确认且无建议时退出循环
+    """
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.PLAN}))
     chapters = await agents["planner"].plan(state["topic"])
     await push_event(job_id, SSEEvent(event="outline_ready", data={"outline": chapters}))
 
     if wait_for_reply:
-        log.info("[%s] waiting for outline confirmation", job_id[:8])
-        await wait_for_reply(job_id)
-        log.info("[%s] outline confirmed", job_id[:8])
+        while True:
+            log.info("[%s] waiting for outline confirmation", job_id[:8])
+            reply = await wait_for_reply(job_id)
+            log.info("[%s] got reply  message=%r  outline_len=%s",
+                     job_id[:8], reply.message, len(reply.outline) if reply.outline else None)
+
+            if is_cancelled and is_cancelled(job_id):
+                raise asyncio.CancelledError()
+
+            # 前端直接编辑的大纲优先替换
+            if reply.outline:
+                chapters = reply.outline
+
+            # 有文字建议 → LLM 在当前大纲基础上修改
+            if reply.message.strip() and reply.message.strip() != "确认":
+                log.info("[%s] revising outline with feedback: %r", job_id[:8], reply.message)
+                outline_text = "\n".join(f"{i+1}. {c}" for i, c in enumerate(chapters))
+                raw = await agents["planner"]._call_llm(
+                    OUTLINE_REVISE_SYSTEM,
+                    OUTLINE_REVISE_USER.format(outline=outline_text, feedback=reply.message),
+                )
+                chapters = agents["planner"]._parse_outline(raw)
+                # 修改后重新展示，等用户二次确认
+                await push_event(job_id, SSEEvent(event="outline_ready", data={"outline": chapters}))
+                continue
+
+            # 无文字建议（纯确认或只有编辑），退出循环
+            break
 
     if is_cancelled and is_cancelled(job_id):
         log.info("[%s] cancelled after outline", job_id[:8])
