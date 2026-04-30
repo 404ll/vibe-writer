@@ -40,7 +40,7 @@ async def stream_job(job_id: str):
 
     async def event_generator():
         queue: asyncio.Queue = asyncio.Queue()
-        _stream_queues[job_id] = queue
+        _stream_queues.setdefault(job_id, set()).add(queue)
         try:
             while True:
                 event: SSEEvent = await queue.get()
@@ -48,7 +48,11 @@ async def stream_job(job_id: str):
                 if event.event in ("done", "cancelled", "error"):
                     break
         finally:
-            _stream_queues.pop(job_id, None)
+            queues = _stream_queues.get(job_id)
+            if queues:
+                queues.discard(queue)
+                if not queues:
+                    _stream_queues.pop(job_id, None)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -82,14 +86,13 @@ async def reply_to_job(job_id: str, req: ReplyRequest):
 
 # ── 内部实现 ──────────────────────────────────────────────────
 
-_stream_queues: dict[str, asyncio.Queue] = {}
+_stream_queues: dict[str, set[asyncio.Queue]] = {}
 
 
 async def push_event(job_id: str, event: SSEEvent):
     """graph 节点调用此函数向前端推送事件，同时写入历史日志"""
     job_store.append_event(job_id, event)
-    queue = _stream_queues.get(job_id)
-    if queue:
+    for queue in list(_stream_queues.get(job_id, [])):
         await queue.put(event)
 
 
@@ -139,3 +142,5 @@ async def _run_agent(job_id: str):
     except Exception as e:
         log.error("graph failed  job_id=%s  err=%s", job_id, e)
         await push_event(job_id, SSEEvent(event="error", data={"message": str(e)}))
+    finally:
+        job_store.cleanup(job_id)

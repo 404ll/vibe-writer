@@ -42,7 +42,7 @@ class JobStore:
         return self._meta.get(job_id)
 
     def exists(self, job_id: str) -> bool:
-        return job_id in self._meta
+        return job_id in self._meta or job_id in self._event_logs
 
     def set_reply(self, job_id: str, message: str):
         self._replies[job_id] = message
@@ -75,6 +75,14 @@ class JobStore:
 
     def is_cancelled(self, job_id: str) -> bool:
         return self._cancel_flags.get(job_id, False)
+
+    def cleanup(self, job_id: str):
+        """释放 job 占用的内存（元数据、reply 状态、取消标志）。
+        事件历史保留，供断线重连回放。"""
+        self._meta.pop(job_id, None)
+        self._reply_events.pop(job_id, None)
+        self._replies.pop(job_id, None)
+        self._cancel_flags.pop(job_id, None)
 
 
 job_store = JobStore()

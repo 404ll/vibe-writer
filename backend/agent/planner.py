@@ -16,10 +16,6 @@ class PlannerAgent(BaseAgent):
         )
         return self._parse_outline(raw)
 
-    def parse_outline(self, raw: str) -> list[str]:
-        """Public interface for parsing a numbered outline string into chapter list."""
-        return self._parse_outline(raw)
-
     def _parse_outline(self, raw: str) -> list[str]:
         """解析编号列表，支持 '1. 标题' 和 '1、标题' 两种格式，忽略非编号行"""
         chapters = []
