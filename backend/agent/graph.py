@@ -114,8 +114,20 @@ async def plan_node(
     }
 
 
-async def write_node(state: WriterState, agents: dict, job_id: str, push_event: PushEventFn) -> dict:
+def _raise_if_cancelled(job_id: str, is_cancelled: Optional[IsCancelledFn]) -> None:
+    if is_cancelled and is_cancelled(job_id):
+        raise asyncio.CancelledError()
+
+
+async def write_node(
+    state: WriterState,
+    agents: dict,
+    job_id: str,
+    push_event: PushEventFn,
+    is_cancelled: Optional[IsCancelledFn] = None,
+) -> dict:
     """并行写作所有未完成或 review 未通过的章节"""
+    _raise_if_cancelled(job_id, is_cancelled)
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.WRITE}))
 
     outline_text = "\n".join(f"{i+1}. {c}" for i, c in enumerate(state["outline"]))
@@ -125,6 +137,7 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
     )
 
     async def write_one(ch: ChapterState) -> ChapterState:
+        _raise_if_cancelled(job_id, is_cancelled)
         # 已写完且通过 review 的章节跳过
         if ch["content"] != "" and ch["review_passed"]:
             return ch
@@ -136,20 +149,42 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
             chapter_title=ch["title"],
         )
         await push_event(job_id, SSEEvent(event="opinions_ready", data={"title": ch["title"]}))
+        _raise_if_cancelled(job_id, is_cancelled)
 
-        # 包装 search_fn：在真正执行搜索前推送 searching 事件
         base_search_fn = agents["writer"]._search_fn
-        async def _search_with_event(query: str) -> str:
-            await push_event(job_id, SSEEvent(event="searching", data={"title": ch["title"], "query": query}))
-            return await base_search_fn(query)
-
-        chapter_writer = WriterAgent(
-            style=agents["writer"]._style_instruction,
-            search_fn=_search_with_event if base_search_fn else None,
-        )
+        MAX_SEARCHES_PER_PASS = 3
 
         async def _write_content(feedback: str = "") -> str:
             """写一次章节，返回完整内容字符串。"""
+            search_count = 0
+
+            async def _search_with_event(query: str) -> str:
+                nonlocal search_count
+                if search_count >= MAX_SEARCHES_PER_PASS:
+                    return "（本章搜索次数已达上限，请基于已有资料继续写作）"
+                search_count += 1
+                await push_event(job_id, SSEEvent(
+                    event="searching",
+                    data={"title": ch["title"], "query": query, "index": search_count},
+                ))
+                result = await base_search_fn(query)
+                preview = result[:200] + ("…" if len(result) > 200 else "")
+                await push_event(job_id, SSEEvent(
+                    event="search_done",
+                    data={
+                        "title": ch["title"],
+                        "query": query,
+                        "preview": preview,
+                        "chars": len(result),
+                    },
+                ))
+                return result
+
+            chapter_writer = WriterAgent(
+                style=agents["writer"]._style_instruction,
+                search_fn=_search_with_event if base_search_fn else None,
+            )
+
             parts: list[str] = []
             async for token in chapter_writer.write_stream(
                 topic=state["topic"],
@@ -160,6 +195,7 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
                 chapter_words=chapter_words,
                 review_feedback=feedback,
             ):
+                _raise_if_cancelled(job_id, is_cancelled)
                 parts.append(token)
                 await push_event(job_id, SSEEvent(
                     event="writing_chapter",
@@ -169,6 +205,7 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
 
         # 第一次写作
         content = await _write_content(feedback=ch["review_feedback"])
+        _raise_if_cancelled(job_id, is_cancelled)
 
         # 轻审：检查连贯性和完整度
         await push_event(job_id, SSEEvent(event="reviewing_chapter", data={"title": ch["title"]}))
@@ -200,12 +237,31 @@ async def write_node(state: WriterState, agents: dict, job_id: str, push_event: 
             rewrite_count=ch["rewrite_count"] + (0 if light_review.passed else 1),
         )
 
-    updated = list(await asyncio.gather(*[write_one(ch) for ch in state["chapters"]]))
+    results = await asyncio.gather(
+        *[write_one(ch) for ch in state["chapters"]],
+        return_exceptions=True,
+    )
+    updated: list[ChapterState] = []
+    for ch, result in zip(state["chapters"], results):
+        if isinstance(result, Exception):
+            log.error(
+                "[%s] chapter write failed  title=%r  err=%s",
+                job_id[:8], ch["title"], result,
+            )
+            raise result
+        updated.append(result)
     return {"chapters": updated}
 
 
-async def review_node(state: WriterState, agents: dict, job_id: str, push_event: PushEventFn) -> dict:
+async def review_node(
+    state: WriterState,
+    agents: dict,
+    job_id: str,
+    push_event: PushEventFn,
+    is_cancelled: Optional[IsCancelledFn] = None,
+) -> dict:
     """全文审稿"""
+    _raise_if_cancelled(job_id, is_cancelled)
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.REVIEW}))
     await push_event(job_id, SSEEvent(event="reviewing_full", data={}))
 
@@ -327,10 +383,10 @@ def build_graph(
         return await plan_node(state, agents, job_id, push_event, wait_for_reply, is_cancelled)
 
     async def _write(state: WriterState):
-        return await write_node(state, agents, job_id, push_event)
+        return await write_node(state, agents, job_id, push_event, is_cancelled)
 
     async def _review(state: WriterState):
-        return await review_node(state, agents, job_id, push_event)
+        return await review_node(state, agents, job_id, push_event, is_cancelled)
 
     async def _export(state: WriterState):
         return await export_node(state, job_id, push_event)
