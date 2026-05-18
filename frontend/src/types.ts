@@ -36,6 +36,7 @@ export type SSEEventType =
   | "generating_opinions"
   | "opinions_ready"
   | "searching"
+  | "search_done"
   | "writing_chapter"
   | "reviewing_chapter"
   | "chapter_done"
