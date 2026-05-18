@@ -12,8 +12,10 @@
 # 1. 配置环境变量
 cp .env.example .env   # 填入 ANTHROPIC_API_KEY / TAVILY_API_KEY / MODEL_ID
 
-# 2. 启动后端
-python3 -m pip install -r requirements.txt
+# 2. 启动后端（推荐使用虚拟环境）
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python3 -m uvicorn backend.main:app --reload   # http://localhost:8000
 
 # 3. 启动前端
