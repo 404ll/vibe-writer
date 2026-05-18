@@ -4,6 +4,10 @@ import { useJobStream } from './useJobStream'
 
 describe('useJobStream', () => {
   beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ events: [] }),
+    }))
     vi.stubGlobal('EventSource', vi.fn().mockImplementation(function () {
       return {
         addEventListener: vi.fn(),
@@ -15,7 +19,7 @@ describe('useJobStream', () => {
   it('creates EventSource with correct URL', () => {
     renderHook(() => useJobStream('job-123', vi.fn()))
     expect(EventSource).toHaveBeenCalledWith(
-      'http://localhost:8000/jobs/job-123/stream'
+      '/api/jobs/job-123/stream'
     )
   })
 
