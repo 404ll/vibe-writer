@@ -16,10 +16,13 @@ cp .env.example .env   # 填入 ANTHROPIC_API_KEY / TAVILY_API_KEY / MODEL_ID
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install langgraph   # 关键补丁：确保依赖正确安装
 python3 -m uvicorn backend.main:app --reload   # http://localhost:8000
 
-# 3. 启动前端
-cd frontend && npm install && npm run dev       # http://localhost:5173
+# 3. 启动前端（如果网络不佳推荐指定源）
+cd frontend 
+npm install --registry=https://registry.npmmirror.com
+npm run dev       # http://localhost:5173
 
 # 4. 运行测试
 python3 -m pytest
