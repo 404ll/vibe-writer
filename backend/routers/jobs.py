@@ -25,7 +25,9 @@ async def create_job(req: JobRequest):
         target_words=req.target_words,
         intervention=req.intervention,
     )
-    asyncio.create_task(_run_agent(job_id))
+    task = asyncio.create_task(_run_agent(job_id))
+    _running_tasks[job_id] = task
+    task.add_done_callback(lambda _: _running_tasks.pop(job_id, None))
     return {"job_id": job_id}
 
 
@@ -54,7 +56,15 @@ async def stream_job(job_id: str):
                 if not queues:
                     _stream_queues.pop(job_id, None)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{job_id}/events")
@@ -68,8 +78,11 @@ async def get_job_events(job_id: str):
 
 @router.post("/{job_id}/cancel")
 async def cancel_job(job_id: str):
-    """请求取消正在运行的任务。job 已结束时幂等返回 ok。"""
+    """请求取消正在运行的任务，并终止后台 asyncio Task。job 已结束时幂等返回 ok。"""
     job_store.cancel(job_id)
+    task = _running_tasks.pop(job_id, None)
+    if task and not task.done():
+        task.cancel()
     return {"status": "ok"}
 
 
@@ -85,13 +98,16 @@ async def reply_to_job(job_id: str, req: ReplyRequest):
 # ── 内部实现 ──────────────────────────────────────────────────
 
 _stream_queues: dict[str, set[asyncio.Queue]] = {}
+_running_tasks: dict[str, asyncio.Task] = {}
 
 
 async def push_event(job_id: str, event: SSEEvent):
     """graph 节点调用此函数向前端推送事件，同时写入历史日志"""
-    job_store.append_event(job_id, event)
+    seq = len(job_store.get_events(job_id))
+    enriched = SSEEvent(event=event.event, data={**event.data, "_seq": seq})
+    job_store.append_event(job_id, enriched)
     for queue in list(_stream_queues.get(job_id, [])):
-        await queue.put(event)
+        await queue.put(enriched)
 
 
 async def _run_agent(job_id: str):
