@@ -9,8 +9,7 @@ import { WritingPreview } from './components/WritingPreview'
 import { useJobStream } from './hooks/useJobStream'
 import { HistoryPanel } from './components/HistoryPanel'
 import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from './types'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './config'
 
 const STORAGE_KEY = 'vibe_active_job_id'
 
@@ -76,10 +75,30 @@ export default function App() {
       case 'opinions_ready':
         addActivity('info', `论点就绪：${data.title as string}`)
         break
-      case 'searching':
-        addActivity('running', `搜索中：${data.title as string}`)
+      case 'searching': {
+        const query = data.query as string | undefined
+        const idx = data.index as number | undefined
+        const qLabel = query ? `「${query}」` : ''
+        const idxLabel = idx ? ` (${idx}/3)` : ''
+        addActivity('running', `搜索中：${data.title as string}${idxLabel} ${qLabel}`.trim())
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'searching' }))
         break
+      }
+      case 'search_done': {
+        const preview = data.preview as string | undefined
+        const chars = data.chars as number | undefined
+        const query = data.query as string | undefined
+        const detail = preview
+          ? ` — ${preview}`
+          : chars != null
+            ? `（${chars} 字）`
+            : ''
+        addActivity(
+          'success',
+          `搜索完成：${data.title as string}${query ? `「${query}」` : ''}${detail}`,
+        )
+        break
+      }
       case 'writing_chapter': {
         const title = data.title as string
         const token = data.token as string | undefined
@@ -172,9 +191,25 @@ export default function App() {
     })
   }
 
+  function resetJobUi() {
+    localStorage.removeItem(STORAGE_KEY)
+    setJob(null)
+    setAwaitingReview(false)
+    setCompletedChapters(0)
+    setActivityLog([])
+    setWritingState(null)
+    setChapterStatus({})
+  }
+
   async function handleCancel() {
     if (!job) return
-    await fetch(`${API_BASE}/jobs/${job.jobId}/cancel`, { method: 'POST' })
+    const jobId = job.jobId
+    try {
+      await fetch(`${API_BASE}/jobs/${jobId}/cancel`, { method: 'POST' })
+    } catch {
+      // 即使请求失败也清空前端，避免卡在旧 job
+    }
+    resetJobUi()
   }
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
