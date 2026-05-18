@@ -23,7 +23,7 @@ class OpinionAgent(BaseAgent):
         data = await self._call_llm_json(
             OPINION_SYSTEM,
             OPINION_USER.format(topic=topic, outline=outline, chapter_title=chapter_title),
-            max_tokens=400,
+            max_tokens=1024,
         )
         if not data or "opinions" not in data:
             log.warning("opinion generate: JSON parse failed  chapter=%r", chapter_title)

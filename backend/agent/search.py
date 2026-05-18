@@ -65,7 +65,7 @@ class SearchAgent(BaseAgent):
         distilled = await self._call_llm(
             RESEARCH_SYSTEM,
             RESEARCH_USER.format(query=query, snippets=snippets),
-            max_tokens=600,
+            max_tokens=1024,
         )
         log.info("search_one done  query=%r  len=%d", query, len(distilled))
         return distilled
@@ -109,7 +109,7 @@ class SearchAgent(BaseAgent):
         research = await self._call_llm(
             RESEARCH_SYSTEM,
             RESEARCH_USER.format(query=opinions, snippets=snippets),
-            max_tokens=600,
+            max_tokens=1024,
         )
         log.info("research distilled  queries=%s  len=%d", queries, len(research))
         return research
