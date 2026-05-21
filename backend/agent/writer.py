@@ -1,6 +1,11 @@
 from typing import Optional, Callable, Awaitable
 from backend.agent.base import BaseAgent
-from backend.agent.prompts import CHAPTER_SYSTEM, CHAPTER_USER
+from backend.agent.prompts import (
+    CHAPTER_SYSTEM,
+    CHAPTER_USER,
+    chapter_word_limit_line,
+    article_word_limit_line,
+)
 
 STYLE_PROMPTS = {
     "技术博客": "写作风格：面向有经验的开发者，逻辑严密，代码示例充足，避免废话。",
@@ -8,7 +13,6 @@ STYLE_PROMPTS = {
     "教程":     "写作风格：手把手教学，步骤清晰，每步有预期结果，适合初学者跟随操作。",
 }
 
-# 始终可用的工具
 DIAGRAM_TOOL = {
     "name": "generate_diagram",
     "description": (
@@ -33,35 +37,29 @@ DIAGRAM_TOOL = {
     },
 }
 
-# search 工具（仅当 search_fn 注入时使用）
 SEARCH_TOOL = {
     "name": "search",
-    "description": "搜索与当前章节相关的资料。当你需要具体数据、案例或技术细节来支撑论点时调用。",
+    "description": (
+        "搜索与当前章节相关的资料。需要具体数据、案例或技术细节时调用。"
+        "涉及新闻、政策、市场数据时，搜索词宜带年份或「最新」。"
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
             "query": {
                 "type": "string",
-                "description": "搜索词，5-15 字，聚焦于能找到支撑证据或数据的角度",
+                "description": "搜索词，5-15 字，聚焦可验证的事实与数据",
             }
         },
         "required": ["query"],
     },
 }
 
-# 向后兼容（WRITER_TOOLS 保留，包含两个工具）
 WRITER_TOOLS = [SEARCH_TOOL, DIAGRAM_TOOL]
 
 
 class WriterAgent(BaseAgent):
-    """
-    负责根据章节标题、大纲和核心论点撰写章节正文。
-
-    从流水线 Agent 升级为自主 Agent：
-    - 不再被动接收 research，而是在写作过程中主动调用 search 工具
-    - 通过 _call_llm_with_tools 实现 ReAct loop
-    - search_fn 由外部注入，保持 WriterAgent 与搜索实现解耦
-    """
+    """根据章节要点撰写正文；支持 search / diagram 工具。"""
 
     def __init__(
         self,
@@ -70,8 +68,6 @@ class WriterAgent(BaseAgent):
     ):
         super().__init__()
         self._style_instruction = STYLE_PROMPTS.get(style, style)
-        # 注入的搜索函数：async (query: str) -> str
-        # 为 None 时 Writer 仍可运行，只是没有搜索能力
         self._search_fn = search_fn
 
     def _build_prompt(
@@ -83,22 +79,28 @@ class WriterAgent(BaseAgent):
         search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
+        target_words: Optional[int] = None,
     ) -> tuple[str, str]:
         system = CHAPTER_SYSTEM
-        if chapter_words:
-            system += f"\n\n篇幅要求：本章目标约 {chapter_words} 字，请严格控制篇幅，不要超出太多。"
+        limit_line = chapter_word_limit_line(chapter_words)
+        if limit_line:
+            system += f"\n\n{limit_line}"
+        article_line = article_word_limit_line(target_words)
+        if article_line:
+            system += f"\n{article_line}"
         if self._style_instruction:
             system += f"\n\n{self._style_instruction}"
         if self._search_fn:
-            system += "\n\n你可以调用 search 工具获取资料，在需要具体数据或案例时主动搜索，搜索次数不超过 3 次。"
+            system += "\n\n你可以调用 search 工具获取资料，搜索次数不超过 3 次。"
 
-        opinions_text = opinions if opinions.strip() else "（无预设论点，自行判断）"
+        opinions_text = opinions if opinions.strip() else "（按章节标题自行组织客观内容）"
         hints_text = ""
         if search_hints:
-            hints_text = "\n\n搜索方向建议（可参考，也可自行判断）：\n" + "\n".join(f"- {q}" for q in search_hints)
+            hints_text = "\n\n搜索方向建议（可参考）：\n" + "\n".join(f"- {q}" for q in search_hints)
 
         user_prompt = CHAPTER_USER.format(
             topic=topic,
+            word_budget_line=article_line or "全文字数：不限制。",
             outline=outline,
             chapter_title=chapter_title,
             opinions=opinions_text,
@@ -108,8 +110,13 @@ class WriterAgent(BaseAgent):
             user_prompt += f"\n\n审稿意见：{review_feedback}\n请根据以上意见修改章节内容。"
         return system, user_prompt
 
+    def _max_tokens_for_chapter(self, chapter_words: Optional[int]) -> int:
+        if not chapter_words:
+            return 4096
+        # 中文约 1.5–2 字/token，留少量余量给工具往返
+        return min(8192, max(512, int(chapter_words * 2.2)))
+
     async def _handle_diagram(self, diagram_type: str, mermaid_code: str) -> str:
-        """将 LLM 生成的 Mermaid 代码包装成 fenced code block 返回给 LLM"""
         return f"```mermaid\n{mermaid_code}\n```\n\n（图表已生成，请将以上代码块插入章节正文的合适位置）"
 
     async def write(
@@ -121,9 +128,11 @@ class WriterAgent(BaseAgent):
         search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
+        target_words: Optional[int] = None,
     ) -> str:
         system, user_prompt = self._build_prompt(
-            topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
+            topic, outline, chapter_title, opinions, search_hints,
+            review_feedback, chapter_words, target_words,
         )
         tools = [DIAGRAM_TOOL]
         handlers = {"generate_diagram": self._handle_diagram}
@@ -135,6 +144,7 @@ class WriterAgent(BaseAgent):
             user=user_prompt,
             tools=tools,
             tool_handlers=handlers,
+            max_tokens=self._max_tokens_for_chapter(chapter_words),
         )
 
     async def write_stream(
@@ -146,23 +156,22 @@ class WriterAgent(BaseAgent):
         search_hints: list[str] = None,
         review_feedback: str = "",
         chapter_words: Optional[int] = None,
+        target_words: Optional[int] = None,
     ):
-        """流式写章节，异步 yield token，调用方负责拼接完整内容。
-        注意：tool_use 阶段（搜索中）不产生 token，前端会有短暂停顿。
-        """
         system, user_prompt = self._build_prompt(
-            topic, outline, chapter_title, opinions, search_hints, review_feedback, chapter_words
+            topic, outline, chapter_title, opinions, search_hints,
+            review_feedback, chapter_words, target_words,
         )
         tools = [DIAGRAM_TOOL]
         handlers = {"generate_diagram": self._handle_diagram}
         if self._search_fn:
             tools = [SEARCH_TOOL, DIAGRAM_TOOL]
             handlers["search"] = lambda query: self._search_fn(query)
-        # tool_use 模式不支持真正的流式，先完整生成再 yield
         content = await self._call_llm_with_tools(
             system=system,
             user=user_prompt,
             tools=tools,
             tool_handlers=handlers,
+            max_tokens=self._max_tokens_for_chapter(chapter_words),
         )
         yield content

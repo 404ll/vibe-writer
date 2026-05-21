@@ -61,7 +61,15 @@ async def plan_node(
     4. 用户确认且无建议时退出循环
     """
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.PLAN}))
-    chapters = await agents["planner"].plan(state["topic"])
+    target_words = state.get("target_words")
+    planner = agents["planner"]
+
+    def _apply_word_budget(chs: list[str]) -> list[str]:
+        return planner._trim_outline_for_budget(chs, target_words)
+
+    chapters = _apply_word_budget(
+        await planner.plan(state["topic"], target_words=target_words)
+    )
     await push_event(job_id, SSEEvent(event="outline_ready", data={"outline": chapters}))
 
     if wait_for_reply:
@@ -76,7 +84,7 @@ async def plan_node(
 
             # 前端直接编辑的大纲优先替换
             if reply.outline:
-                chapters = reply.outline
+                chapters = _apply_word_budget(reply.outline)
 
             # 有文字建议 → LLM 在当前大纲基础上修改
             if reply.message.strip() and reply.message.strip() != "确认":
@@ -86,7 +94,7 @@ async def plan_node(
                     OUTLINE_REVISE_SYSTEM,
                     OUTLINE_REVISE_USER.format(outline=outline_text, feedback=reply.message),
                 )
-                chapters = agents["planner"]._parse_outline(raw)
+                chapters = _apply_word_budget(planner._parse_outline(raw))
                 # 修改后重新展示，等用户二次确认
                 await push_event(job_id, SSEEvent(event="outline_ready", data={"outline": chapters}))
                 continue
@@ -131,10 +139,12 @@ async def write_node(
     await push_event(job_id, SSEEvent(event="stage_update", data={"stage": StageStatus.WRITE}))
 
     outline_text = "\n".join(f"{i+1}. {c}" for i, c in enumerate(state["outline"]))
+    n_chapters = max(len(state["outline"]), 1)
     chapter_words = (
-        round(state["target_words"] / len(state["outline"]))
-        if state["target_words"] else None
+        max(80, round(state["target_words"] / n_chapters))
+        if state.get("target_words") else None
     )
+    target_words = state.get("target_words")
 
     async def write_one(ch: ChapterState) -> ChapterState:
         _raise_if_cancelled(job_id, is_cancelled)
@@ -193,6 +203,7 @@ async def write_node(
                 opinions=opinions_text,
                 search_hints=search_queries,
                 chapter_words=chapter_words,
+                target_words=target_words,
                 review_feedback=feedback,
             ):
                 _raise_if_cancelled(job_id, is_cancelled)
@@ -213,6 +224,7 @@ async def write_node(
             chapter_title=ch["title"],
             content=content,
             outline=outline_text,
+            chapter_words=chapter_words,
         )
         log.info("[%s] light review  title=%r  passed=%s", job_id[:8], ch["title"], light_review.passed)
 
@@ -268,6 +280,7 @@ async def review_node(
     full_results = await agents["reviewer"].review_full(
         topic=state["topic"],
         chapters=state["chapters"],
+        target_words=state.get("target_words"),
     )
 
     chapters = list(state["chapters"])
