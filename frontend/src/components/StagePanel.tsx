@@ -39,80 +39,40 @@ export function StagePanel({
       role="status"
       aria-live="polite"
       aria-label="写作进度"
-      style={{
-        width: '140px',
-        flexShrink: 0,
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border)',
-        borderRadius: '8px',
-        boxShadow: 'var(--shadow)',
-        padding: '14px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0,
-        alignSelf: 'flex-start',
-        position: 'sticky',
-        top: '14px',
-      }}
+      className="card stage-panel"
     >
-      <div className="card-label" style={{ marginBottom: '12px' }}>写作进度</div>
+      <div className="card-label">写作进度</div>
 
       {STAGES.map(({ key, label, icon }, i) => {
         const stageIdx = STAGE_ORDER.indexOf(key)
-        const done   = currentIndex > stageIdx || currentStage === 'done'
+        const done = currentIndex > stageIdx || currentStage === 'done'
         const active = STAGE_ORDER[currentIndex] === key
         const isWrite = key === 'write'
+        const nodeClass = [
+          'stage-node',
+          active ? 'stage-node--active' : '',
+          done ? 'stage-node--done' : '',
+        ].filter(Boolean).join(' ')
+        const iconClass = [
+          'stage-icon',
+          active ? 'stage-icon--active' : '',
+          done ? 'stage-icon--done' : '',
+        ].filter(Boolean).join(' ')
+        const labelClass = [
+          'stage-label',
+          active ? 'stage-label--active' : '',
+          done ? 'stage-label--done' : '',
+        ].filter(Boolean).join(' ')
 
         return (
           <div key={key}>
-            {/* 节点行 */}
-            <div
-              aria-current={active ? 'step' : undefined}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '5px 7px',
-                borderRadius: '6px',
-                border: `1.5px solid ${active ? 'var(--accent-active)' : done ? 'var(--accent-done)' : 'transparent'}`,
-                background: active ? '#fff3e8' : done ? '#f5f0e8' : 'transparent',
-                transition: 'all 0.2s',
-              }}
-            >
-              {/* 图标 */}
-              <div style={{
-                width: '20px',
-                height: '20px',
-                borderRadius: '5px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px',
-                fontWeight: 700,
-                flexShrink: 0,
-                background: done ? 'var(--accent-done)' : active ? 'var(--accent-active)' : 'var(--stage-idle-bg)',
-                color: done || active ? 'var(--text-on-accent)' : 'var(--text-muted)',
-                animationName: active ? 'pulse-ring' : 'none',
-                animationDuration: '2s',
-                animationTimingFunction: 'ease-in-out',
-                animationIterationCount: 'infinite',
-              }}>
-                {done ? '✓' : icon}
-              </div>
-
-              {/* 名称 */}
+            <div aria-current={active ? 'step' : undefined} className={nodeClass}>
+              <div className={iconClass}>{done ? '✓' : icon}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: '11px',
-                  fontWeight: active ? 600 : 400,
-                  color: done ? 'var(--accent-done)' : active ? 'var(--accent-active)' : 'var(--text-muted)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>
+                <div className={labelClass}>
                   {label}
                   {isWrite && totalChapters > 0 && (
-                    <span style={{ opacity: 0.7, marginLeft: '3px' }}>
+                    <span style={{ opacity: 0.72, marginLeft: '3px' }}>
                       {completedChapters}/{totalChapters}
                     </span>
                   )}
@@ -120,59 +80,30 @@ export function StagePanel({
               </div>
             </div>
 
-            {/* 章节子步骤（仅 write 阶段 active 时展开） */}
             {isWrite && active && outline.length > 0 && (
-              <div style={{
-                borderLeft: '2px solid var(--accent-active)',
-                marginLeft: '17px',
-                paddingLeft: '8px',
-                marginTop: '3px',
-                marginBottom: '3px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px',
-              }}>
+              <div className="chapter-steps">
                 {outline.map((title) => {
                   const status = chapterStatus[title]
                   const isDone = status === 'done'
                   const isActive = !!status && !isDone
+                  const stepClass = isActive ? 'chapter-step chapter-step--active' : 'chapter-step'
+                  const dotClass = [
+                    'chapter-dot',
+                    isActive ? 'chapter-dot--active' : '',
+                    isDone ? 'chapter-dot--done' : '',
+                  ].filter(Boolean).join(' ')
+                  const titleClass = [
+                    'chapter-title',
+                    isActive ? 'chapter-title--active' : '',
+                    isDone ? 'chapter-title--done' : '',
+                  ].filter(Boolean).join(' ')
+
                   return (
-                    <div key={title} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      fontSize: '10px',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                      background: isActive ? 'rgba(249,115,22,0.06)' : 'transparent',
-                    }}>
-                      <div style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        background: isDone
-                          ? 'var(--accent-done)'
-                          : isActive
-                          ? 'var(--accent-active)'
-                          : 'var(--stage-idle-bg)',
-                      }} />
-                      <span style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: isDone ? 'var(--accent-done)' : isActive ? 'var(--accent-active)' : 'var(--text-muted)',
-                        fontWeight: isActive ? 600 : 400,
-                      }}>
-                        {title}
-                      </span>
+                    <div key={title} className={stepClass}>
+                      <div className={dotClass} />
+                      <span className={titleClass}>{title}</span>
                       {status && (
-                        <span style={{
-                          flexShrink: 0,
-                          color: isDone ? 'var(--accent-done)' : 'var(--text-muted)',
-                          fontSize: '9px',
-                        }}>
+                        <span className="chapter-status">
                           {CH_STATUS_LABEL[status] ?? status}
                         </span>
                       )}
@@ -182,16 +113,8 @@ export function StagePanel({
               </div>
             )}
 
-            {/* 节点间连接线 */}
             {i < STAGES.length - 1 && (
-              <div style={{
-                width: '2px',
-                height: '8px',
-                background: done ? 'var(--accent-done)' : 'var(--stage-idle-bg)',
-                margin: '1px 0 1px 16px',
-                borderRadius: '1px',
-                transition: 'background 0.3s',
-              }} />
+              <div className={done ? 'stage-line stage-line--done' : 'stage-line'} />
             )}
           </div>
         )

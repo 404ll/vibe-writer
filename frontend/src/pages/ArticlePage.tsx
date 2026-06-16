@@ -156,40 +156,20 @@ export function ArticlePage() {
   const toc = extractToc(article.content)
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="article-page">
 
       {/* ── Toolbar ── */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 20,
-        background: 'rgba(240,236,227,0.92)',
-        backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid var(--border)',
-        padding: '0 32px',
-        height: '52px',
-        display: 'flex', alignItems: 'center', gap: '20px',
-      }}>
+      <header className="article-toolbar">
         <button
           onClick={() => navigate('/')}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: '13px', color: 'var(--text-muted)', padding: '4px 0',
-            flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px',
-            transition: 'color 0.15s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-h)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          className="ghost-button"
+          style={{ fontSize: '12px', padding: '5px 10px', flexShrink: 0 }}
         >
           ← 返回
         </button>
         <div style={{ width: '1px', height: '16px', background: 'var(--border)', flexShrink: 0 }} />
-        <span style={{
-          flex: 1, fontFamily: 'var(--hand)', fontSize: '17px',
-          color: 'var(--text-h)', overflow: 'hidden',
-          textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {article.topic}
-        </span>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>
+        <span className="article-title">{article.topic}</span>
+        <span className="article-word-count">
           {article.word_count?.toLocaleString()} 字
         </span>
         {isEditing ? (
@@ -204,11 +184,8 @@ export function ArticlePage() {
             </button>
             <button
               onClick={handleCancel}
-              style={{
-                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
-                background: 'none', border: '1px solid var(--border)',
-                borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)',
-              }}
+              className="ghost-button"
+              style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
             >
               ✕ 取消
             </button>
@@ -217,21 +194,15 @@ export function ArticlePage() {
           <>
             <button
               onClick={handleShowHistory}
-              style={{
-                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
-                background: 'none', border: '1px solid var(--border)',
-                borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)',
-              }}
+              className="ghost-button"
+              style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
             >
               历史
             </button>
             <button
               onClick={handleEdit}
-              style={{
-                flexShrink: 0, fontSize: '12px', padding: '5px 14px',
-                background: 'none', border: '1px solid var(--border)',
-                borderRadius: '4px', cursor: 'pointer', color: 'var(--text)',
-              }}
+              className="ghost-button"
+              style={{ flexShrink: 0, fontSize: '12px', padding: '5px 14px' }}
             >
               ✎ 编辑
             </button>
@@ -247,54 +218,24 @@ export function ArticlePage() {
       </header>
 
       {/* ── 主体 ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: toc.length > 0 ? '1fr min(680px, 100%) 1fr' : '1fr min(680px, 100%) 1fr',
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '0 24px',
-        boxSizing: 'border-box',
-        gap: '0 32px',
-      }}>
+      <div className="article-grid">
 
         {/* 目录 — 左侧 sticky */}
         <div style={{ position: 'relative' }}>
           {toc.length > 0 && (
             <nav
               aria-label="文章目录"
-              style={{
-                position: 'sticky',
-                top: '68px',
-                maxHeight: 'calc(100vh - 84px)',
-                overflowY: 'auto',
-                paddingTop: '40px',
-                paddingRight: '8px',
-              }}
+              className="toc-nav"
             >
-              <p style={{
-                fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px',
-                textTransform: 'uppercase', color: 'var(--text-label)',
-                marginBottom: '10px',
-              }}>目录</p>
+              <p className="toc-title">目录</p>
               {toc.map((entry) => (
                 <a
                   key={entry.slug}
                   href={`#${entry.slug}`}
+                  className={activeSlug === entry.slug ? 'toc-link toc-link--active' : 'toc-link'}
                   style={{
-                    display: 'block',
                     paddingLeft: entry.level === 1 ? 0 : entry.level === 2 ? '12px' : '22px',
-                    paddingTop: '4px',
-                    paddingBottom: '4px',
-                    fontSize: '12.5px',
-                    lineHeight: '1.5',
-                    color: activeSlug === entry.slug ? 'var(--accent)' : 'var(--text-muted)',
-                    textDecoration: 'none',
-                    fontWeight: activeSlug === entry.slug ? 500 : 400,
-                    borderLeft: activeSlug === entry.slug ? '2px solid var(--accent)' : '2px solid transparent',
-                    transition: 'color 0.15s, border-color 0.15s',
                   }}
-                  onMouseEnter={(e) => { if (activeSlug !== entry.slug) (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
-                  onMouseLeave={(e) => { if (activeSlug !== entry.slug) (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
                 >
                   {entry.title}
                 </a>
@@ -304,17 +245,13 @@ export function ArticlePage() {
         </div>
 
         {/* 正文 */}
-        <main style={{ padding: '48px 0 100px', minWidth: 0 }}>
+        <main className="article-main">
           {isEditing ? (
             /* 编辑态：左右分栏 */
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', height: 'calc(100vh - 120px)' }}>
+            <div className="article-editor-grid">
               {/* 左栏：预览 */}
-              <div style={{
-                overflowY: 'auto',
-                paddingRight: '16px',
-                borderRight: '1px solid var(--border)',
-              }}>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>预览</p>
+              <div className="article-preview-pane">
+                <p className="article-editor-label">预览</p>
                 <div className="prose">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
                     {editContent}
@@ -322,30 +259,18 @@ export function ArticlePage() {
                 </div>
               </div>
               {/* 右栏：编辑 */}
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <p style={{ fontSize: '11px', color: 'var(--accent)', marginBottom: '16px', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>编辑 Markdown</p>
+              <div className="article-editor-pane">
+                <p className="article-editor-label">编辑 Markdown</p>
                 <textarea
+                  className="terminal-field article-editor-textarea"
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  style={{
-                    flex: 1,
-                    border: '1.5px solid var(--accent)',
-                    borderRadius: '6px',
-                    padding: '16px',
-                    fontSize: '13px',
-                    fontFamily: 'monospace',
-                    lineHeight: '1.7',
-                    color: 'var(--text)',
-                    background: 'var(--bg)',
-                    resize: 'none',
-                    outline: 'none',
-                  }}
                 />
               </div>
             </div>
           ) : (
             /* 阅读态：原有渲染 */
-            <div className="prose">
+            <div className="prose article-paper">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {article.content}
               </ReactMarkdown>
@@ -360,43 +285,31 @@ export function ArticlePage() {
 
       {/* 历史版本侧边栏 */}
       {showHistory && (
-        <div style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0, width: '360px',
-          background: 'var(--bg)', borderLeft: '1px solid var(--border)',
-          zIndex: 30, display: 'flex', flexDirection: 'column',
-          boxShadow: '-4px 0 16px rgba(0,0,0,0.08)',
-        }}>
+        <div className="version-drawer">
           {/* 侧边栏 header */}
-          <div style={{
-            padding: '16px 20px', borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <span style={{ fontWeight: 600, fontSize: '14px' }}>历史版本</span>
+          <div className="version-drawer-header">
+            <span className="version-drawer-title">历史版本</span>
             <button
               onClick={() => setShowHistory(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--text-muted)' }}
+              className="ghost-button"
+              style={{ fontSize: '14px', padding: '4px 8px' }}
             >
               ✕
             </button>
           </div>
 
           {/* 版本列表 */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          <div className="version-list">
             {versions.map((v) => (
               <div
                 key={v.id}
                 onClick={() => handlePreviewVersion(v.id)}
-                style={{
-                  padding: '12px 20px', cursor: 'pointer',
-                  background: previewVersionId === v.id ? 'var(--surface)' : 'transparent',
-                  borderLeft: previewVersionId === v.id ? '3px solid var(--accent)' : '3px solid transparent',
-                  transition: 'background 0.15s',
-                }}
+                className={previewVersionId === v.id ? 'version-item version-item--active' : 'version-item'}
               >
-                <div style={{ fontSize: '13px', color: 'var(--text)' }}>
+                <div className="version-date">
                   {new Date(v.saved_at).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                <div className="version-meta">
                   {v.word_count.toLocaleString()} 字
                 </div>
               </div>
@@ -405,9 +318,9 @@ export function ArticlePage() {
 
           {/* 预览区 */}
           {previewContent !== null && (
-            <div style={{ borderTop: '1px solid var(--border)', padding: '16px 20px', maxHeight: '40vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>预览</span>
+            <div className="version-preview">
+              <div className="version-preview-header">
+                <span className="article-editor-label" style={{ marginBottom: 0 }}>预览</span>
                 <button
                   className="btn-primary"
                   onClick={handleRestoreVersion}
@@ -416,7 +329,7 @@ export function ArticlePage() {
                   恢复此版本
                 </button>
               </div>
-              <div className="prose" style={{ fontSize: '12px' }}>
+              <div className="prose version-preview-prose">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
                   {previewContent}
                 </ReactMarkdown>

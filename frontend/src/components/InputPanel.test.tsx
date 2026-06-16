@@ -14,7 +14,9 @@ describe('InputPanel', () => {
 
     expect(onSubmit).toHaveBeenCalledWith(
       'AI Agents 入门',
-      { on_outline: true }
+      { on_outline: true },
+      '',
+      null
     )
   })
 

@@ -219,47 +219,39 @@ export default function App() {
     <Routes>
       <Route path="/articles/:id" element={<ArticlePage />} />
       <Route path="/" element={
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          padding: '14px 16px',
-          minHeight: 0,
-        }}>
-          {/* Body: left + right */}
-          <div className="app-body" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1, minHeight: 0 }}>
+        <div className="app-shell">
+          <header className="top-nav">
+            <div className="nav-logo" aria-hidden="true">
+              <div className="nav-logo-inner">
+                <span className="pixel-icon pixel-icon--computer" />
+              </div>
+            </div>
+            <nav className="nav-links" aria-label="主导航">
+              <span className="nav-link">写作</span>
+              <span className="nav-link">历史</span>
+            </nav>
+            <span className="nav-cta">BOOT_STATION</span>
+          </header>
 
-            {/* Pipeline 左侧纵向栏 */}
-            {job && (
-              <StagePanel
-                currentStage={job.stage}
-                completedChapters={completedChapters}
-                totalChapters={job.outline?.length ?? 0}
-                chapterStatus={chapterStatus}
-                outline={job.outline ?? []}
-              />
-            )}
+          <div className={isScrollable ? 'app-body app-body--running' : 'app-body app-body--idle'}>
+            <div className={isScrollable ? 'work-column work-column--active' : 'work-column work-column--idle'}>
+              <div className={isScrollable ? 'hero-zone hero-zone--active' : 'hero-zone hero-zone--idle'}>
+                <div className={isScrollable ? 'workspace-layout' : 'workspace-layout workspace-layout--idle'}>
+                  {job && (
+                    <StagePanel
+                      currentStage={job.stage}
+                      completedChapters={completedChapters}
+                      totalChapters={job.outline?.length ?? 0}
+                      chapterStatus={chapterStatus}
+                      outline={job.outline ?? []}
+                    />
+                  )}
 
-            {/* Left column */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: isScrollable ? 0 : 'calc(100vh - 28px)' }}>
-
-              {/* Hero zone — vertically centered when idle, scrollable when running */}
-              <div className="hero-zone" style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: isScrollable ? 'flex-start' : 'center',
-                gap: '10px',
-                paddingBottom: isScrollable ? '16px' : '60px',
-                paddingTop: isScrollable ? '16px' : 0,
-                minHeight: 0,
-                overflowY: isScrollable ? 'auto' : 'visible',
-              }}>
-                <InputPanel
-                  onSubmit={handleSubmit}
-                  disabled={isRunning}
-                />
+                  <InputPanel
+                    onSubmit={handleSubmit}
+                    disabled={isRunning}
+                  />
+                </div>
 
                 {writingState && job?.stage === 'write' && (
                   <WritingPreview title={writingState.title} buffer={writingState.buffer} />
@@ -269,24 +261,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleCancel}
-                    style={{
-                      background: 'none',
-                      border: '1px solid var(--border-input)',
-                      borderRadius: '5px',
-                      padding: '5px 14px',
-                      fontSize: '12px',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      transition: 'color 0.15s, border-color 0.15s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = 'var(--danger)'
-                      e.currentTarget.style.borderColor = 'var(--danger)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = 'var(--text-muted)'
-                      e.currentTarget.style.borderColor = 'var(--border-input)'
-                    }}
+                    className="ghost-button danger-button task-cancel-button"
                   >
                     中断任务
                   </button>
@@ -303,19 +278,7 @@ export default function App() {
                 {job?.stage === 'done' && (
                   <div
                     role="status"
-                    style={{
-                      width: '100%',
-                      maxWidth: '620px',
-                      padding: '10px 14px',
-                      background: 'var(--success-bg)',
-                      border: '1px solid var(--success-border)',
-                      borderRadius: '7px',
-                      fontSize: '13px',
-                      color: 'var(--success-text)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
+                    className="terminal-status terminal-status--success"
                   >
                     <span>✓</span>
                     <span>文章已生成并保存到 <code>output/</code> 目录</span>
@@ -325,16 +288,7 @@ export default function App() {
                 {job?.error && (
                   <div
                     role="alert"
-                    style={{
-                      width: '100%',
-                      maxWidth: '620px',
-                      padding: '10px 14px',
-                      background: job.error === '已取消' ? 'var(--input-bg)' : 'var(--danger-bg)',
-                      border: `1px solid ${job.error === '已取消' ? 'var(--border)' : 'var(--danger-border)'}`,
-                      borderRadius: '7px',
-                      fontSize: '13px',
-                      color: job.error === '已取消' ? 'var(--text-muted)' : 'var(--danger)',
-                    }}
+                    className={job.error === '已取消' ? 'terminal-status terminal-status--muted' : 'terminal-status terminal-status--danger'}
                   >
                     {job.error === '已取消' ? '任务已取消' : `错误：${job.error}`}
                   </div>
@@ -343,23 +297,27 @@ export default function App() {
 
             </div>
 
-            {/* Right column: activity log + history */}
-            <div className="activity-col" style={{
-              width: '280px',
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              position: 'sticky',
-              top: '14px',
-              alignSelf: isScrollable ? 'flex-start' : 'center',
-              maxHeight: 'calc(100vh - 28px)',
-            }}>
-              <ActivityPanel entries={activityLog} />
-              <HistoryPanel currentJob={job} />
-            </div>
-
+            {isScrollable && (
+              <div className="activity-col activity-col--active">
+                <ActivityPanel entries={activityLog} />
+              </div>
+            )}
           </div>
+
+          {!isScrollable && (
+            <section className="recent-section">
+              <HistoryPanel currentJob={job} />
+            </section>
+          )}
+
+          <footer className="site-footer">
+            <div className="footer-icons" aria-hidden="true">
+              <span className="footer-icon" />
+              <span className="footer-icon" />
+              <span className="footer-icon" />
+            </div>
+            <span>© VIBE-WRITER / VER: 80.S.WAVE</span>
+          </footer>
         </div>
       } />
     </Routes>
