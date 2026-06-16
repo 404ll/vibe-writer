@@ -26,6 +26,7 @@ export default function App() {
     const saved = localStorage.getItem(STORAGE_KEY)
     return saved ? makeEmptyJob(saved) : null
   })
+  // 这些状态只服务当前页面展示；后端仍是任务进度和文章内容的事实来源
   const [awaitingReview, setAwaitingReview] = useState(false)
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
@@ -37,10 +38,12 @@ export default function App() {
   function addActivity(status: ActivityEntry['status'], message: string) {
     setActivityLog((prev) => {
       const next = [...prev, { id: ++activityIdCounter, status, message }]
+      // 日志只保留最近一段，避免长任务持续推送事件后撑大前端状态
       return next.length > MAX_ACTIVITY ? next.slice(next.length - MAX_ACTIVITY) : next
     })
   }
 
+  // SSE 事件入口：先更新核心 job 状态，再同步各个辅助 UI 面板
   const handleEvent = useCallback((type: SSEEventType, data: Record<string, unknown>) => {
     setJob((prev) => {
       if (!prev) return prev
@@ -103,6 +106,7 @@ export default function App() {
         const title = data.title as string
         const token = data.token as string | undefined
         if (token !== undefined) {
+          // 后端按 token 流式推送章节内容；这里累积成预览区的滑动文本
           setWritingState((prev) =>
             prev?.title === title
               ? { title, buffer: prev.buffer + token }
@@ -146,6 +150,7 @@ export default function App() {
         setWritingState(null)
         localStorage.removeItem(STORAGE_KEY)
         if (data.article_id) {
+          // 稍等日志状态渲染完成，再跳转到生成后的文章详情页
           setTimeout(() => navigate(`/articles/${data.article_id}`), 800)
         }
         break
@@ -165,6 +170,7 @@ export default function App() {
 
   useJobStream(job?.jobId ?? null, handleEvent)
 
+  // 创建任务后只保存 jobId；具体进度随后由 SSE 回放和增量事件填充
   async function handleSubmit(topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) {
     const res = await fetch(`${API_BASE}/jobs`, {
       method: 'POST',
@@ -172,7 +178,7 @@ export default function App() {
       body: JSON.stringify({ topic, intervention, style, target_words: targetWords }),
     })
     const { job_id } = await res.json()
-    localStorage.setItem(STORAGE_KEY, job_id)
+    localStorage.setItem(STORAGE_KEY, job_id)//当前任务的 job_id 存进浏览器本地存储，实现断线重连
     setJob(makeEmptyJob(job_id))
     setCompletedChapters(0)
     setAwaitingReview(false)
@@ -181,6 +187,7 @@ export default function App() {
     setChapterStatus({})
   }
 
+  // 用户确认或调整大纲后，把最终大纲交回后端继续写作阶段
   async function handleConfirm(reply: string, outline: string[]) {
     if (!job) return
     setAwaitingReview(false)
@@ -201,6 +208,7 @@ export default function App() {
     setChapterStatus({})
   }
 
+  // 取消失败时也清理本地 UI，后续刷新不会继续挂在旧 job 上
   async function handleCancel() {
     if (!job) return
     const jobId = job.jobId
@@ -214,6 +222,7 @@ export default function App() {
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
   const isScrollable = isRunning || awaitingReview
+  // 顶部像素状态灯由 job 阶段和人工审稿等待态共同推导
   const navPetState = job?.stage === 'error'
     ? 'error'
     : job?.stage === 'done'
