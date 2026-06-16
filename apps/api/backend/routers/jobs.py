@@ -25,7 +25,7 @@ async def create_job(req: JobRequest):
         target_words=req.target_words,
         intervention=req.intervention,
     )
-    task = asyncio.create_task(_run_agent(job_id))
+    task = asyncio.create_task(_run_agent(job_id)) #后台写作任务
     _running_tasks[job_id] = task
     task.add_done_callback(lambda _: _running_tasks.pop(job_id, None))
     return {"job_id": job_id}

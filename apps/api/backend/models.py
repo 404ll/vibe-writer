@@ -14,6 +14,7 @@ class StageStatus(str, Enum):
 class InterventionConfig(BaseModel):
     on_outline: bool = True
 
+# ── API 请求数据模型定义 ———
 class JobRequest(BaseModel):
     topic: str
     intervention: InterventionConfig = Field(default_factory=InterventionConfig)
