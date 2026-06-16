@@ -214,6 +214,35 @@ export default function App() {
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
   const isScrollable = isRunning || awaitingReview
+  const navPetState = job?.stage === 'error'
+    ? 'error'
+    : job?.stage === 'done'
+      ? 'done'
+      : awaitingReview
+        ? 'review'
+        : isRunning
+          ? job?.stage ?? 'run'
+          : 'idle'
+  const navPetLabel: Record<string, string> = {
+    idle: '空闲',
+    plan: '规划中',
+    write: '写作中',
+    review: '审稿中',
+    export: '保存中',
+    done: '完成',
+    error: '异常',
+    run: '运行中',
+  }
+  const navPetCode: Record<string, string> = {
+    idle: 'IDLE',
+    plan: 'PLAN',
+    write: 'WRITE',
+    review: 'CHECK',
+    export: 'SAVE',
+    done: 'DONE',
+    error: 'ERR',
+    run: 'RUN',
+  }
 
   return (
     <Routes>
@@ -226,11 +255,17 @@ export default function App() {
                 <span className="pixel-icon pixel-icon--computer" />
               </div>
             </div>
-            <nav className="nav-links" aria-label="主导航">
-              <span className="nav-link">写作</span>
-              <span className="nav-link">历史</span>
-            </nav>
-            <span className="nav-cta">BOOT_STATION</span>
+            <div className={`nav-pet nav-pet--${navPetState}`} role="status" aria-label={`状态：${navPetLabel[navPetState] ?? '运行中'}`}>
+              <span className="nav-pet-frame" aria-hidden="true">
+                <span className="pet-sprite" />
+                <span className="pet-signal">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="pet-code">{navPetCode[navPetState] ?? 'RUN'}</span>
+              </span>
+            </div>
           </header>
 
           <div className={isScrollable ? 'app-body app-body--running' : 'app-body app-body--idle'}>

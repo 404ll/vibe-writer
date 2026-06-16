@@ -259,33 +259,159 @@ code {
   place-items: center;
 }
 
-.nav-links {
+.nav-pet {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  justify-content: flex-end;
   flex: 1;
+  min-width: 0;
 }
 
-.nav-link {
-  font-family: var(--mono);
-  font-size: 16px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.nav-cta {
+.nav-pet-frame {
   display: inline-flex;
   align-items: center;
-  min-height: 0;
-  padding: 8px 10px;
+  gap: 10px;
+  height: 30px;
+  padding: 4px 10px;
+  background: #092126;
   border: 2px solid var(--border);
-  background: #ffb8a1;
+  box-shadow: 3px 3px 0 0 #ffb8a1;
+}
+
+.pet-sprite {
+  position: relative;
+  width: 22px;
+  height: 20px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
+
+.pet-sprite::before,
+.pet-sprite::after {
+  content: "";
+  position: absolute;
+  background: #d8ffd6;
+}
+
+.pet-sprite::before {
+  left: 9px;
+  top: 2px;
+  width: 4px;
+  height: 16px;
+  box-shadow:
+    -6px -2px 0 0 #d8ffd6,
+    6px -2px 0 0 #d8ffd6,
+    -4px 4px 0 0 #d8ffd6,
+    4px 4px 0 0 #d8ffd6,
+    -6px 12px 0 0 #d8ffd6,
+    6px 12px 0 0 #d8ffd6;
+}
+
+.pet-sprite::after {
+  left: 7px;
+  top: 0;
+  width: 8px;
+  height: 4px;
+}
+
+.pet-signal {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 4px);
+  align-items: end;
+  gap: 3px;
+  height: 18px;
+}
+
+.pet-signal span {
+  display: block;
+  width: 4px;
+  background: #d8ffd6;
+}
+.pet-signal span:nth-child(1) { height: 7px; opacity: 0.65; }
+.pet-signal span:nth-child(2) { height: 13px; opacity: 0.85; }
+.pet-signal span:nth-child(3) { height: 18px; }
+
+.pet-code {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding-left: 2px;
   font-family: var(--mono);
-  font-weight: 700;
   font-size: 11px;
-  box-shadow: 0 5px 0 0 #ffb8a1;
+  line-height: 1;
+  font-weight: 700;
+  color: #d8ffd6;
+  letter-spacing: 0.08em;
+}
+
+.nav-pet--idle .nav-pet-frame {
+  background: #0a2a2e;
+  box-shadow: 3px 3px 0 0 #a8e6cf;
+}
+.nav-pet--idle .pet-sprite {
+  animation: pet-idle 2.4s steps(2, end) infinite;
+}
+.nav-pet--idle .pet-sprite::before,
+.nav-pet--idle .pet-sprite::after,
+.nav-pet--idle .pet-signal span {
+  background: #bfffe6;
+}
+.nav-pet--idle .pet-signal span {
+  opacity: 1;
+}
+.nav-pet--idle .pet-code {
+  color: #bfffe6;
+}
+.nav-pet--plan .pet-sprite::before,
+.nav-pet--review .pet-sprite::before {
+  box-shadow:
+    -8px 2px 0 0 #d8ffd6,
+    8px 2px 0 0 #d8ffd6,
+    -4px 7px 0 0 #d8ffd6,
+    4px 7px 0 0 #d8ffd6,
+    -6px 13px 0 0 #d8ffd6,
+    6px 13px 0 0 #d8ffd6;
+}
+.nav-pet--write .pet-sprite {
+  animation: pet-work 0.8s steps(2, end) infinite;
+}
+.nav-pet--done .pet-sprite::before {
+  box-shadow:
+    -7px 4px 0 0 #d8ffd6,
+    7px 4px 0 0 #d8ffd6,
+    -3px 8px 0 0 #d8ffd6,
+    3px 8px 0 0 #d8ffd6,
+    -4px 12px 0 0 #d8ffd6,
+    4px 12px 0 0 #d8ffd6;
+}
+.nav-pet--error .nav-pet-frame {
+  background: #31191d;
+}
+.nav-pet--error .pet-sprite::before,
+.nav-pet--error .pet-sprite::after,
+.nav-pet--error .pet-signal span {
+  background: #ffd0c8;
+}
+.nav-pet--error .pet-code {
+  color: #ffd0c8;
+}
+
+.nav-pet--plan .pet-signal span,
+.nav-pet--write .pet-signal span,
+.nav-pet--review .pet-signal span,
+.nav-pet--export .pet-signal span {
+  animation: pet-signal 0.9s steps(2, end) infinite;
+}
+.nav-pet--plan .pet-signal span:nth-child(2),
+.nav-pet--write .pet-signal span:nth-child(2),
+.nav-pet--review .pet-signal span:nth-child(2),
+.nav-pet--export .pet-signal span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.nav-pet--plan .pet-signal span:nth-child(3),
+.nav-pet--write .pet-signal span:nth-child(3),
+.nav-pet--review .pet-signal span:nth-child(3),
+.nav-pet--export .pet-signal span:nth-child(3) {
+  animation-delay: 0.24s;
 }
 
 .app-shell {
@@ -1115,6 +1241,18 @@ code {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+@keyframes pet-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+@keyframes pet-work {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+@keyframes pet-signal {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -1197,14 +1335,10 @@ code {
   .top-nav {
     flex-wrap: wrap;
   }
-  .nav-links {
+  .nav-pet {
     order: 3;
     width: 100%;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .nav-link {
-    font-size: 13px;
+    justify-content: center;
   }
   .app-body {
     width: calc(100% - 24px);
