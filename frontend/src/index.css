@@ -68,10 +68,11 @@ body::before {
   pointer-events: none;
   background: linear-gradient(
     rgba(232, 213, 242, 0) 50%,
-    rgba(168, 230, 207, 0.2) 50%
+    rgba(168, 230, 207, 0.08) 50%
   );
-  background-size: 100% 4px;
+  background-size: 100% 6px;
   z-index: 50;
+  opacity: 0.7;
   animation: crt-flicker 2.8s steps(2, end) infinite;
 }
 
@@ -297,7 +298,7 @@ code {
 .app-body {
   width: min(1240px, calc(100vw - 120px));
   margin: 0 auto;
-  padding: 52px 0 34px;
+  padding: 40px 0 30px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 32px;
@@ -387,7 +388,7 @@ code {
 
 .terminal-title {
   font-family: var(--pixel);
-  font-size: clamp(38px, 6vw, 64px);
+  font-size: clamp(36px, 5vw, 56px);
   line-height: 1;
   font-weight: 700;
   color: var(--text-h);
@@ -397,14 +398,14 @@ code {
   animation: heading-flicker 3.4s steps(2, end) infinite;
 }
 .terminal-subtitle {
-  font-family: var(--mono);
-  font-size: 17px;
-  line-height: 1.45;
+  font-family: var(--sans);
+  font-size: 18px;
+  line-height: 1.55;
   font-weight: 600;
   color: var(--text);
   text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
+  text-transform: none;
+  letter-spacing: 0;
   max-width: 560px;
   margin: 0 auto;
 }
@@ -424,18 +425,32 @@ code {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "icons"
+    "kicker"
     "title"
     "subtitle"
     "card";
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
   min-height: 0;
-  padding: clamp(22px, 4vw, 38px);
+  padding: clamp(24px, 4vw, 42px);
   border: 4px solid var(--border);
   background: #f4e7fa;
-  box-shadow: var(--shadow);
+  box-shadow: 4px 4px 0 0 #4a3b52, 8px 8px 0 0 #ffb8a1;
+}
+.hero-kicker {
+  grid-area: kicker;
+  width: max-content;
+  margin: 0 auto 2px;
+  padding: 7px 12px;
+  border: 2px solid var(--border);
+  background: var(--accent-active);
+  box-shadow: 3px 3px 0 0 #ffb8a1;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .hero-icon-row {
   grid-area: icons;
@@ -450,26 +465,31 @@ code {
   grid-area: card;
   width: 100%;
   max-width: 720px;
-  margin: 10px auto 0;
+  margin: 14px auto 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--accent-active);
+  gap: 18px;
+  background: #fff0c2;
+  box-shadow: 4px 4px 0 0 #4a3b52, 8px 8px 0 0 #ffb8a1;
 }
 .command-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 16px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 14px;
+  align-items: stretch;
 }
 .topic-input {
   min-width: 0;
-  padding: 12px 0 8px;
-  border-width: 0 0 4px;
-  background: transparent;
+  min-height: 58px;
+  padding: 14px 16px;
+  border-width: 3px;
+  background: #fbf8ff;
+  font-family: var(--sans);
+  font-size: 18px;
 }
 .topic-submit {
-  height: 58px;
+  min-height: 58px;
+  height: auto;
 }
 .option-row {
   display: flex;
@@ -497,8 +517,9 @@ code {
   padding: 10px 12px;
 }
 .terminal-divider {
-  height: 4px;
+  height: 3px;
   background: var(--border);
+  opacity: 0.85;
 }
 
 .task-cancel-button {
@@ -1114,7 +1135,7 @@ code {
   .input-panel {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "icons"
+      "kicker"
       "title"
       "subtitle"
       "card";

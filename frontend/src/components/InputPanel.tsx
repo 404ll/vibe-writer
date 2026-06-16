@@ -25,15 +25,12 @@ export function InputPanel({ onSubmit, disabled }: Props) {
 
   return (
     <div className="input-panel">
-      <div className="hero-icon-row" aria-hidden="true">
-        <span className="pixel-icon pixel-icon--sun" />
-        <span className="pixel-icon pixel-icon--computer" />
-      </div>
+      <div className="hero-kicker">AI Writing Workbench</div>
       <div className="terminal-title">vibe-writer</div>
-      <div className="terminal-subtitle">RECLAIM THE MEMORY. THE PAST IS BUFFERING.</div>
+      <div className="terminal-subtitle">输入主题，生成结构完整、可编辑的技术文章。</div>
 
       <div className="card input-card">
-        <div className="card-label">TERMINAL INPUT</div>
+        <div className="card-label">写作控制台</div>
         <div className="command-row">
           <label htmlFor="topic-input" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
             写作主题
@@ -47,7 +44,7 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            autoComplete="search"
+            autoComplete="off"
             disabled={disabled}
           />
           <button

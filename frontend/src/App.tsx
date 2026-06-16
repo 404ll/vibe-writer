@@ -237,7 +237,7 @@ export default function App() {
             <div className={isScrollable ? 'work-column work-column--active' : 'work-column work-column--idle'}>
               <div className={isScrollable ? 'hero-zone hero-zone--active' : 'hero-zone hero-zone--idle'}>
                 <div className={isScrollable ? 'workspace-layout' : 'workspace-layout workspace-layout--idle'}>
-                  {job && (
+                  {isScrollable && job && (
                     <StagePanel
                       currentStage={job.stage}
                       completedChapters={completedChapters}
