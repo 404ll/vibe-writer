@@ -6,27 +6,32 @@
 
 ## 快速启动
 
-**环境要求：** Python 3.11+，Node.js 18+
+**环境要求：** Python 3.11+，Node.js 18+，pnpm
 
 ```bash
 # 1. 配置环境变量
 cp .env.example .env   # 填入 ANTHROPIC_API_KEY / TAVILY_API_KEY / MODEL_ID
 
-# 2. 启动后端（推荐使用虚拟环境）
+# 2. 安装前端 workspace 依赖
+pnpm install
+
+# 3. 启动后端（推荐使用虚拟环境）
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install langgraph   # 关键补丁：确保依赖正确安装
+pip install -r apps/api/requirements.txt
+cd apps/api
 python3 -m uvicorn backend.main:app --reload   # http://localhost:8000
 
-# 3. 启动前端（如果网络不佳推荐指定源）
-cd frontend 
-npm install --registry=https://registry.npmmirror.com
-npm run dev       # http://localhost:5173
+# 4. 启动前端（另开一个终端，在仓库根目录执行）
+pnpm dev:web       # http://localhost:5173
 
-# 4. 运行测试
-python3 -m pytest
+# 5. 运行验证入口
+pnpm test:api      # 后端 pytest
+pnpm test:web      # 前端 Vitest
+pnpm verify        # API 测试 + 前端 lint + 前端 build
 ```
+
+> 当前仓库保留了迁移前已经存在的测试、lint、build 问题；`pnpm verify` 会暴露这些问题，但本次 monorepo 结构迁移不改变业务行为。
 
 ---
 
@@ -173,28 +178,24 @@ SSE 历史事件存储支持断线重连回放：前端重连时先 `GET /events
 ## 项目结构
 
 ```
-backend/
-├── agent/
-│   ├── base.py          BaseAgent + _call_llm_with_tools（ReAct loop）
-│   ├── orchestrator.py  流水线调度
-│   ├── planner.py       大纲生成
-│   ├── opinion.py       论点 + 搜索方向
-│   ├── writer.py        自主写作 Agent
-│   ├── search.py        Tavily 搜索 + LLM 提炼
-│   ├── reviewer.py      轻审 + 全文审
-│   └── prompts.py       所有 prompt 模板
-├── routers/
-│   ├── jobs.py          任务 API + SSE
-│   └── articles.py      文章 CRUD
-├── store.py             内存 JobStore
-├── database.py          SQLite 初始化
-└── models.py / models_db.py
-frontend/
-├── src/
-│   ├── components/      InputPanel / StagePanel / ReviewPanel
-│   ├── hooks/           useJobStream（SSE 订阅）
-│   └── types.ts
-tests/                   pytest 单元测试
+apps/
+├── api/
+│   ├── backend/
+│   │   ├── agent/       Planner / Opinion / Writer / Search / Reviewer / LangGraph
+│   │   ├── routers/     jobs / articles API
+│   │   ├── database.py  SQLite 初始化
+│   │   ├── store.py     内存 JobStore
+│   │   └── models.py / models_db.py
+│   ├── tests/           pytest 单元测试
+│   └── requirements.txt 后端 Python 依赖
+└── web/
+    ├── src/
+    │   ├── components/  InputPanel / StagePanel / ReviewPanel
+    │   ├── hooks/       useJobStream（SSE 订阅）
+    │   └── types.ts
+    └── package.json     @vibe-writer/web workspace
+package.json             根级 pnpm 命令入口
+pnpm-workspace.yaml      pnpm workspace 配置
 ```
 
 ---
@@ -215,9 +216,9 @@ tests/                   pytest 单元测试
 | 持久化 | 纯内存，重启丢失 | LangGraph checkpointer → SQLite |
 | 入口 | `Orchestrator.run()` | `graph.ainvoke(initial_state)` |
 
-**删除：** `backend/agent/orchestrator.py`
+**删除：** `apps/api/backend/agent/orchestrator.py`
 
-**新增：** `backend/agent/graph.py`（节点 + 条件边 + `build_graph()`）
+**新增：** `apps/api/backend/agent/graph.py`（节点 + 条件边 + `build_graph()`）
 
 详细思考过程记录在博客：[我把自己写的 AI 写作 Agent 重构了一遍](https://elemen-in-here.vercel.app/blog/frontend/vibe-writer-langgraph)
 
@@ -235,6 +236,6 @@ tests/                   pytest 单元测试
 | 前端渲染 | `MermaidBlock` 组件，阅读态和编辑预览均支持 Mermaid 渲染 |
 
 **新增：**
-- `backend/routers/articles.py`：`PATCH /{id}`、`GET /{id}/versions`、`POST /{id}/versions/{vid}/restore`
-- `backend/models_db.py`：`ArticleVersion` 表（全文快照）
-- `frontend/src/pages/ArticlePage.tsx`：编辑态、历史侧边栏、MermaidBlock
+- `apps/api/backend/routers/articles.py`：`PATCH /{id}`、`GET /{id}/versions`、`POST /{id}/versions/{vid}/restore`
+- `apps/api/backend/models_db.py`：`ArticleVersion` 表（全文快照）
+- `apps/web/src/pages/ArticlePage.tsx`：编辑态、历史侧边栏、MermaidBlock

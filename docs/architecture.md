@@ -79,16 +79,19 @@ Plan：拆解文章大纲（章节列表 + 每节要点）
 
 ```
 vibe-writer/
-  agents/
-    writer.py        ← 主 agent
-  skills/
-    tech-blog/
-      SKILL.md       ← 技术博客写作风格指南
+  apps/
+    api/
+      backend/       ← FastAPI + LangGraph 后端包
+      tests/         ← pytest 测试
+      requirements.txt
+    web/
+      src/           ← React + TypeScript 前端
+      package.json
   docs/
     architecture.md  ← 本文档
   output/            ← 生成的文章
-  .tasks/            ← 任务状态持久化
-  requirements.txt
+  package.json       ← 根级 pnpm 命令入口
+  pnpm-workspace.yaml
   .env.example
 ```
 

@@ -24,9 +24,12 @@ htmlcov/
 output/
 
 # Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+.vite/
+pnpm-debug.log*
 
 # Editor / OS
 .DS_Store

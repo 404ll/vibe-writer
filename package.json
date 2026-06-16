@@ -1,0 +1,14 @@
+{
+  "name": "vibe-writer",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @vibe-writer/web dev",
+    "build:web": "pnpm --filter @vibe-writer/web build",
+    "lint:web": "pnpm --filter @vibe-writer/web lint",
+    "test:web": "pnpm --filter @vibe-writer/web test",
+    "test:api": "cd apps/api && ../../.venv/bin/python -m pytest",
+    "verify": "pnpm test:api && pnpm lint:web && pnpm build:web"
+  }
+}
