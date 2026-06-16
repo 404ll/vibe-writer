@@ -1,3 +1,13 @@
+import type { SSEEventType } from './sseEvents'
+
+export type {
+  ChapterEvent,
+  JobLifecycleEvent,
+  PlanningEvent,
+  ReviewEvent,
+  SSEEventType,
+} from './sseEvents'
+
 export type StageStatus = "plan" | "write" | "review" | "export" | "done" | "error";
 
 export interface InterventionConfig {
@@ -29,22 +39,6 @@ export interface JobState {
   chapters: { title: string; content: string }[];
   error: string | null;
 }
-
-export type SSEEventType =
-  | "stage_update"
-  | "outline_ready"
-  | "generating_opinions"
-  | "opinions_ready"
-  | "searching"
-  | "search_done"
-  | "writing_chapter"
-  | "reviewing_chapter"
-  | "chapter_done"
-  | "reviewing_full"
-  | "review_done"
-  | "done"
-  | "cancelled"
-  | "error";
 
 export interface SSEPayload {
   event: SSEEventType;

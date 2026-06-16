@@ -1,26 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { SSEEventType } from '../types'
 import { API_BASE } from '../config'
-
-// 需要监听的所有 SSE 事件类型（与后端 SSEEvent.event 字段保持一致）
-const SSE_EVENT_TYPES: SSEEventType[] = [
-  'stage_update',
-  'outline_ready',
-  'generating_opinions',
-  'opinions_ready',
-  'searching',
-  'search_done',
-  'writing_chapter',
-  'reviewing_chapter',
-  'chapter_done',
-  'reviewing_full',
-  'review_done',
-  'done',
-  'cancelled',
-  'error',
-]
-
-const TERMINAL_EVENTS = new Set(['done', 'cancelled', 'error'])
+import { SSE_EVENT_TYPES, TERMINAL_EVENTS } from '../sseEvents'
 
 type RawEvent = { event: string; data: Record<string, unknown> }
 
@@ -39,6 +20,7 @@ export function useJobStream(
   jobId: string | null,
   onEvent: (type: SSEEventType, data: Record<string, unknown>) => void
 ) {
+  // EventSource 的回调只注册一次；用 ref 保存最新的 onEvent，避免回调里拿到旧函数。
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
 
@@ -47,20 +29,24 @@ export function useJobStream(
 
     let es: EventSource | null = null
     let cancelled = false
+    // 后端每个事件会带递增的 _seq，用它过滤历史回放和实时推送里的重复事件。
     let lastSeq = -1
 
+    //把一个后端事件正式交给前端页面处理
     function dispatch(type: string, data: Record<string, unknown>) {
       const seq = data._seq as number | undefined
       if (seq !== undefined) {
         if (seq <= lastSeq) return
         lastSeq = seq
       }
+      // _seq 只用于前端去重，不继续传给页面层业务逻辑。
       const { _seq: _, ...payload } = data
       onEventRef.current(type as SSEEventType, payload)
     }
 
     async function replayEvents(fromSeq: number): Promise<void> {
       try {
+        // 拉取后端保存过的历史事件，用来补齐页面刷新或网络重连期间错过的消息。
         const res = await fetch(`${API_BASE}/jobs/${jobId}/events`)
         if (!res.ok || cancelled) return
         const { events } = await res.json() as { events: RawEvent[] }
@@ -76,6 +62,7 @@ export function useJobStream(
     }
 
     async function connect() {
+      // EventSource 会和后端保持一条 HTTP 长连接，后端有新事件时会主动推送。
       es = new EventSource(`${API_BASE}/jobs/${jobId}/stream`)
 
       SSE_EVENT_TYPES.forEach((type) => {
@@ -89,6 +76,7 @@ export function useJobStream(
       })
 
       es.addEventListener('open', () => {
+        // 连接真正打开后再回放一次，补齐“创建连接”和“连接成功”之间可能漏掉的事件。
         if (!cancelled) void replayEvents(lastSeq)
       })
 
@@ -98,6 +86,7 @@ export function useJobStream(
     connect()
 
     return () => {
+      // 组件卸载或 jobId 改变时，停止后续异步处理并关闭旧连接。
       cancelled = true
       es?.close()
     }
