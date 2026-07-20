@@ -1,241 +1,359 @@
 # vibe-writer
 
-输入一个主题，AI 自动完成搜索、写作、审稿，生成一篇完整的技术博客。
+一个基于 React、FastAPI 和 LangGraph 的 AI 长文写作工作台。用户提交主题后，系统会生成大纲（可选人工确认），并行完成章节论点、按需资料搜索、写作和审稿，最后导出 Markdown，并提供文章编辑、历史版本与 Mermaid 图表渲染。
 
----
+> 当前实现快照：2026-07。本文以仓库现有代码为准，明确区分已经实现的能力和尚未完成的方向。
+
+## 核心能力
+
+- LangGraph `plan → write → review → export` 工作流，审稿不通过时通过条件边回到写作阶段。
+- Planner、Opinion、Writer、Search、Reviewer 分阶段协作；Writer 可自主调用搜索和 Mermaid 图表工具。
+- 大纲确认支持人工介入：用户可以编辑大纲、提交修改意见或确认继续。
+- 多章节通过 `asyncio.gather()` 并行处理，前端实时展示各章节状态。
+- SSE 任务事件流，支持半包解析、历史回放、`_seq` 去重、自动重连和取消。
+- 生成结果同时写入后端工作目录下的 `output/*.md` 和 SQLite；文章支持编辑、历史快照、预览和恢复。
 
 ## 快速启动
 
-**环境要求：** Python 3.11+，Node.js 18+，pnpm
+环境要求：
+
+- Python 3.11+
+- Node.js `^20.19.0` 或 `>=22.12.0`（Vite 8 的运行要求）
+- pnpm 10
 
 ```bash
 # 1. 配置环境变量
-cp .env.example .env   # 填入 ANTHROPIC_API_KEY / TAVILY_API_KEY / MODEL_ID
+cp .env.example .env
+# 必填：ANTHROPIC_API_KEY
+# 可选：TAVILY_API_KEY、ANTHROPIC_BASE_URL、MODEL_ID、DATABASE_URL
 
 # 2. 安装前端 workspace 依赖
 pnpm install
 
-# 3. 启动后端（推荐使用虚拟环境）
+# 3. 创建后端虚拟环境并安装依赖
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r apps/api/requirements.txt
+
+# 4. 启动后端
 cd apps/api
-python3 -m uvicorn backend.main:app --reload   # http://localhost:8000
+../../.venv/bin/python -m uvicorn backend.main:app --reload
+# http://localhost:8000
 
-# 4. 启动前端（另开一个终端，在仓库根目录执行）
-pnpm dev:web       # http://localhost:5173
-
-# 5. 运行验证入口
-pnpm test:api      # 后端 pytest
-pnpm test:web      # 前端 Vitest
-pnpm verify        # API 测试 + 前端 lint + 前端 build
+# 5. 另开终端，从仓库根目录启动前端
+pnpm dev:web
+# http://localhost:5173
 ```
 
-> 当前仓库保留了迁移前已经存在的测试、lint、build 问题；`pnpm verify` 会暴露这些问题，但本次 monorepo 结构迁移不改变业务行为。
+开发环境中，前端请求 `/api/*`，Vite 将其代理到 `http://127.0.0.1:8000` 并移除 `/api` 前缀。
 
----
+`MODEL_ID` 默认是 `deepseek-v4-flash`。如果使用 Anthropic 官方服务或其他兼容服务，需要确保 `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL` 和 `MODEL_ID` 属于同一服务商并且模型可用。没有 `TAVILY_API_KEY` 时项目仍能写作，但搜索工具会返回“搜索不可用”并跳过真实检索。
+
+### 验证命令
+
+```bash
+pnpm test:web
+pnpm build:web
+pnpm lint:web
+pnpm test:api
+pnpm verify
+```
+
+当前已知状态：
+
+- `pnpm test:web`、`pnpm build:web` 可通过。
+- `pnpm lint:web` 存在既有 lint 错误。
+- `pnpm test:api` 存在既有 Agent/LLM mock 相关失败。
+- `pnpm verify` 通过 `&&` 串联 API 测试、前端 lint 和前端 build；当前会在 API 测试失败后停止，不能作为全绿验证入口。
 
 ## 架构概览
 
-```
-浏览器 (React + TypeScript)
-    │  POST /jobs          创建任务
-    │  GET  /jobs/stream   SSE 实时进度
-    │  POST /jobs/reply    大纲确认
-    ▼
+```text
+浏览器（React + TypeScript）
+    │
+    ├── POST /jobs                  创建任务，获取 job_id
+    ├── GET  /jobs/{id}/stream      SSE 实时事件流
+    ├── GET  /jobs/{id}/events      历史事件回放
+    ├── POST /jobs/{id}/reply       确认或修改大纲
+    └── POST /jobs/{id}/cancel      取消任务
+            │
+            ▼
 FastAPI + asyncio
-    └── Orchestrator（流水线调度）
-            ├── PlannerAgent    生成大纲
-            ├── OpinionAgent    生成章节论点 + 搜索方向
-            ├── WriterAgent ←── SearchAgent.search_one（注入）
-            └── ReviewAgent     轻审（每章）+ 全文重审
-                    ↓
-            SQLite（文章持久化）
-            JobStore（任务状态，内存）
+    ├── asyncio.create_task(_run_agent)
+    ├── JobStore
+    │   ├── job 元数据、人工回复和取消标志
+    │   └── SSE 事件历史（进程内存）
+    └── LangGraph StateGraph
+        ├── plan    → PlannerAgent
+        ├── write   → OpinionAgent + WriterAgent + SearchAgent
+        ├── review  → ReviewAgent
+        └── export  → Markdown + SQLite Article
+                           │
+                           ▼
+                    文章阅读 / 编辑 / 版本恢复
 ```
 
----
+前端负责交互、SSE 消费和 UI 状态；后端负责 LangGraph 编排、LLM/tool loop、任务事件和文章持久化。它是一个分阶段的 LangGraph 写作工作流，不是多个自治 Agent 相互协商的系统。
 
-## Agent 设计
+## LangGraph 工作流
 
-### 流水线结构
+图中只有四个节点：`plan`、`write`、`review`、`export`。
 
-```
-PLAN  →  WRITE（各章并行）  →  REVIEW  →  EXPORT
-              ↓
-    OpinionAgent（论点 + 搜索方向）
-              ↓
-    WriterAgent（ReAct loop：按需自主搜索）
-              ↓
-    ReviewAgent（轻审，不通过重写一次）
-```
-
-### WriterAgent：从流水线到自主 Agent
-
-项目经历了一次核心架构演进：
-
-**早期（Pipeline 模式）**
-```
-Orchestrator 决定：先搜索 → 把结果喂给 Writer
-Writer 被动接收 research，一次性生成内容
+```text
+START
+  ↓
+PLAN ── 生成大纲，可等待用户确认或修改
+  ↓
+WRITE ── 各章节并行生成论点、按需搜索、写作和轻审
+  ↓
+REVIEW ── 全文审稿
+  ├── 存在未通过章节且未达到上限 ──→ WRITE
+  └── 全部通过或达到重审上限 ─────→ EXPORT
+                                         ↓
+                                        END
 ```
 
-**现在（Agentic 模式）**
-```
-Writer 自主决定：写到哪里需要什么资料，主动调用 search 工具
-基于 ReAct loop：LLM → tool_use → 执行搜索 → 继续生成
-```
+LangGraph 的 `WriterState` 保存主题、风格、目标字数、大纲、章节、重审次数和最终内容。`should_rewrite()` 是 review 之后唯一的决策点：第一次全文审稿未通过的章节会回到 write，已通过章节会跳过；第二次全文审稿后无论是否全部通过都会进入 export。
 
-核心实现在 `BaseAgent._call_llm_with_tools()`：
+章节级轻审是另一层规则：每次进入 write 的章节完成本轮写作后都会轻审；如果不通过，会携带反馈立即重写一次，但这次立即重写的结果不会再次执行轻审。
 
-```python
-# 来自 s01/s02 的 agent loop pattern
-while stop_reason == "tool_use":
-    response = LLM(messages, tools)
-    messages.append(assistant turn)
-    execute tools → collect results
-    messages.append(tool_results)
-return final text
-```
+### 各组件职责
 
-Writer 声明 `search` 工具，LLM 在需要具体数据或案例时主动调用，搜索结果作为 `tool_result` 反馈，LLM 继续写作直到 `stop_reason == "end_turn"`。
+| 组件 | 职责 |
+|---|---|
+| `PlannerAgent` | 根据主题和目标字数生成大纲；根据用户反馈修订大纲 |
+| `OpinionAgent` | 为每章生成核心论点和搜索方向 |
+| `SearchAgent` | 调用 Tavily 搜索并整理资料 |
+| `WriterAgent` | 根据大纲、论点和审稿反馈写作；自主调用 `search`、`generate_diagram` 工具 |
+| `ReviewAgent` | 章节轻审和全文审稿，返回结构化通过状态与反馈 |
 
-### 依赖注入：解耦搜索实现
+### Writer tool loop
 
-`WriterAgent` 不直接持有 `SearchAgent`，而是接收一个函数签名：
+`BaseAgent._call_llm_with_tools()` 统一实现最多 8 轮的工具调用循环：
 
-```python
-WriterAgent(search_fn: async (query: str) -> str)
-```
-
-好处：将来换搜索引擎（Tavily → Bing → 自建），只需换注入的函数，Writer 代码不动。
-
-### OpinionAgent：论点驱动的搜索方向
-
-`OpinionAgent` 为每个章节生成 2-3 个核心论点，同时输出搜索方向建议。论点作为写作骨架传给 Writer，搜索方向作为 `search_hints` 附加到 prompt——Writer 可以参考，也可以自行判断搜别的，不是强制约束。
-
-这体现了"宏观方向（Opinion）+ 微观自主（Writer tool_use）"的分层设计。
-
-### ReviewAgent：两轮收敛机制
-
-- **轻审**：每章写完后立即审（连贯性 + 完整度），不通过则重写一次，再审一次
-- **全文重审**：所有章节完成后整体审，不通过的章节并行重写，最多两轮
-
-两轮机制保证了质量收敛，同时避免无限循环。
-
----
-
-## 实时通信设计
-
-前端通过 **SSE（Server-Sent Events）** 订阅任务进度：
-
-```
-POST /jobs          → 返回 job_id，后台启动 asyncio.create_task
-GET  /stream        → 长连接，实时接收事件
-POST /reply         → 用户确认大纲，唤醒挂起的 Orchestrator
+```text
+LLM 响应
+  ├── stop_reason == tool_use
+  │      ↓
+  │   执行 search / generate_diagram
+  │      ↓
+  │   将 tool_result 追加到 messages，再次调用 LLM
+  │
+  └── 其他 stop_reason → 提取最终文本
 ```
 
-大纲确认的实现用了 `asyncio.Event`：Orchestrator 在介入节点 `await event.wait()` 挂起，前端 POST `/reply` 后调用 `event.set()` 唤醒。这是经典的**协程间同步**模式。
+`WriterAgent` 不直接依赖 `SearchAgent`，而是接收异步 `search_fn`。写作节点在注入的搜索函数外包装 `searching` / `search_done` 事件和每轮最多 3 次搜索的限制。
 
-SSE 历史事件存储支持断线重连回放：前端重连时先 `GET /events` 拉取历史，再接 `/stream` 接收新事件。
+### 人工确认大纲
 
----
+启用 `intervention.on_outline` 后，plan 节点推送 `outline_ready` 并等待 `JobStore.wait_for_reply()`：
 
-## 技术选型
+```text
+outline_ready ──SSE──→ 前端 ReviewPanel
+                            │
+                            └── POST /jobs/{id}/reply
+                                      │
+                                      └── asyncio.Event.set()
+                                                │
+                                                └── 唤醒 plan 节点
+```
 
-| 技术 | 用途 | 选型理由 |
-|------|------|----------|
-| Anthropic SDK | LLM 调用 | 兼容 Kimi/DeepSeek 等国内模型的 API 格式 |
-| Tavily API | 实时搜索 | 专为 LLM 设计，返回结构化摘要 |
-| FastAPI + asyncio | 后端 | 原生异步，SSE 支持好，与 asyncio Agent 天然契合 |
-| SQLite + aiosqlite | 持久化 | 零配置，异步驱动，适合单机部署 |
-| React + TypeScript | 前端 | 类型安全，组件化实时状态管理 |
+SSE 只负责服务端到浏览器的单向通知；用户确认、修改和取消均通过普通 HTTP POST 返回后端。
 
----
+## SSE 实时通信
 
-## 已知局限与未来方向
+### 端到端数据流
 
-### 当前局限
+```text
+LangGraph 节点产生 SSEEvent
+    ↓
+push_event() 添加递增 _seq
+    ↓
+先写入 JobStore._event_logs
+    ↓
+广播到每个订阅者的 asyncio.Queue
+    ↓
+StreamingResponse 编码为 event/data 文本帧
+    ↓
+fetch + ReadableStream + TextDecoder
+    ↓
+buffer 按空行切分完整 SSE frame
+    ↓
+按 _seq 去重并移除 _seq
+    ↓
+App.handleEvent 更新阶段、日志、章节状态和写作预览
+```
 
-| 问题 | 影响 |
-|------|------|
-| JobStore 纯内存 | 服务重启任务丢失，无断点续写 |
-| tool_use 期间无流式输出 | 搜索时前端无 token 流，有停顿感 |
-| 全文审稿一次性塞入 prompt | 章节多时有 token 溢出风险 |
+后端发送的单个帧形如：
 
-### 未来方向
+```text
+event: writing_chapter
+data: {"title":"第一章","token":"...","_seq":7}
 
-**中期**
-- **持久化 JobStore**：复用已有 SQLite，让任务状态跨重启存活，解锁断点续写
-- **全文审稿分批**：超过阈值后改为逐章审，防止 token 溢出
+```
 
-**长期**
-- **图结构化**：用 LangGraph 或自实现状态图，让 review 失败时真正循环重写，而不是固定两轮
-- **多模型路由**：根据任务类型（规划/写作/审稿）动态选择不同模型，平衡质量与成本
+前端当前没有使用 `EventSource`，而是由 `useJobStream` 通过 `fetch` 读取 `Response.body`，自行处理：
 
----
+- UTF-8 字符和 SSE frame 跨多个 `ReadableStream` chunk 的情况；
+- `event:` / 多行 `data:` 字段解析和事件白名单；
+- `AbortController` 清理旧连接；
+- 连接异常结束后等待 1 秒重连；
+- `done`、`cancelled`、`error` 三类终止事件。
+
+### 历史回放与去重
+
+任务创建后可能在浏览器订阅前就产生事件，因此 `push_event()` 总是先写历史、再广播。前端重连采用：
+
+```text
+1. 先连接 /stream，尽早加入实时订阅
+2. 再请求 /events，回放当前后端进程保存的历史
+3. 实时流中与历史重叠的事件通过 _seq 去重
+```
+
+页面刷新时，前端从 `localStorage` 恢复 `job_id`，再通过历史事件重建 UI。这里恢复的是同一个后端进程中的事件状态；`JobStore` 和事件历史没有持久化，服务重启后不能恢复任务。
+
+后端重启后，旧 job 的 `/stream` 和 `/events` 会返回 404；当前前端没有专门的“任务已失效”状态，可能继续保留旧 `job_id` 并尝试重连。
+
+### 当前正文流式边界
+
+SSE 连接和任务事件是真正实时的，但章节正文当前不是模型逐 token 输出。`WriterAgent.write_stream()` 会先等待完整 tool loop 结束，再一次性 `yield` 整章文本，因此通常一个写作轮次只产生一次 `writing_chapter` 正文事件。`BaseAgent._stream_llm()` 虽然存在，目前没有接入 Writer 的工具调用流程。
+
+## 文章持久化与编辑
+
+export 节点会：
+
+1. 拼接所有章节为 Markdown；
+2. 写入后端进程当前工作目录下的 `output/<slug>.md`；
+3. 保存到 SQLite `articles` 表（默认数据库同样相对于后端工作目录）；
+4. 通过 `done` 事件返回 `article_id`，前端跳转到文章详情页。
+
+按本文推荐命令从 `apps/api` 启动时，生成文件位于 `apps/api/output/`，默认数据库位于 `apps/api/data/vibe_writer.db`。
+
+文章详情页支持：
+
+- Markdown + GFM 阅读；
+- Mermaid 代码块渲染；
+- 左侧预览、右侧 Markdown 的编辑模式；
+- 保存前自动创建 `ArticleVersion` 快照；
+- 查看历史版本并恢复。
+
+## API
+
+### Jobs
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| `POST` | `/jobs` | 创建后台写作任务，返回 `job_id` |
+| `GET` | `/jobs/{job_id}/stream` | 建立 `text/event-stream` 长连接 |
+| `GET` | `/jobs/{job_id}/events` | 获取进程内历史事件 |
+| `POST` | `/jobs/{job_id}/reply` | 提交大纲确认、编辑结果或修改建议 |
+| `POST` | `/jobs/{job_id}/cancel` | 取消后台 asyncio Task |
+
+### Articles
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| `GET` | `/articles` | 获取文章列表 |
+| `GET` | `/articles/{article_id}` | 获取文章全文 |
+| `PATCH` | `/articles/{article_id}` | 保存编辑并创建旧内容快照 |
+| `GET` | `/articles/{article_id}/versions` | 获取历史版本列表 |
+| `GET` | `/articles/{article_id}/versions/{version_id}` | 获取历史版本内容 |
+| `POST` | `/articles/{article_id}/versions/{version_id}/restore` | 恢复历史版本 |
+
+## 技术栈
+
+| 层 | 技术 | 当前用途 |
+|---|---|---|
+| 前端 | React 19、TypeScript、Vite 8 | 工作台、任务状态、文章阅读与编辑 |
+| 实时通信 | SSE、Fetch、ReadableStream | 进度事件、回放、去重和重连 |
+| 后端 | FastAPI、asyncio、Pydantic | HTTP API、后台任务和事件流 |
+| 工作流 | LangGraph | `plan → write → review → export` 和条件重写 |
+| LLM | Anthropic Python SDK | 普通调用、JSON 解析和 tool loop；支持配置兼容 base URL 与模型 ID |
+| 搜索 | Tavily | Writer 按需搜索资料 |
+| 数据 | SQLAlchemy async、aiosqlite | 文章和历史版本持久化 |
+| 内容 | react-markdown、remark-gfm、Mermaid | Markdown/GFM/图表渲染 |
+| 测试 | pytest、pytest-asyncio、Vitest | 后端和前端单元测试 |
 
 ## 项目结构
 
-```
+```text
 apps/
 ├── api/
 │   ├── backend/
-│   │   ├── agent/       Planner / Opinion / Writer / Search / Reviewer / LangGraph
-│   │   ├── routers/     jobs / articles API
-│   │   ├── database.py  SQLite 初始化
-│   │   ├── store.py     内存 JobStore
-│   │   └── models.py / models_db.py
-│   ├── tests/           pytest 单元测试
-│   └── requirements.txt 后端 Python 依赖
+│   │   ├── agent/
+│   │   │   ├── graph.py          LangGraph 节点、边和条件重写
+│   │   │   ├── base.py           LLM、JSON 和 tool loop 基类
+│   │   │   ├── planner.py        大纲规划
+│   │   │   ├── opinion.py        章节论点和搜索方向
+│   │   │   ├── search.py         Tavily 搜索
+│   │   │   ├── writer.py         写作、搜索和 Mermaid 工具
+│   │   │   └── reviewer.py       章节与全文审稿
+│   │   ├── routers/
+│   │   │   ├── jobs.py           Job、SSE、回放、回复和取消 API
+│   │   │   └── articles.py       文章和版本 API
+│   │   ├── database.py           SQLite async 初始化
+│   │   ├── models.py             API 与 LangGraph 状态模型
+│   │   ├── models_db.py          Article / ArticleVersion ORM
+│   │   └── store.py              进程内 JobStore
+│   ├── tests/                     pytest 测试
+│   ├── output/                    推荐启动方式下生成的 Markdown（不提交）
+│   ├── data/                      推荐启动方式下的本地 SQLite（不提交）
+│   └── requirements.txt
 └── web/
     ├── src/
-    │   ├── components/  InputPanel / StagePanel / ReviewPanel
-    │   ├── hooks/       useJobStream（SSE 订阅）
-    │   └── types.ts
-    └── package.json     @vibe-writer/web workspace
-package.json             根级 pnpm 命令入口
-pnpm-workspace.yaml      pnpm workspace 配置
+    │   ├── App.tsx               任务 UI 状态和事件消费
+    │   ├── api.ts                文章 API client
+    │   ├── sseEvents.ts          SSE 事件协议与分组
+    │   ├── hooks/useJobStream.ts SSE 连接、解析、回放和重连
+    │   ├── components/           工作台组件
+    │   └── pages/ArticlePage.tsx 文章阅读、编辑和历史版本
+    ├── vite.config.ts             开发代理和 Vitest 配置
+    └── package.json               @vibe-writer/web workspace
+
+docs/                              架构、评估、设计和任务记录
+package.json                       根级 pnpm 命令
+pnpm-workspace.yaml                workspace 配置
 ```
 
----
+`output/` 相对于后端进程工作目录。默认 `DATABASE_URL` 也是相对路径，但初始化代码只会自动创建 `apps/api/data/`；如果不按本文推荐方式启动，需要自行创建数据库父目录或显式设置 `DATABASE_URL`。
+
+## 已知局限与下一步
+
+| 当前局限 | 影响 | 对应方向 |
+|---|---|---|
+| JobStore、事件历史和运行中任务只在单进程内存中 | 后端重启或多 worker 部署时无法恢复/共享任务 | 将 job、event log 和 LangGraph checkpoint 持久化 |
+| Writer 完成 tool loop 后才一次性发送正文 | 搜索和生成期间正文预览可能长时间没有更新 | 设计兼容工具调用的真正 token streaming |
+| 历史回放遇到终止事件不会像实时帧一样主动结束连接循环 | 已完成任务的刷新恢复可能留下等待中的流连接 | 统一实时事件与回放事件的终态处理 |
+| SSE 没有 heartbeat，订阅队列无上限，历史日志不淘汰 | 长空闲连接可能被代理关闭，慢消费者或长任务可能增加内存 | 增加心跳、背压、历史游标和清理策略 |
+| 全文审稿一次性接收所有章节 | 超长文章可能触及模型上下文上限 | 按章节或分批审稿，再汇总全局结果 |
+| 审稿 JSON 解析失败时默认通过 | 模型输出格式异常可能绕过质量检查 | 引入严格 schema、有限重试和显式失败状态 |
+| 恢复历史版本前不会保存当前内容，恢复后还会重复保存被恢复内容 | 当前版本会被直接覆盖，无法撤销本次恢复 | 恢复前先快照当前内容，并明确版本链语义 |
+| 生产环境 API 地址仍默认 `http://localhost:8000` | 部署到非本机环境时需要修改配置 | 改为构建时环境变量和同源反向代理 |
 
 ## 演进记录
 
-### v2：LangGraph 重构（2026-04）
+### v1：顺序流水线
 
-**动机：** 原版 `Orchestrator` 把业务逻辑、控制流、基础设施（SSE 推流、日志、重试）全部混在一起，`review 失败最多重写两次` 这类规则硬编码在 Python 里，难以修改和扩展。
+早期由 `Orchestrator` 通过 Python 控制流串联规划、搜索、写作和导出，状态和基础设施耦合较重。
 
-**核心变化：**
+### v2：LangGraph 工作流
 
-| | v1（流水线） | v2（LangGraph） |
-|---|---|---|
-| 控制流 | Python `if/else` 硬编码 | 条件边 `should_rewrite()` |
-| 状态管理 | 全局可变 `JobStore` | 类型化 `WriterState`（TypedDict） |
-| 阶段追踪 | 手动维护 `StageStatus` 字段 | 图结构本身即状态，无需额外记录 |
-| 持久化 | 纯内存，重启丢失 | LangGraph checkpointer → SQLite |
-| 入口 | `Orchestrator.run()` | `graph.ainvoke(initial_state)` |
+- 删除旧 `Orchestrator`，改为 `StateGraph(WriterState)`。
+- 建立 `plan → write → review → export` 节点和 review 条件边。
+- 通过闭包注入 agent、`job_id`、SSE 推送、人工回复和取消函数。
+- 当前运行入口为 `graph.ainvoke(initial_state)`；尚未接入持久化 checkpointer。
 
-**删除：** `apps/api/backend/agent/orchestrator.py`
+详细思考过程：[我把自己写的 AI 写作 Agent 重构了一遍](https://elemen-in-here.vercel.app/blog/frontend/vibe-writer-langgraph)
 
-**新增：** `apps/api/backend/agent/graph.py`（节点 + 条件边 + `build_graph()`）
+### v3：文章编辑、版本与 Mermaid
 
-详细思考过程记录在博客：[我把自己写的 AI 写作 Agent 重构了一遍](https://elemen-in-here.vercel.app/blog/frontend/vibe-writer-langgraph)
+- 增加文章编辑态和历史版本快照。
+- 增加 `generate_diagram` tool，由 Writer 判断是否生成 Mermaid 图表。
+- 阅读态和编辑预览均支持 Mermaid 渲染。
 
-### v3：文章编辑态 + 历史版本 + Mermaid 配图（2026-04）
+### 当前：可恢复的 SSE 前端传输层
 
-**动机：** 生成的文章需要能修改，修改需要有历史回溯；WriterAgent 在写作时应该能自主决定是否配图，而不是靠外部触发。
-
-**核心变化：**
-
-| 功能 | 实现方式 |
-|---|---|
-| 文章编辑态 | 结果页左右分栏（左预览、右 Markdown），手动保存 |
-| 历史版本 | 每次保存前自动存旧内容快照，侧边栏可预览 + 恢复 |
-| Mermaid 配图 | WriterAgent 新增 `generate_diagram` tool，LLM 自主决定是否调用 |
-| 前端渲染 | `MermaidBlock` 组件，阅读态和编辑预览均支持 Mermaid 渲染 |
-
-**新增：**
-- `apps/api/backend/routers/articles.py`：`PATCH /{id}`、`GET /{id}/versions`、`POST /{id}/versions/{vid}/restore`
-- `apps/api/backend/models_db.py`：`ArticleVersion` 表（全文快照）
-- `apps/web/src/pages/ArticlePage.tsx`：编辑态、历史侧边栏、MermaidBlock
+- 前端从 `EventSource` 迁移到 `fetch + ReadableStream`。
+- 增加跨 chunk 的 SSE frame 缓冲解析、`AbortController` 生命周期管理和自动重连。
+- `push_event()` 为事件增加 `_seq`，先写历史、再广播；前端通过 `/events` 回放并去重。
+- 刷新恢复范围明确为同一后端进程，不宣称服务重启后的持久恢复。
