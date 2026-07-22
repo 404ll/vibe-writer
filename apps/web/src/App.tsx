@@ -10,6 +10,12 @@ import { useJobStream } from './hooks/useJobStream'
 import { HistoryPanel } from './components/HistoryPanel'
 import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from './types'
 import { API_BASE } from './config'
+import {
+  appendWritingChunk,
+  getActiveWritingPreview,
+  removeWritingBuffer,
+  type WritingBuffers,
+} from './writingBuffers'
 
 const STORAGE_KEY = 'vibe_active_job_id'
 
@@ -31,8 +37,8 @@ export default function App() {
   const [completedChapters, setCompletedChapters] = useState(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
   const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>>({})
-  // 滑动窗口写作预览：记录最新活跃章节和累积 token
-  const [writingState, setWritingState] = useState<{ title: string; buffer: string } | null>(null)
+  // 并行章节分别累积增量正文；预览稳定展示最早开始且尚未结束的章节
+  const [writingBuffers, setWritingBuffers] = useState<WritingBuffers>({})
 
   const MAX_ACTIVITY = 50
   function addActivity(status: ActivityEntry['status'], message: string) {
@@ -106,12 +112,7 @@ export default function App() {
         const title = data.title as string
         const token = data.token as string | undefined
         if (token !== undefined) {
-          // 后端按 token 流式推送章节内容；这里累积成预览区的滑动文本
-          setWritingState((prev) =>
-            prev?.title === title
-              ? { title, buffer: prev.buffer + token }
-              : { title, buffer: token }
-          )
+          setWritingBuffers((prev) => appendWritingChunk(prev, title, token))
           setChapterStatus((prev) => ({ ...prev, [title]: 'writing' }))
         }
         break
@@ -119,12 +120,13 @@ export default function App() {
       case 'reviewing_chapter':
         addActivity('running', `轻审中：${data.title as string}`)
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'reviewing' }))
-        setWritingState((prev) => prev?.title === (data.title as string) ? null : prev)
+        setWritingBuffers((prev) => removeWritingBuffer(prev, data.title as string))
         break
       case 'chapter_done': {
         const review = data.review as ReviewResult | undefined
         setCompletedChapters((n) => n + 1)
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'done' }))
+        setWritingBuffers((prev) => removeWritingBuffer(prev, data.title as string))
         if (review && !review.passed) {
           addActivity('failed', `轻审未通过：${data.title as string} → 已重写`)
         } else {
@@ -147,7 +149,7 @@ export default function App() {
       }
       case 'done':
         addActivity('success', '文章已生成')
-        setWritingState(null)
+        setWritingBuffers({})
         localStorage.removeItem(STORAGE_KEY)
         if (data.article_id) {
           // 稍等日志状态渲染完成，再跳转到生成后的文章详情页
@@ -156,12 +158,12 @@ export default function App() {
         break
       case 'cancelled':
         addActivity('info', '任务已取消')
-        setWritingState(null)
+        setWritingBuffers({})
         localStorage.removeItem(STORAGE_KEY)
         break
       case 'error':
         addActivity('failed', `错误：${data.message as string}`)
-        setWritingState(null)
+        setWritingBuffers({})
         localStorage.removeItem(STORAGE_KEY)
         break
     }
@@ -183,7 +185,7 @@ export default function App() {
     setCompletedChapters(0)
     setAwaitingReview(false)
     setActivityLog([])
-    setWritingState(null)
+    setWritingBuffers({})
     setChapterStatus({})
   }
 
@@ -204,7 +206,7 @@ export default function App() {
     setAwaitingReview(false)
     setCompletedChapters(0)
     setActivityLog([])
-    setWritingState(null)
+    setWritingBuffers({})
     setChapterStatus({})
   }
 
@@ -222,6 +224,7 @@ export default function App() {
 
   const isRunning = !!job && job.stage !== 'done' && job.stage !== 'error'
   const isScrollable = isRunning || awaitingReview
+  const writingPreview = getActiveWritingPreview(writingBuffers)
   // 顶部像素状态灯由 job 阶段和人工审稿等待态共同推导
   const navPetState = job?.stage === 'error'
     ? 'error'
@@ -297,8 +300,8 @@ export default function App() {
                   />
                 </div>
 
-                {writingState && job?.stage === 'write' && (
-                  <WritingPreview title={writingState.title} buffer={writingState.buffer} />
+                {writingPreview && job?.stage === 'write' && (
+                  <WritingPreview title={writingPreview.title} buffer={writingPreview.buffer} />
                 )}
 
                 {isRunning && (
