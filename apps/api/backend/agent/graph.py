@@ -196,7 +196,7 @@ async def write_node(
             )
 
             parts: list[str] = []
-            async for token in chapter_writer.write_stream(
+            async for chunk in chapter_writer.write_stream(
                 topic=state["topic"],
                 outline=outline_text,
                 chapter_title=ch["title"],
@@ -207,10 +207,11 @@ async def write_node(
                 review_feedback=feedback,
             ):
                 _raise_if_cancelled(job_id, is_cancelled)
-                parts.append(token)
+                parts.append(chunk)
                 await push_event(job_id, SSEEvent(
                     event="writing_chapter",
-                    data={"title": ch["title"], "token": token},
+                    # 保留 token 字段以兼容现有 SSE 协议；值是批量文本增量。
+                    data={"title": ch["title"], "token": chunk},
                 ))
             return "".join(parts)
 

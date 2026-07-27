@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from typing import Callable, Awaitable
+from typing import AsyncIterator, Callable, Awaitable
 import anthropic
 
 log = logging.getLogger("vibe.base")
@@ -175,8 +175,13 @@ class BaseAgent:
         log.warning("_call_llm_with_tools reached max_tool_rounds=%d", max_tool_rounds)
         return ""
 
-    async def _stream_llm(self, system: str, user: str, max_tokens: int = 2048):
-        """流式 LLM 调用，异步 yield 每个文本 token"""
+    async def _stream_llm(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 2048,
+    ) -> AsyncIterator[str]:
+        """流式 LLM 调用，异步 yield 模型返回的文本增量。"""
         async with await self._client.messages.create(
             model=_model_id(),
             max_tokens=max_tokens,
@@ -185,8 +190,8 @@ class BaseAgent:
             stream=True,
         ) as stream:
             async for event in stream:
-                if (
-                    event.type == "content_block_delta"
-                    and hasattr(event.delta, "text")
-                ):
-                    yield event.delta.text
+                if event.type != "content_block_delta":
+                    continue
+                text = getattr(event.delta, "text", None)
+                if text:
+                    yield text
