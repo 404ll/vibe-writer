@@ -1,7 +1,7 @@
 # Iteration 0070：显式模型推理模式
 
 - 日期：2026-08-11
-- 状态：In progress
+- 状态：Done
 
 ## 问题
 
@@ -17,4 +17,11 @@ DeepSeek V4 Flash默认thinking持续耗尽Writer与Reviewer输出预算。扩�
 
 ## 验证
 
-尚未完成。只有Provider、Agent Core、Worker测试和真实Article生成通过后，才能标记为`Done`。
+- `@vibe-writer/model-runtime`测试`11`项通过，typecheck通过；
+- `@vibe-writer/agent-core`测试`93`项通过，typecheck通过；
+- `@vibe-writer/worker`测试`92`项通过，typecheck通过；
+- 中文文档链接检查覆盖`211`个文件并通过；
+- 对真实DeepSeek Anthropic兼容端点执行无用户数据诊断：在`maxTokens=512`且thinking disabled时，结构化Reviewer以`stop`结束，返回`92`个output token并成功解析；
+- 服务器显式配置`ANTHROPIC_THINKING_MODE=disabled`，真实任务`520ae891-bd5e-4ccf-a842-c0403a520f6a`完成Writer、Reviewer和export，最终生成Article `a35ae592-7f4d-4222-a2b6-22bc25ab5d93`。
+
+退出条件已经满足，本轮标记为`Done`。

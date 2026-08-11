@@ -67,12 +67,12 @@
 | 0061 | 2026-08-11 | Done | 本地 Durable 产品切流 | [记录](./iterations/0061-local-durable-product-cutover.md) |
 | 0062 | 2026-08-11 | Done | Memory 从产品 MVP 延后 | [记录](./iterations/0062-defer-memory-from-product-mvp.md) |
 | 0063 | 2026-08-11 | Done | Python 退役与 Vercel Preview 边界 | [记录](./iterations/0063-python-retirement-and-vercel-preview.md) |
-| 0064 | 2026-08-11 | In progress | Vercel、Neon 与外部 Worker 部署 | [记录](./iterations/0064-vercel-neon-worker-deployment.md) |
+| 0064 | 2026-08-11 | Done | Vercel、Neon 与外部 Worker 部署 | [记录](./iterations/0064-vercel-neon-worker-deployment.md) |
 | 0065 | 2026-08-11 | Done | 核心代码认知注释与分层说明文件 | [记录](./iterations/0065-core-code-commentary-and-readmes.md) |
-| 0066 | 2026-08-11 | In progress | 单用户 Consumer 主体作用域 | [记录](./iterations/0066-single-user-consumer-principal-scope.md) |
+| 0066 | 2026-08-11 | Done | 单用户 Consumer 主体作用域 | [记录](./iterations/0066-single-user-consumer-principal-scope.md) |
 | 0067 | 2026-08-11 | Superseded | Writer 推理 token 余量 | [记录](./iterations/0067-writer-thinking-token-headroom.md) |
 | 0068 | 2026-08-11 | Superseded | Reviewer 推理 token 余量 | [记录](./iterations/0068-reviewer-thinking-token-headroom.md) |
 | 0069 | 2026-08-11 | Superseded | Reviewer 全局 token 硬上限 | [记录](./iterations/0069-reviewer-global-token-ceiling.md) |
-| 0070 | 2026-08-11 | In progress | 显式模型推理模式 | [记录](./iterations/0070-explicit-model-thinking-mode.md) |
+| 0070 | 2026-08-11 | Done | 显式模型推理模式 | [记录](./iterations/0070-explicit-model-thinking-mode.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。

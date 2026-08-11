@@ -1,7 +1,7 @@
 # Iteration 0066：单用户 Consumer 主体作用域
 
 - 日期：2026-08-11
-- 状态：In progress
+- 状态：Done
 
 ## 问题
 
@@ -16,4 +16,10 @@ Vercel Preview可以创建Job，Outbox也能投递到BullMQ，但托管PostgreSQ
 
 ## 验证
 
-尚未完成。只有相关测试、Preview重新部署、服务器Worker就绪以及真实任务生成全部通过后，才能标记为`Done`。
+- `@vibe-writer/worker`测试`92`项通过，typecheck通过；
+- 服务器Worker同时加载固定workspace与principal，`/ready`返回`ready`；
+- 真实Preview任务`520ae891-bd5e-4ccf-a842-c0403a520f6a`成功从`waiting_outline`继续执行到`completed/export`，没有再触发`jobs` RLS错误；
+- 任务只生成一条outline reply command，证明验收期间没有因网络重试重复提交；
+- 任务最终生成Article `a35ae592-7f4d-4222-a2b6-22bc25ab5d93`。
+
+退出条件已经满足，本轮标记为`Done`。
