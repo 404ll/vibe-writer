@@ -18,6 +18,10 @@ const FullReviewResponseSchema = z.object({
   results: z.array(ModelReviewResultSchema),
 })
 
+// Reviewer 只接受可解析的结构化 JSON。兼容推理模型会把内部推理计入
+// max_tokens，因此沿用 512/1024 会在 JSON 闭合前截断，无法安全发布。
+const REVIEWER_MAX_TOKENS = 4096
+
 export type ReviewVerdict = 'passed' | 'failed' | 'inconclusive'
 export type ReviewSource = 'deterministic' | 'model'
 
@@ -83,7 +87,7 @@ export class ReviewerService {
       promptVersion: PROMPT_VERSIONS.chapterReviewer,
       system: CHAPTER_REVIEW_SYSTEM,
       user: buildChapterReviewUserPrompt(input),
-      maxTokens: 512,
+      maxTokens: REVIEWER_MAX_TOKENS,
       signal: input.signal,
       metadata: input.effectScope ? { effectScope: input.effectScope } : undefined,
     })
@@ -124,7 +128,7 @@ export class ReviewerService {
         fullText,
         targetWords: input.targetWords,
       }),
-      maxTokens: 1024,
+      maxTokens: REVIEWER_MAX_TOKENS,
       signal: input.signal,
       metadata: input.effectScope ? { effectScope: input.effectScope } : undefined,
     })
