@@ -34,6 +34,9 @@ import {
 
 export const WorkflowGraphState = new StateSchema(WorkflowStateSchema.shape)
 
+// 这里刻意使用显式状态图，而不是让多个自治智能体自由协商：每个节点的输入、
+// 重试、中断和终态路径都可被检查点、固定样例与评测单独验证。
+
 type WorkflowNodeName =
   | '__start__'
   | 'plan'

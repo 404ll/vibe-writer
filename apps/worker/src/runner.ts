@@ -136,6 +136,8 @@ export class WorkerJobRunner {
   }
 
   async run(jobId: string): Promise<WorkerRunResult> {
+    // 消费到队列消息不代表获得业务执行权。只有成功领取数据库任务后，
+    // 本次 `runId` 和 `leaseToken` 才能驱动检查点、事件、外部调用和终态写入。
     const claim = await this.control.claimJob({
       jobId,
       workerId: this.options.workerId,
@@ -169,6 +171,8 @@ export class WorkerJobRunner {
       monitor,
     )
 
+    // 心跳把取消或租约丢失映射为同一个中止信号，使模型、搜索和状态图执行
+    // 尽快停止；后续终态事务仍会再次校验隔离令牌。
     let executionError: unknown = null
     let executionResult: WorkerExecutionResult | null = null
     try {

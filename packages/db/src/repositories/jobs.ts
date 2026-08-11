@@ -322,6 +322,8 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     const request = CreateJobRequestSchema.parse(input)
     const jobId = input.jobId ?? randomUUID()
 
+    // 任务是业务事实，事务发件箱是“这个事实需要被异步处理”的持久化意图。
+    // 两者必须同事务提交，否则进程可能在写入任务后、发布队列前崩溃，留下永远不执行的任务。
     return this.db.transaction(async (tx) => {
       const [createdJob] = await tx
         .insert(jobs)
@@ -408,6 +410,8 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     const leaseToken = randomUUID()
     const leaseExpiry = sql<Date>`clock_timestamp() + (${input.leaseDurationMs} * interval '1 millisecond')`
 
+    // BullMQ 的锁只保护一条 Redis 消息；数据库租约才保护业务任务。
+    // 新的 `leaseToken` 是隔离令牌：旧工作进程即使稍后恢复，也无法再写事件或终态。
     return this.db.transaction(async (tx) => {
       const [job] = await tx
         .update(jobs)

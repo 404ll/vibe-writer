@@ -55,6 +55,8 @@ export class OutboxRepository<TQueryResult extends PgQueryResultHKT> {
     requirePositiveInteger(input.limit, 'limit')
     requirePositiveInteger(input.lockTimeoutMs, 'lockTimeoutMs')
 
+    // `SKIP LOCKED` 让多个调度器可并行领取不同事件；发布超时的记录
+    // 会重新进入候选集，因此发布语义是“至少一次”，而不是“恰好一次”。
     return this.db.transaction(async (tx) => {
       const staleBefore = sql<Date>`clock_timestamp() - (${input.lockTimeoutMs} * interval '1 millisecond')`
       const candidates = await tx

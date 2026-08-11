@@ -32,6 +32,8 @@ export const SSE_EVENT_TYPES = [
 export const SSEEventTypeSchema = z.enum(SSE_EVENT_TYPES)
 export const TERMINAL_EVENTS: ReadonlySet<SSEEventType> = new Set(SSE_EVENT_GROUPS.lifecycle)
 
+// 组件级事件在进入数据库前可以没有 `_seq`；持久化后的事件由数据仓储分配
+// 单调递增序号，供服务端推送重放和前端去重。可选性只服务这两个生命周期阶段。
 const sequenced = <T extends z.ZodRawShape>(shape: T) =>
   z.object({
     ...shape,

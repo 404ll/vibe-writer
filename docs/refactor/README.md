@@ -88,6 +88,7 @@
 - 最近完成：[0062 Memory 从产品 MVP 延后](./iterations/0062-defer-memory-from-product-mvp.md)，移除post-run提取副作用与核心readiness依赖；历史实现保留但不进入产品入口、启动组合或验收。
 - 最近完成：[0063 Python 退役与 Vercel Preview 边界](./iterations/0063-python-retirement-and-vercel-preview.md)，删除可执行双栈与SQLite fallback，验证Vercel monorepo build并固定外部Worker边界。
 - 进行中：[0064 Vercel、Neon 与外部 Worker 部署](./iterations/0064-vercel-neon-worker-deployment.md)，Neon Free schema、checkpoint、三套最小权限角色与固定workspace已就绪；等待Vercel secret写入、Preview和服务器Worker验收。
+- 最近完成：[0065 核心代码认知注释与分层说明文件](./iterations/0065-core-code-commentary-and-readmes.md)，沿持久化写作主链补充设计意图注释，并把入口与包内文档改为职责、数据流、恢复语义和阅读顺序导向；新读者走查可仅凭说明文件复述事实来源、异步投递、执行权和恢复路径。
 
 ## 维护规则
 

@@ -1,29 +1,93 @@
-# @vibe-writer/worker
+# @vibe-writer/worker 工作进程
 
-Node Worker 运行时。lease runner 负责取得数据库 fencing token、维持 heartbeat、把 lease lost/cancel 转为 AbortSignal，并以同一 token 进入 terminal transaction。Iteration 0012 已加入 outbox dispatcher、BullMQ 5.81 publisher/worker binding 与隔离 Redis harness；Iteration 0013 已加入 durable workflow executor、fenced checkpoint 组装和 article/terminal transaction routing。
+`apps/worker` 是独立于 Next.js 的常驻 Node.js 运行时。它把 PostgreSQL 中已记账的异步意图搬进 BullMQ，领取数据库执行权，再驱动 LangGraph.js 直到暂停或进入终态。
 
-Iteration 0016 已加入真实 Anthropic/Tavily HTTP adapter、production `WorkflowServices` composition 和默认关闭的进程入口；Iteration 0017 又用当前 run lease 把 TextModel/ToolModel/SearchProvider 调用接入 `run_effects`。Iteration 0061 已通过根目录`pnpm dev:durable`把Worker与Next durable routes组合成本地可用产品路径；公开生产切流仍受真实auth/Ingress与部署门禁约束。PostgresSaver attempt adapter 位于独立 `@vibe-writer/checkpoint-runtime`，数据库原子状态位于 `@vibe-writer/db`，本包不拥有 schema 或直接 SQL。
+## 两个角色
 
-`DURABLE_WORKER_ROLE=dispatcher|consumer|all` 支持独立扩缩容。dispatcher必须使用`DATABASE_WRITE_DISPATCHER_URL + WRITE_DISPATCHER_DATABASE_ROLE`，consumer必须使用`DATABASE_WRITE_CONSUMER_URL + WRITE_CONSUMER_DATABASE_ROLE`；`all`也会建立两个连接且拒绝相同URL或role，不回退通用`DATABASE_URL`。consumer 还要求 Anthropic key/model；Tavily key可选，缺失时Writer不注册search tool。
+| 角色 | 输入 | 负责 | 数据库权限边界 |
+|---|---|---|---|
+| 调度器 | PostgreSQL 事务发件箱 | 发布 BullMQ 消息、失败退避、标记已发布 | 只读写 `outbox_events` |
+| 消费者 | BullMQ 消息 | 领取任务、执行工作流、发送心跳、提交检查点/事件/文章 | 只访问写作执行所需表与检查点数据结构 |
 
-当前产品MVP不包含Memory。production写作Worker显式关闭post-run Memory extraction，consumer也不持有`outbox_events` INSERT；仓库中的Memory worker/retention实现仅作为默认关闭的归档模块保留。
+`DURABLE_WORKER_ROLE=dispatcher|consumer|all` 决定进程启用哪些角色。`all` 只是把两者放在一个 Node.js 进程，仍建立两个数据库连接并拒绝相同连接地址或角色。
 
-部署顺序固定为：受控Drizzle migration → `DATABASE_CHECKPOINT_ADMIN_URL=... pnpm setup:checkpoint-schema` → 创建两个login role → 运行`write-dispatcher-role:provision`与`write-consumer-role:provision` → 分别verify → `pnpm start:worker`。长期运行consumer不会调用PostgresSaver `setup()`，并在ready前从自身连接校验current role、精确schema/table权限、ownership和checkpoint schema完整性。
+## 一条消息怎么执行
 
-设置 `WORKER_HEALTH_PORT` 后会启用HTTP `/live`与`/ready`；host默认 `0.0.0.0`，可用 `WORKER_HEALTH_HOST`覆盖。readiness只有在两个启用角色的身份/权限、durable/checkpoint schema检查和对应BullMQ角色启动完成后为200；漏跑migration、checkpoint setup、role provision或拿错secret都会在接流前失败。shutdown开始会先进入draining并返回503。
+1. `outbox-dispatcher.ts` 领取事务发件箱记录，把最小消息 `{ schemaVersion, jobId }` 发布到 BullMQ。
+2. `bullmq-adapter.ts` 负责 Redis 传输、队列重试和并发，不解释业务状态。
+3. `runner.ts` 再去 PostgreSQL 领取任务，取得 `runId + leaseToken`；领取失败就不执行。
+4. `workflow-executor.ts` 创建或重放受隔离令牌保护的检查点，运行 LangGraph，并处理大纲中断与回复。
+5. `workflow-services.ts` 把纯智能体组件接到供应商接口；`effect-journal.ts` 为外部调用保留有界账本。
+6. `runner.ts` 用同一个隔离令牌进入终态数据仓储，原子提交文章、事件和任务/运行记录终态。
 
-进程收到 SIGTERM/SIGINT 后停止 dispatcher/consumer，再关闭 BullMQ、PostgresSaver 和数据库。effect journal 只保存 provider/model/request id/usage/latency 等 bounded metadata，不保存 prompt、响应正文或搜索内容；非首次安全 reservation 状态会 fail closed。Iteration 0021 起，effect reserve/finish 还会在同一数据库事务维护可查询的 `trace_spans`，lease takeover 或 terminal cleanup 会把未完成 span 标记为 uncertain。
+## 为什么 BullMQ 不是事实来源
 
-`pnpm test:worker:production:local` 会创建一次性真实 PostgreSQL与Redis，由owner执行migration/checkpoint setup/seed，再用两个非owner角色和本地Anthropic协议服务器跑通production `role=all` composition。它验证completed、outline resume、cancellation、provider failure、lease takeover，以及dispatcher不能读Job、consumer不能读outbox、两者不能建schema、consumer不能执行checkpoint setup；不使用真实provider key，也不覆盖OS signal或网络分区。
+BullMQ 提供快速投递、退避、并发和停滞检测。事务发件箱发布可能重复，BullMQ 消息也可能重试，所以系统按“至少投递一次”设计：
 
-Memory保留期维护使用独立DB-only进程，不需要Redis或模型凭据，并且默认关闭：
+- 稳定的队列任务标识尽量压缩重复消息；
+- PostgreSQL 租约决定当前工作进程是否拥有执行权；
+- 隔离令牌阻止过期工作进程写入；
+- 检查点避免接管后从头调用模型；
+- 终态事务防止“文章已写但任务仍显示运行中”。
 
-```bash
-MEMORY_RETENTION_MAINTENANCE_ENABLED=true \
-DATABASE_MEMORY_RETENTION_URL=postgresql://vibe_writer_memory_retention:...@.../vibe_writer \
-MEMORY_RETENTION_DATABASE_ROLE=vibe_writer_memory_retention \
-MEMORY_RETENTION_WORKER_ID=memory-retention-1 \
-pnpm start:memory-retention
+## 任务状态机
+
+```text
+正常完成：排队中 → 运行中 → 已完成
+人工确认：运行中 → 等待输入 → 排队中 → 运行中
+异常终止：排队中 / 运行中 / 等待输入 → 失败或已取消
 ```
 
-该进程不会回退到通用`DATABASE_URL`，启动前会从自身连接校验精确table权限、`BYPASSRLS`、role membership、ownership和schema边界。默认每批100条、正常轮询60秒、存在backlog时250毫秒继续排空、达到1000条时报告`backlog_alert`。可通过`MEMORY_RETENTION_BATCH_SIZE`、`MEMORY_RETENTION_POLL_MS`、`MEMORY_RETENTION_BACKLOG_POLL_MS`和`MEMORY_RETENTION_BACKLOG_ALERT_THRESHOLD`调整；可选health server使用`MEMORY_RETENTION_HEALTH_HOST/PORT`。角色provision/verify与故障处置见 [Memory retention maintenance runbook](../../docs/refactor/runbooks/memory-retention-maintenance.md)。
+数据库中的实际状态值分别是 `queued`、`running`、`awaiting_input`、`completed`、`failed` 和 `cancelled`。等待输入表示 LangGraph 已持久化大纲中断并主动释放执行租约；用户回复会把恢复命令与新的事务发件箱记录一起提交，再由正常队列链路恢复。任何离开运行中状态的写入都必须经过当前隔离令牌校验。
+
+## 核心文件
+
+| 文件 | 阅读重点 |
+|---|---|
+| `src/production.ts` | 生产环境组合入口；所有基础设施在这里装配 |
+| `src/process-runtime.ts` | 启动顺序、调度器轮询、排空与关闭顺序 |
+| `src/outbox-dispatcher.ts` | PostgreSQL 到 BullMQ 的“至少投递一次”桥接 |
+| `src/bullmq-adapter.ts` | 队列传输与可重试/不可恢复错误映射 |
+| `src/runner.ts` | 租约、心跳、中止信号与终态结算 |
+| `src/workflow-executor.ts` | 检查点、LangGraph 调用/重放与中断恢复 |
+| `src/effect-journal.ts` | 模型/搜索副作用的预留与结果不确定语义 |
+| `src/config.ts` | 默认拒绝的环境配置和角色分离 |
+
+如果任务创建后一直是 `queued`，按这个顺序缩小范围：
+
+1. 看工作进程 `/ready` 是否返回 200，以及结构化日志中是否有 `outbox.dispatch`、`bullmq.error` 或 `bullmq.failed:*`；
+2. 读 `packages/db/src/repositories/jobs.ts` 和 `outbox.ts`，确认事务发件箱记录是否创建、是否处于待发布或发布中状态，以及是否正在重试；
+3. 读 `src/production.ts` 与 `src/process-runtime.ts`，确认调度器和消费者均已启动；
+4. 读 `src/outbox-dispatcher.ts` 与 `src/bullmq-adapter.ts`，确认 Redis 投递；
+5. 最后读 `src/runner.ts` 与数据库领取逻辑，判断消费者是否因忙碌、等待输入、已终止或租约条件拒绝执行。
+
+## 运行与部署
+
+本地完整产品从仓库根目录运行 `pnpm dev:durable`。生产工作进程使用：
+
+```bash
+pnpm start:worker
+```
+
+必需配置包括：
+
+- `DURABLE_WORKER_ENABLED=true`
+- `DURABLE_WORKER_ROLE=dispatcher|consumer|all`
+- `DATABASE_WRITE_DISPATCHER_URL` / `WRITE_DISPATCHER_DATABASE_ROLE`
+- `DATABASE_WRITE_CONSUMER_URL` / `WRITE_CONSUMER_DATABASE_ROLE`
+- `REDIS_URL`
+- 消费者所需的 `ANTHROPIC_API_KEY`、`MODEL_ID`；`TAVILY_API_KEY` 可选
+
+托管 PostgreSQL 不允许消费者使用 `BYPASSRLS` 时，个人预览部署可使用 `WRITE_CONSUMER_ACCESS_MODE=single-workspace`，并通过连接启动参数固定 `app.workspace_id`。这只适用于受保护的单工作区部署，不是多租户生产认证方案。
+
+设置 `WORKER_HEALTH_PORT` 后提供 `/live` 与 `/ready`。就绪检查会先验证当前数据库身份、精确权限、工作区会话作用域、业务/检查点数据结构与 BullMQ 角色；关闭时会先进入排空状态再停止消费。
+
+部署顺序与环境变量见 [`docs/refactor/runbooks/vercel-preview.md`](../../docs/refactor/runbooks/vercel-preview.md)。长期记忆工作进程与保留期维护代码是默认关闭的归档模块，不进入当前产品最小可行版本。
+
+## 验证
+
+```bash
+pnpm --filter @vibe-writer/worker test
+pnpm --filter @vibe-writer/worker typecheck
+pnpm test:worker:production:local
+```

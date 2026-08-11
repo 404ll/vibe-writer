@@ -181,6 +181,8 @@ export class OutboxDispatcher {
     const identity = { eventId: event.id, lockToken: event.lockToken }
     try {
       const data = queueData(event)
+      // 事务发件箱在“Redis 已接受消息、PostgreSQL 尚未标记已发布”之间崩溃时会重发。
+      // 稳定的队列任务标识负责压缩重复投递，真正的执行互斥仍由数据库租约和隔离令牌保证。
       const queueJobId = outboxQueueJobId(event)
       await this.publisher.enqueue(WRITE_QUEUE_JOB_NAME, data, { jobId: queueJobId })
       const marked = await this.control.markPublished(identity)

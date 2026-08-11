@@ -33,6 +33,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const idempotencyKey =
       request.headers.get('idempotency-key')?.trim() || randomUUID()
+    // 接口请求只负责把“用户确实提交过任务”持久化。`createJob` 会在同一事务
+    // 写入任务与事务发件箱；这里不直接调用 BullMQ，避免数据库成功但队列发布失败。
     const { job } = await getWorkspaceDurableRepositories(authorization.scope).jobs.createJob({
       ...parsed.data,
       idempotencyKey,

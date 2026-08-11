@@ -97,6 +97,8 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
       signal: context.signal,
     })
     const config = { ...session.config, signal: context.signal }
+    // 接管或重试必须重放已提交的 LangGraph 检查点，而不是从头调用模型。
+    // 新任务则把本次运行绑定的状态图、提示词、模型、工具和代码版本写进初始状态。
     let rawResult = session.resumeFromCheckpoint
       ? await graph.replay(config)
       : await graph.invoke(

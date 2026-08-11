@@ -68,5 +68,6 @@
 | 0062 | 2026-08-11 | Done | Memory 从产品 MVP 延后 | [记录](./iterations/0062-defer-memory-from-product-mvp.md) |
 | 0063 | 2026-08-11 | Done | Python 退役与 Vercel Preview 边界 | [记录](./iterations/0063-python-retirement-and-vercel-preview.md) |
 | 0064 | 2026-08-11 | In progress | Vercel、Neon 与外部 Worker 部署 | [记录](./iterations/0064-vercel-neon-worker-deployment.md) |
+| 0065 | 2026-08-11 | Done | 核心代码认知注释与分层说明文件 | [记录](./iterations/0065-core-code-commentary-and-readmes.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。

@@ -53,6 +53,8 @@ export function createDurableEventStream(
     throw new Error('SSE intervals must be positive')
   }
 
+  // 服务端推送是 PostgreSQL 事件日志的可重放投影，不是内存广播。连接断开后客户端
+  // 只需携带最后的 _seq；下一次轮询会从同一事实来源补齐缺失事件。
   return new ReadableStream<Uint8Array>({
     start(controller) {
       void (async () => {

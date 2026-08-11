@@ -37,6 +37,8 @@ function report(scope: string, error: unknown) {
 }
 
 export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
+  // 调度器与消费者即使部署在同一进程，也必须使用两个数据库身份：
+  // 前者只搬运事务发件箱，后者只执行任务，避免任一连接意外获得完整数据面权限。
   const dispatcherEnabled = config.role === 'all' || config.role === 'dispatcher'
   const consumerEnabled = config.role === 'all' || config.role === 'consumer'
   const dispatcherDatabase = dispatcherEnabled
@@ -84,6 +86,8 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
         })
       : undefined
     const jobs = createJobRepository(consumerDatabase!.db)
+    // 从外到内依次组装传输层、持久化租约、工作流和供应商接口。
+    // 领域包不读取环境变量，也不知道 BullMQ、PostgreSQL 或 Anthropic 开发包。
     const runner = new WorkerJobRunner(
       createWorkerLeaseControl(jobs, createTerminalRepository(consumerDatabase!.db)),
       new DurableWorkflowExecutor(
