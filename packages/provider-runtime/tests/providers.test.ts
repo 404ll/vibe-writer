@@ -15,7 +15,9 @@ describe('Anthropic model adapter', () => {
       content: [{ type: 'text', text: '完成' }],
       usage: { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 3 },
     }, 200, { 'request-id': 'req-1' }))
-    const model = new AnthropicModel({ apiKey: 'secret', model: 'model-1', fetch })
+    const model = new AnthropicModel({
+      apiKey: 'secret', model: 'model-1', thinkingMode: 'disabled', fetch,
+    })
     await expect(model.generate({
       operation: 'test', promptVersion: 'p1', system: 'system', user: 'user', maxTokens: 100,
     })).resolves.toEqual({
@@ -24,7 +26,11 @@ describe('Anthropic model adapter', () => {
       usage: { inputTokens: 10, outputTokens: 2, cacheReadInputTokens: 3 },
     })
     const body = JSON.parse(String(fetch.mock.calls[0]![1]?.body))
-    expect(body).toMatchObject({ model: 'model-1', messages: [{ role: 'user', content: 'user' }] })
+    expect(body).toMatchObject({
+      model: 'model-1',
+      thinking: { type: 'disabled' },
+      messages: [{ role: 'user', content: 'user' }],
+    })
     expect(fetch.mock.calls[0]![1]?.headers).toMatchObject({ 'x-api-key': 'secret' })
   })
 

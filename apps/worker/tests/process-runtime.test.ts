@@ -16,6 +16,12 @@ describe('production worker config', () => {
   it('fails closed and validates consumer secrets before opening resources', () => {
     expect(() => loadProductionWorkerConfig({ ...baseEnv, DURABLE_WORKER_ENABLED: undefined })).toThrow('DURABLE_WORKER_ENABLED')
     expect(() => loadProductionWorkerConfig({ ...baseEnv, ANTHROPIC_API_KEY: undefined })).toThrow('ANTHROPIC_API_KEY')
+    expect(() => loadProductionWorkerConfig({
+      ...baseEnv, ANTHROPIC_THINKING_MODE: 'sometimes',
+    })).toThrow('ANTHROPIC_THINKING_MODE')
+    expect(loadProductionWorkerConfig({
+      ...baseEnv, ANTHROPIC_THINKING_MODE: 'disabled',
+    }).anthropicThinkingMode).toBe('disabled')
   })
 
   it('supports an independently scaled dispatcher without model credentials', () => {

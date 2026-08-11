@@ -78,6 +78,9 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
       apiKey: config.anthropicApiKey!,
       model: config.modelId!,
       ...(config.anthropicBaseUrl ? { baseUrl: config.anthropicBaseUrl } : {}),
+      ...(config.anthropicThinkingMode
+        ? { thinkingMode: config.anthropicThinkingMode }
+        : {}),
     })
     const search = config.tavilyApiKey
       ? new TavilySearchProvider({
@@ -117,7 +120,7 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
         requestMemoryExtraction: false,
         execution: {
           modelProfile: {
-            profile: `anthropic:${config.modelId}`,
+            profile: `anthropic:${config.modelId}:thinking-${config.anthropicThinkingMode ?? 'provider-default'}`,
             provider: 'anthropic',
             model: config.modelId!,
           },

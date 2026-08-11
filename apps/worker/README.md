@@ -78,6 +78,8 @@ pnpm start:worker
 - `REDIS_URL`
 - 消费者所需的 `ANTHROPIC_API_KEY`、`MODEL_ID`；`TAVILY_API_KEY` 可选
 
+使用默认开启推理的DeepSeek V4 Anthropic兼容接口时，设置`ANTHROPIC_THINKING_MODE=disabled`。该值会进入每次模型请求，并编码进Run的`modelProfile.profile`，避免推理token耗尽Writer或Reviewer的结构化输出预算。
+
 托管 PostgreSQL 不允许消费者使用 `BYPASSRLS` 时，个人预览部署可使用 `WRITE_CONSUMER_ACCESS_MODE=single-workspace`，并通过连接启动参数同时固定 `app.workspace_id` 与 `app.principal_id`。Worker 还会用 `WORKER_SINGLE_USER_WORKSPACE_ID`、`WORKER_SINGLE_USER_PRINCIPAL_ID` 对两者做启动校验。只固定 workspace 会导致 `jobs` 更新被 RLS 拒绝；这套模式只适用于受保护的单工作区、单用户部署，不是多租户生产认证方案。
 
 设置 `WORKER_HEALTH_PORT` 后提供 `/live` 与 `/ready`。就绪检查会先验证当前数据库身份、精确权限、工作区会话作用域、业务/检查点数据结构与 BullMQ 角色；关闭时会先进入排空状态再停止消费。

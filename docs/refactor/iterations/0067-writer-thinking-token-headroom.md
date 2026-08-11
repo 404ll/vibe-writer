@@ -1,7 +1,7 @@
 # Iteration 0067：Writer 推理 token 余量
 
 - 日期：2026-08-11
-- 状态：In progress
+- 状态：Superseded
 
 ## 问题
 
@@ -15,4 +15,4 @@
 
 ## 验证
 
-尚未完成。只有Agent Core测试、Worker测试、Preview重新部署以及真实Article生成通过后，才能标记为`Done`。
+4096让Writer完成正文，但无法解决Full Reviewer在8192仍截断的问题。根因是DeepSeek V4默认thinking，本迭代由[Iteration 0070](./0070-explicit-model-thinking-mode.md)取代。

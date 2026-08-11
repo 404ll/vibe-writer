@@ -18,6 +18,7 @@ export type ProductionWorkerConfig = {
   redis: ConnectionOptions
   anthropicApiKey?: string
   anthropicBaseUrl?: string
+  anthropicThinkingMode?: 'enabled' | 'disabled'
   modelId?: string
   tavilyApiKey?: string
   tavilyBaseUrl?: string
@@ -122,6 +123,10 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
   const leaseDurationMs = positiveInt(env, 'WORKER_LEASE_DURATION_MS', 60_000)
   const heartbeatIntervalMs = positiveInt(env, 'WORKER_HEARTBEAT_INTERVAL_MS', 15_000)
   const healthPort = optionalPort(env, 'WORKER_HEALTH_PORT')
+  const anthropicThinkingMode = env.ANTHROPIC_THINKING_MODE?.trim()
+  if (anthropicThinkingMode && !['enabled', 'disabled'].includes(anthropicThinkingMode)) {
+    throw new Error('ANTHROPIC_THINKING_MODE must be enabled or disabled')
+  }
   if (!healthPort && env.WORKER_HEALTH_HOST?.trim()) {
     throw new Error('WORKER_HEALTH_PORT is required when WORKER_HEALTH_HOST is set')
   }
@@ -159,6 +164,9 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
       modelId: required(env, 'MODEL_ID'),
     } : {}),
     ...(env.ANTHROPIC_BASE_URL?.trim() ? { anthropicBaseUrl: env.ANTHROPIC_BASE_URL.trim() } : {}),
+    ...(anthropicThinkingMode ? {
+      anthropicThinkingMode: anthropicThinkingMode as 'enabled' | 'disabled',
+    } : {}),
     ...(env.TAVILY_API_KEY?.trim() ? { tavilyApiKey: env.TAVILY_API_KEY.trim() } : {}),
     ...(env.TAVILY_BASE_URL?.trim() ? { tavilyBaseUrl: env.TAVILY_BASE_URL.trim() } : {}),
     codeRevision: required(env, 'CODE_REVISION'),

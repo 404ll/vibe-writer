@@ -11,6 +11,8 @@
 
 核心实现位于 `src/anthropic.ts`、`src/tavily.ts`；`src/request-lookup.ts` 定义可选的供应商请求结果查询边界。新增供应商时应实现既有接口，而不是让智能体核心分支判断供应商。
 
+`AnthropicModel.thinkingMode`会映射为Anthropic请求体的`thinking.type`。它必须由部署配置显式决定，适合DeepSeek V4这类默认开启推理、但结构化Writer/Reviewer希望关闭推理的兼容接口；适配器不会根据model名称偷偷切换行为。
+
 ```bash
 pnpm --filter @vibe-writer/provider-runtime test
 pnpm --filter @vibe-writer/provider-runtime typecheck

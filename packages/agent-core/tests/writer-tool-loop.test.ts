@@ -675,7 +675,7 @@ describe('WriterService', () => {
       operation: 'writer.chapter',
       promptVersion: PROMPT_VERSIONS.writer,
       toolsetVersion: TOOLSET_VERSIONS.writer,
-      maxTokens: 4096,
+      maxTokens: 660,
       metadata: { chapterTitle: '工具循环', searchEnabled: false },
     })
     expect(model.requests[0]?.tools.map((tool) => tool.name)).toEqual(['generate_diagram'])
@@ -837,10 +837,10 @@ describe('WriterService', () => {
     expect(second.budgetUsage).toEqual({ totalCalls: 4, callsByTool: { search: 3 } })
   })
 
-  it('keeps enough output headroom for models that count reasoning tokens', () => {
+  it('matches the bounded chapter token budget formula', () => {
     expect(maxTokensForChapter()).toBe(4096)
-    expect(maxTokensForChapter(100)).toBe(4096)
-    expect(maxTokensForChapter(300)).toBe(4096)
+    expect(maxTokensForChapter(100)).toBe(512)
+    expect(maxTokensForChapter(300)).toBe(660)
     expect(maxTokensForChapter(2_000)).toBe(4400)
     expect(maxTokensForChapter(10_000)).toBe(8192)
   })

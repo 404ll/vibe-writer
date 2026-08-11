@@ -41,6 +41,7 @@ export type AnthropicModelOptions = {
   apiKey: string
   model: string
   baseUrl?: string
+  thinkingMode?: 'enabled' | 'disabled'
   timeoutMs?: number
   anthropicVersion?: string
   fetch?: ProviderFetch
@@ -186,7 +187,12 @@ export class AnthropicModel implements TextModel, ToolModel {
           'x-api-key': this.options.apiKey,
           'anthropic-version': this.options.anthropicVersion ?? '2023-06-01',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          ...body,
+          ...(this.options.thinkingMode
+            ? { thinking: { type: this.options.thinkingMode } }
+            : {}),
+        }),
         signal: request.signal,
       })
       const payload = await responseJson(response)

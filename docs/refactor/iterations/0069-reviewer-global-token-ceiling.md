@@ -1,7 +1,7 @@
 # Iteration 0069：Reviewer 全局 token 硬上限
 
 - 日期：2026-08-11
-- 状态：In progress
+- 状态：Superseded
 
 ## 问题
 
@@ -15,4 +15,4 @@
 
 ## 验证
 
-尚未完成。只有Agent Core测试、服务器Worker就绪和真实Article生成通过后，才能标记为`Done`。
+真实复验中两次Full Review分别输出8192与8193 token后仍以`length`结束，证明扩大额度不能解决默认thinking。该迭代由[Iteration 0070](./0070-explicit-model-thinking-mode.md)取代。

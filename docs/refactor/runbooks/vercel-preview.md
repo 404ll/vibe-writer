@@ -53,6 +53,8 @@ pnpm start:worker
 
 环境变量使用根目录[`.env.example`](../../../.env.example)。`DURABLE_WORKER_ROLE=all`适合单机MVP，但内部仍使用两条独立数据库连接。Neon等不允许operator创建`BYPASSRLS`角色的托管PostgreSQL使用`WRITE_CONSUMER_ACCESS_MODE=single-workspace`，并在consumer URL的`options`参数中同时固定`app.workspace_id`与`app.principal_id`；对应UUID还必须分别写入`WORKER_SINGLE_USER_WORKSPACE_ID`与`WORKER_SINGLE_USER_PRINCIPAL_ID`，readiness会校验连接会话和operator配置完全一致。资源较小的个人服务器固定`WORKER_CONCURRENCY=1`；健康服务绑定`127.0.0.1`，端口要避开现有服务，示例使用`8790`。
 
+DeepSeek V4通过Anthropic兼容接口调用时默认开启thinking。结构化Writer/Reviewer部署固定`ANTHROPIC_THINKING_MODE=disabled`，避免推理内容计入`max_tokens`后截断正文或JSON；该模式会写入Run的模型profile，后续Eval可以区分。
+
 部署目录、systemd unit和Redis配置必须与机器上的其他应用隔离。部署前只读检查现有端口、服务名和可用内存；不要重启、覆盖或复用其他应用的进程。
 
 ## 5. 验证
