@@ -28,7 +28,6 @@
     "./repositories/memory-source-signals": "./src/repositories/memory-source-signals.ts",
     "./repositories/workspaces": "./src/repositories/workspaces.ts",
     "./repositories/scoped": "./src/repositories/scoped.ts",
-    "./legacy-sqlite": "./src/legacy-sqlite.ts",
     "./schema": "./src/schema.ts"
   },
   "scripts": {
@@ -50,7 +49,7 @@
     "eval-consumer-role:verify": "tsx src/eval-runtime-role-cli.ts consumer verify",
     "eval-live-sampler-role:provision": "tsx src/eval-runtime-role-cli.ts live-sampler provision",
     "eval-live-sampler-role:verify": "tsx src/eval-runtime-role-cli.ts live-sampler verify",
-    "test": "vitest run --maxWorkers=4 tests/jobs.integration.test.ts tests/checkpoints.integration.test.ts tests/outbox.integration.test.ts tests/terminals.integration.test.ts tests/commands.integration.test.ts tests/articles.integration.test.ts tests/legacy-import.integration.test.ts tests/trace-eval.integration.test.ts tests/eval-candidates.integration.test.ts tests/eval-sampling.integration.test.ts tests/eval-materialization.integration.test.ts tests/memory-calibrations.integration.test.ts tests/memories.integration.test.ts tests/memory-extractions.integration.test.ts tests/memory-reconciliations.integration.test.ts tests/memory-source-signals.integration.test.ts tests/workspaces.integration.test.ts tests/durable-api-role.test.ts tests/memory-retention-role.test.ts tests/write-runtime-roles.test.ts tests/eval-runtime-roles.test.ts tests/architecture.test.ts",
+    "test": "vitest run --maxWorkers=4 tests/jobs.integration.test.ts tests/checkpoints.integration.test.ts tests/outbox.integration.test.ts tests/terminals.integration.test.ts tests/commands.integration.test.ts tests/articles.integration.test.ts tests/trace-eval.integration.test.ts tests/eval-candidates.integration.test.ts tests/eval-sampling.integration.test.ts tests/eval-materialization.integration.test.ts tests/memory-calibrations.integration.test.ts tests/memories.integration.test.ts tests/memory-extractions.integration.test.ts tests/memory-reconciliations.integration.test.ts tests/memory-source-signals.integration.test.ts tests/workspaces.integration.test.ts tests/durable-api-role.test.ts tests/memory-retention-role.test.ts tests/write-runtime-roles.test.ts tests/eval-runtime-roles.test.ts tests/architecture.test.ts",
     "test:postgres": "vitest run tests/postgres.integration.test.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -2,7 +2,7 @@
 
 > 状态只由退出条件和验证证据推动，不按主观完成度填写。
 
-> MVP状态：Done（Iteration 0061 已补齐本地产品切流）。Memory已由Iteration 0062移出当前产品范围；公开切流、进阶Eval与Python退役属于后续工作，不阻塞MVP。
+> MVP状态：Done。Iteration 0063按用户决策退役Python兼容运行时，并把发布边界固定为Vercel Preview Web/API + 外部TypeScript Worker。Memory已移出当前产品范围；公开Production、正式多用户Auth与进阶Eval仍属后续工作。
 
 ## 阶段总览
 
@@ -13,10 +13,10 @@
 | R2 Next.js Web | Done | 将现有工作台迁到 App Router | 主页、文章页、编辑、Mermaid、SSE 行为测试与 build 通过 |
 | R3 Durable data | Done | PostgreSQL、Drizzle、job/event/outbox | migration、repository、幂等和重放集成测试通过 |
 | R4 TS Agent core | Done | 迁 Planner/Coverage/Research/Writer/Reviewer/LangGraph.js | 组件 eval 与当前基线对比可接受 |
-| R5 Worker cutover | MVP Done / Production deferred | BullMQ Worker、interrupt、取消、恢复、SSE | MVP主链路已验证；公开切流待真实Auth/Ingress |
+| R5 Worker cutover | Done | BullMQ Worker、interrupt、取消、恢复、SSE | 唯一TS主链路已验证；Preview部署待外部资源 |
 | R6 Memory | Deferred / archived foundation | candidate、长期 memory、retrieval、治理 | 不属于当前产品MVP；只有具体用户需求出现后重启 |
 | R7 Eval/observability | MVP Done / Advanced deferred | 离线 experiment、线上抽样、回归门禁 | 本地与受控staging闭环已验证；托管观测延期 |
-| R8 Python retirement | Deferred | 迁移数据并删除 FastAPI/Python | 产品验证与公开切流证明TS路径后再启动 |
+| R8 Python retirement | Done | 删除 FastAPI/Python、rewrite、shadow runner与SQLite import | TypeScript回归与production composition通过 |
 
 R7 的最小骨架会在 R1/R4 提前建设，避免 Agent 迁完后才补评测。这里的 R7 指可供持续使用的完整产品化闭环。
 

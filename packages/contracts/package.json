@@ -17,7 +17,6 @@
     "./production-takeover-fixtures": "./src/production-takeover-fixtures.ts",
     "./research": "./src/research.ts",
     "./research-component-fixtures": "./src/research-component-fixtures.ts",
-    "./runtime-manifest": "./src/runtime-manifest.ts",
     "./sse": "./src/sse.ts",
     "./writer-component-fixtures": "./src/writer-component-fixtures.ts",
     "./workflow-component-fixtures": "./src/workflow-component-fixtures.ts",

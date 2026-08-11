@@ -12,9 +12,29 @@ export type RequestIdentityResult =
 
 type IdentityEnvironment = {
   NODE_ENV?: NodeJS.ProcessEnv['NODE_ENV']
+  VERCEL?: string
+  VERCEL_ENV?: string
   DURABLE_AUTH_MODE?: string
   DURABLE_LOCAL_PRINCIPAL_ID?: string
   DURABLE_LOCAL_WORKSPACE_ID?: string
+  DURABLE_SINGLE_USER_PRINCIPAL_ID?: string
+  DURABLE_SINGLE_USER_WORKSPACE_ID?: string
+  DURABLE_EXTERNAL_ACCESS_PROTECTION?: string
+}
+
+function configuredScope(
+  principalId: string | undefined,
+  workspaceId: string | undefined,
+): WorkspaceScope | null {
+  const normalizedPrincipalId = principalId?.trim()
+  const normalizedWorkspaceId = workspaceId?.trim()
+  if (
+    !normalizedPrincipalId || !normalizedWorkspaceId ||
+    !UUID_PATTERN.test(normalizedPrincipalId) || !UUID_PATTERN.test(normalizedWorkspaceId)
+  ) {
+    return null
+  }
+  return { principalId: normalizedPrincipalId, workspaceId: normalizedWorkspaceId }
 }
 
 export function parseRequestIdentity(
@@ -26,15 +46,25 @@ export function parseRequestIdentity(
     if (environment.NODE_ENV !== 'development') {
       return { status: 'auth_unconfigured' }
     }
-    const principalId = environment.DURABLE_LOCAL_PRINCIPAL_ID?.trim()
-    const workspaceId = environment.DURABLE_LOCAL_WORKSPACE_ID?.trim()
+    const scope = configuredScope(
+      environment.DURABLE_LOCAL_PRINCIPAL_ID,
+      environment.DURABLE_LOCAL_WORKSPACE_ID,
+    )
+    return scope ? { status: 'parsed', scope } : { status: 'auth_unconfigured' }
+  }
+  if (authMode === 'protected-single-user') {
     if (
-      !principalId || !workspaceId ||
-      !UUID_PATTERN.test(principalId) || !UUID_PATTERN.test(workspaceId)
+      environment.VERCEL !== '1' ||
+      environment.VERCEL_ENV !== 'preview' ||
+      environment.DURABLE_EXTERNAL_ACCESS_PROTECTION !== 'true'
     ) {
       return { status: 'auth_unconfigured' }
     }
-    return { status: 'parsed', scope: { principalId, workspaceId } }
+    const scope = configuredScope(
+      environment.DURABLE_SINGLE_USER_PRINCIPAL_ID,
+      environment.DURABLE_SINGLE_USER_WORKSPACE_ID,
+    )
+    return scope ? { status: 'parsed', scope } : { status: 'auth_unconfigured' }
   }
   if (authMode !== 'trusted-proxy') return { status: 'auth_unconfigured' }
   const principalId = headers.get(PRINCIPAL_HEADER)?.trim()

@@ -40,3 +40,4 @@ pnpm-debug.log*
 # Claude / Superpowers internal
 .claude/
 .superpowers/
+.vercel

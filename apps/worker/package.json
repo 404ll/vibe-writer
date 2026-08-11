@@ -6,7 +6,6 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "start:memory-retention": "tsx src/memory-retention-main.ts",
-    "migrate:articles:sqlite": "tsx src/migrate-legacy-articles.ts",
     "test": "vitest run tests/runner.test.ts tests/workflow-executor.test.ts tests/workflow-services.test.ts tests/effect-journal.test.ts tests/process-runtime.test.ts tests/health-server.test.ts tests/durable-terminal.integration.test.ts tests/memory-extraction.integration.test.ts tests/memory-reconciliation.test.ts tests/memory-retention.test.ts tests/memory-retention.integration.test.ts tests/versioned-memory-extractor.test.ts tests/outbox-dispatcher.test.ts tests/architecture.test.ts",
     "test:redis": "vitest run tests/redis.integration.test.ts",
     "test:production": "vitest run tests/production.integration.test.ts",

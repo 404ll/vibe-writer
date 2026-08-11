@@ -141,7 +141,6 @@ const web = start('pnpm', [
 ], {
   NEXT_PUBLIC_API_BASE: '/api/durable',
   DURABLE_API_ENABLED: 'true',
-  DURABLE_ARTICLE_READ_ENABLED: 'true',
   DURABLE_MEMORY_SIGNAL_API_ENABLED: 'false',
   DURABLE_MEMORY_MANAGEMENT_API_ENABLED: 'false',
   DURABLE_AUTH_MODE: 'local-development',

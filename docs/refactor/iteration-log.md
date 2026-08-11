@@ -66,5 +66,6 @@
 | 0060 | 2026-08-10 | Done | MVP 完成审计与范围冻结 | [记录](./iterations/0060-mvp-completion-audit.md) |
 | 0061 | 2026-08-11 | Done | 本地 Durable 产品切流 | [记录](./iterations/0061-local-durable-product-cutover.md) |
 | 0062 | 2026-08-11 | Done | Memory 从产品 MVP 延后 | [记录](./iterations/0062-defer-memory-from-product-mvp.md) |
+| 0063 | 2026-08-11 | Done | Python 退役与 Vercel Preview 边界 | [记录](./iterations/0063-python-retirement-and-vercel-preview.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。

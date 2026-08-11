@@ -23,10 +23,6 @@ export function durableApiEnabled(): boolean {
   return process.env.DURABLE_API_ENABLED === 'true'
 }
 
-export function durableArticleReadEnabled(): boolean {
-  return process.env.DURABLE_ARTICLE_READ_ENABLED === 'true'
-}
-
 export function durableMemorySignalApiEnabled(): boolean {
   return process.env.DURABLE_MEMORY_SIGNAL_API_ENABLED === 'true'
 }
@@ -50,7 +46,7 @@ export function getDurableDatabase(): DurableDatabase {
 
   durableGlobal.__vibeWriterDurableDatabase ??= createPostgresDatabase(
     connectionString,
-    { max: 10 },
+    { max: process.env.VERCEL === '1' ? 1 : 10 },
   )
   return durableGlobal.__vibeWriterDurableDatabase
 }

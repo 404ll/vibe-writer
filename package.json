@@ -34,9 +34,6 @@
     "eval:live:enqueue": "pnpm --filter @vibe-writer/eval-cli enqueue:live",
     "start:eval-worker": "pnpm --filter @vibe-writer/eval-cli start:queue",
     "start:eval-live-sampler": "pnpm --filter @vibe-writer/eval-cli start:live-sampler",
-    "eval:workflow-shadow": "pnpm --filter @vibe-writer/eval-cli workflow:check",
-    "eval:workflow-shadow:report": "pnpm --filter @vibe-writer/eval-cli workflow:report",
-    "eval:workflow-shadow:baseline": "pnpm --filter @vibe-writer/eval-cli workflow:baseline",
     "eval:memory": "pnpm --filter @vibe-writer/eval-cli memory:check",
     "eval:memory:report": "pnpm --filter @vibe-writer/eval-cli memory:report",
     "eval:memory:baseline": "pnpm --filter @vibe-writer/eval-cli memory:baseline",
@@ -58,7 +55,6 @@
     "test:worker": "pnpm --filter @vibe-writer/worker test",
     "start:worker": "pnpm --filter @vibe-writer/worker start",
     "start:memory-retention": "pnpm --filter @vibe-writer/worker start:memory-retention",
-    "migrate:articles:sqlite": "pnpm --filter @vibe-writer/worker migrate:articles:sqlite",
     "test:worker:redis:local": "node scripts/run-redis-integration.mjs",
     "test:worker:production:local": "node scripts/run-production-integration.mjs",
     "test:memory-api-canary:local": "node scripts/run-memory-api-canary.mjs",
@@ -70,7 +66,6 @@
     "test:db:postgres:local": "node scripts/run-postgres-integration.mjs",
     "typecheck:db": "pnpm --filter @vibe-writer/db typecheck",
     "check:migrations": "pnpm --filter @vibe-writer/db check:migrations",
-    "test:api": "cd apps/api && ${API_PYTHON:-../../.venv/bin/python} -m pytest",
-    "verify": "pnpm test:contracts && pnpm typecheck:contracts && pnpm test:model-runtime && pnpm typecheck:model-runtime && pnpm test:provider-runtime && pnpm typecheck:provider-runtime && pnpm test:eval-core && pnpm typecheck:eval-core && pnpm test:eval-graders && pnpm typecheck:eval-graders && pnpm test:memory-core && pnpm typecheck:memory-core && pnpm test:eval-cli && pnpm typecheck:eval-cli && pnpm eval:components && pnpm eval:memory && pnpm eval:memory-extraction && pnpm eval:memory-calibration && pnpm eval:memory-calibration:preflight && pnpm test:agent-core && pnpm typecheck:agent-core && pnpm test:workflow-runtime && pnpm typecheck:workflow-runtime && pnpm test:db && pnpm typecheck:db && pnpm check:migrations && pnpm test:checkpoint-runtime && pnpm typecheck:checkpoint-runtime && pnpm test:worker && pnpm typecheck:worker && pnpm test:api && pnpm eval:workflow-shadow && pnpm lint:web && pnpm test:web && pnpm build:web && pnpm check:docs"
+    "verify": "pnpm test:contracts && pnpm typecheck:contracts && pnpm test:model-runtime && pnpm typecheck:model-runtime && pnpm test:provider-runtime && pnpm typecheck:provider-runtime && pnpm test:eval-core && pnpm typecheck:eval-core && pnpm test:eval-graders && pnpm typecheck:eval-graders && pnpm test:memory-core && pnpm typecheck:memory-core && pnpm test:eval-cli && pnpm typecheck:eval-cli && pnpm eval:components && pnpm eval:memory && pnpm eval:memory-extraction && pnpm eval:memory-calibration && pnpm eval:memory-calibration:preflight && pnpm test:agent-core && pnpm typecheck:agent-core && pnpm test:workflow-runtime && pnpm typecheck:workflow-runtime && pnpm test:db && pnpm typecheck:db && pnpm check:migrations && pnpm test:checkpoint-runtime && pnpm typecheck:checkpoint-runtime && pnpm test:worker && pnpm typecheck:worker && pnpm lint:web && pnpm test:web && pnpm build:web && pnpm check:docs"
   }
 }

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const durable = vi.hoisted(() => ({
-  enabled: vi.fn(),
   authorize: vi.fn(),
   getArticle: vi.fn(),
 }))
@@ -9,7 +8,6 @@ const durable = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ headers: vi.fn(async () => new Headers()) }))
 vi.mock('./durableDatabase', () => ({
-  durableArticleReadEnabled: durable.enabled,
   authorizeDurableHeaders: durable.authorize,
   getWorkspaceDurableRepositories: () => ({
     articles: { getArticle: durable.getArticle },
@@ -18,7 +16,6 @@ vi.mock('./durableDatabase', () => ({
 
 describe('server article source cutover', () => {
   beforeEach(() => {
-    durable.enabled.mockReset()
     durable.getArticle.mockReset()
     durable.authorize.mockReset()
     durable.authorize.mockResolvedValue({
@@ -30,15 +27,13 @@ describe('server article source cutover', () => {
         authorization: 'verified-membership',
       },
     })
-    vi.stubGlobal('fetch', vi.fn())
   })
 
   afterEach(() => {
-    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
-  it('reads PostgreSQL directly only when the independent article flag is enabled', async () => {
-    durable.enabled.mockReturnValue(true)
+  it('reads articles from the only PostgreSQL product source', async () => {
     durable.getArticle.mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
       jobId: '22222222-2222-4222-8222-222222222222',
@@ -52,24 +47,13 @@ describe('server article source cutover', () => {
 
     await expect(getArticleForPage('11111111-1111-4111-8111-111111111111'))
       .resolves.toMatchObject({ content: '# Durable', revision: 0 })
-    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('preserves the Python/FastAPI source by default', async () => {
-    durable.enabled.mockReturnValue(false)
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
-      id: 'article-1',
-      job_id: 'job-1',
-      topic: 'Python article',
-      content: '# Python',
-      word_count: 7,
-      created_at: '2026-08-07T00:00:00.000Z',
-    }), { status: 200, headers: { 'content-type': 'application/json' } }))
+  it('returns null when the request is not authorized', async () => {
+    durable.authorize.mockResolvedValue({ status: 'unauthenticated' })
     const { getArticleForPage } = await import('./articleQueries')
 
-    await expect(getArticleForPage('article-1')).resolves.toMatchObject({
-      content: '# Python',
-    })
+    await expect(getArticleForPage('article-1')).resolves.toBeNull()
     expect(durable.getArticle).not.toHaveBeenCalled()
   })
 })

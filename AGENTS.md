@@ -4,10 +4,10 @@
 
 ## 仓库结构
 
-- `apps/api/`：FastAPI + LangGraph 后端，Python 包名仍为 `backend`。
 - `apps/web/`：Next.js App Router + React + TypeScript，workspace 包名为 `@vibe-writer/web`。
-- `packages/contracts/`：Web、Python 兼容测试与未来 Worker 共用的 Zod 契约。
-- `packages/db/`：PostgreSQL/Drizzle schema、migration 和 durable job repository；尚未接管运行时。
+- `apps/worker/`：BullMQ + LangGraph.js 常驻任务运行时。
+- `packages/contracts/`：Web、Worker 与 Eval 共用的 Zod 契约。
+- `packages/db/`：PostgreSQL/Drizzle schema、migration 和 durable repository。
 - `packages/model-runtime/`：供应商无关的模型调用、usage 与错误端口。
 - `packages/agent-core/`：与 HTTP、队列、数据库和 provider SDK 无关的 TS Agent 组件；尚未接管运行时。
 - `docs/`：架构、评估、开发说明和任务 SPEC。
@@ -27,7 +27,7 @@
 - 涉及 Next.js、TS Worker、contracts、PostgreSQL、memory 或 eval 的任务，开始前先读 `docs/refactor/README.md`、`system-design.md` 和 `roadmap.md`。
 - 每次重构实施都要新增或更新 `docs/refactor/iterations/NNNN-*.md`，并同步 `iteration-log.md`；没有验证证据时不能标记 `Done`。
 - 改变运行时边界、数据所有权、核心技术选择或兼容策略时，必须新增 ADR；不要直接改写已 Accepted ADR 的历史结论。
-- 当前 Python/FastAPI 是 Agent/API 迁移基线，Next.js Web 已完成第一阶段切换。删除或绕过旧后端路径前，必须有共享契约、行为 fixture 或 eval 证明替代路径覆盖相同行为。
+- Python/FastAPI 兼容运行时已退役。产品只允许 Next.js Route Handler + TypeScript Worker + PostgreSQL/BullMQ 主链路；历史 ADR/fixture 只作为迁移证据，不得重新接回运行时。
 - Prompt、model profile、tool schema、graph 和 eval dataset 的变化必须可版本化，不能只依赖 Git diff 推断一次运行使用了什么配置。
 
 ## 常用命令
@@ -49,28 +49,14 @@ pnpm check:docs
 pnpm test:db
 pnpm typecheck:db
 pnpm check:migrations
-pnpm test:api
 pnpm verify
-```
-
-隔离 worktree 没有根目录 `.venv` 时，可显式指定已初始化解释器：
-
-```bash
-API_PYTHON=/absolute/path/to/.venv/bin/python pnpm test:api
-```
-
-后端本地启动：
-
-```bash
-cd apps/api
-../../.venv/bin/python -m uvicorn backend.main:app --reload
 ```
 
 ## 分层验证策略
 
 - 优先运行和改动最相关的测试或检查。
 - 前端改动完成前，至少考虑 `pnpm test:web` 或 `pnpm build:web`。
-- 后端改动完成前，至少考虑 `pnpm test:api` 或更窄的 pytest 目标。
+- Worker 或 Agent 改动完成前，至少考虑对应 package test/typecheck；运行边界变化时运行 production composition。
 - 全量 `pnpm verify` 只在用户要求、跨前后端改动较大、或准备发布时运行。
 - 如果验证失败，要区分本次引入的问题和既有失败；不要为了让命令变绿而扩大任务范围。
 
@@ -83,7 +69,6 @@ cd apps/api
 - `pnpm test:agent-core`、`pnpm typecheck:agent-core` 当前可通过。
 - `pnpm test:db`、`pnpm typecheck:db`、`pnpm check:migrations` 当前可通过。
 - `pnpm lint:web` 当前可通过。
-- `pnpm test:api` 当前可通过；worktree 需先建立根目录 `.venv` 或显式使用已初始化的 Python 环境。
 
 ## Git 操作规则
 

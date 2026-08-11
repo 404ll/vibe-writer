@@ -5,7 +5,6 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DatabaseSync } from 'node:sqlite'
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url))
 const testId = randomBytes(16).toString('hex')
@@ -187,67 +186,6 @@ try {
     },
   })
 
-  const legacySource = join(temporaryRoot, 'legacy-articles.db')
-  const legacySqlite = new DatabaseSync(legacySource)
-  legacySqlite.exec(`
-    CREATE TABLE articles (
-      id VARCHAR PRIMARY KEY, job_id VARCHAR UNIQUE NOT NULL, topic TEXT NOT NULL,
-      content TEXT NOT NULL, word_count INTEGER NOT NULL, created_at DATETIME NOT NULL
-    );
-    CREATE TABLE article_versions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, article_id VARCHAR NOT NULL,
-      content TEXT NOT NULL, word_count INTEGER NOT NULL, saved_at DATETIME NOT NULL
-    );
-    INSERT INTO articles VALUES (
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      'Legacy migration fixture', '# Legacy current', 13,
-      '2026-04-01 08:00:00.000000'
-    );
-    INSERT INTO article_versions (article_id, content, word_count, saved_at) VALUES (
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '# Legacy original', 14,
-      '2026-04-02 08:00:00.000000'
-    );
-  `)
-  legacySqlite.close()
-  const migrationCommand = [
-    '--filter', '@vibe-writer/worker', 'exec', 'tsx',
-    'src/migrate-legacy-articles.ts', '--source', legacySource,
-  ]
-  const migrationEnv = {
-    LEGACY_MIGRATION_DATABASE_URL: `postgres://127.0.0.1:${postgresPort}/${databaseName}`,
-  }
-  const dryRunOutput = await run('pnpm', migrationCommand, {
-    capture: true,
-    env: migrationEnv,
-  })
-  const dryRunReport = JSON.parse(dryRunOutput)
-  if (dryRunReport.mode !== 'dry-run' || dryRunReport.wouldImport !== 1 || dryRunReport.imported !== 0) {
-    throw new Error(`Unexpected legacy dry-run report: ${dryRunOutput}`)
-  }
-  const applyOutput = await run('pnpm', [
-    ...migrationCommand,
-    '--apply', '--expected-source-sha256', dryRunReport.sourceSha256,
-  ], {
-    capture: true,
-    env: { ...migrationEnv, ALLOW_LEGACY_SQLITE_IMPORT: 'true' },
-  })
-  const applyReport = JSON.parse(applyOutput)
-  if (applyReport.mode !== 'apply' || applyReport.imported !== 1) {
-    throw new Error(`Unexpected legacy apply report: ${applyOutput}`)
-  }
-  const replayOutput = await run('pnpm', [
-    ...migrationCommand,
-    '--apply', '--expected-source-sha256', dryRunReport.sourceSha256,
-  ], {
-    capture: true,
-    env: { ...migrationEnv, ALLOW_LEGACY_SQLITE_IMPORT: 'true' },
-  })
-  const replayReport = JSON.parse(replayOutput)
-  if (replayReport.imported !== 0 || replayReport.replayed !== 1) {
-    throw new Error(`Unexpected legacy replay report: ${replayOutput}`)
-  }
-
   await run('pnpm', ['build:web'], {
     env: { NEXT_PUBLIC_API_BASE: '/api/durable' },
   })
@@ -258,7 +196,6 @@ try {
     env: {
       DATABASE_URL: `postgres://127.0.0.1:${postgresPort}/${databaseName}`,
       DURABLE_API_ENABLED: 'true',
-      DURABLE_ARTICLE_READ_ENABLED: 'true',
       DURABLE_AUTH_MODE: 'trusted-proxy',
     },
   })
@@ -278,17 +215,15 @@ try {
     { headers: identityHeaders },
   )
   const articles = await articlesResponse.json()
-  if (!Array.isArray(articles) || articles.length !== 4) {
+  if (!Array.isArray(articles) || articles.length !== 3) {
     throw new Error(`Unexpected durable article list: ${JSON.stringify(articles)}`)
   }
   const generatedArticles = articles.filter((article) => article.topic === '稳定写作')
   const resumedArticle = articles.find((article) => article.topic === '人工确认')
-  const legacyArticle = articles.find((article) => article.topic === 'Legacy migration fixture')
   if (
     generatedArticles.length !== 2 || generatedArticles.some((article) => !article.id) ||
     new Set(generatedArticles.map((article) => article.job_id)).size !== 2 ||
-    !resumedArticle?.id ||
-    legacyArticle?.id !== 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    !resumedArticle?.id
   ) {
     throw new Error(`Durable article identities were not preserved: ${JSON.stringify(articles)}`)
   }
@@ -311,15 +246,6 @@ try {
   const resumedHtml = await resumedPage.text()
   if (!resumedHtml.includes('人工确认') || !resumedHtml.includes('编辑章')) {
     throw new Error('Server-rendered article did not preserve the resumed outline')
-  }
-  const legacyPage = await waitForHttp(
-    `${webOrigin}/articles/${legacyArticle.id}`,
-    200,
-    { headers: identityHeaders },
-  )
-  const legacyHtml = await legacyPage.text()
-  if (!legacyHtml.includes('Legacy migration fixture')) {
-    throw new Error('Server-rendered article did not preserve the migrated legacy identity')
   }
 } finally {
   if (webProcess) {

@@ -24,7 +24,8 @@
       "job_id": "job-contract-fixture",
       "topic": "可扩展的 Agent 工程",
       "word_count": 42,
-      "created_at": "2026-08-07T00:00:00+00:00"
+      "created_at": "2026-08-07T00:00:00+00:00",
+      "revision": 0
     },
     "detail": {
       "id": "article-contract-fixture",
@@ -32,22 +33,25 @@
       "topic": "可扩展的 Agent 工程",
       "content": "# 可扩展的 Agent 工程\n\n正文",
       "word_count": 42,
-      "created_at": "2026-08-07T00:00:00+00:00"
+      "created_at": "2026-08-07T00:00:00+00:00",
+      "revision": 0
     },
-    "patch_request": { "content": "# 更新后的内容" },
+    "patch_request": { "content": "# 更新后的内容", "expected_revision": 0 },
     "versions_response": {
       "versions": [
         {
           "id": 1,
           "saved_at": "2026-08-07T00:01:00+00:00",
-          "word_count": 40
+          "word_count": 40,
+          "source_revision": 0
         }
       ]
     },
     "version_detail": {
       "id": 1,
       "content": "# 旧版本",
-      "saved_at": "2026-08-07T00:01:00+00:00"
+      "saved_at": "2026-08-07T00:01:00+00:00",
+      "source_revision": 0
     }
   }
 }

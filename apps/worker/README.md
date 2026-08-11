@@ -16,8 +16,6 @@ Iteration 0016 已加入真实 Anthropic/Tavily HTTP adapter、production `Workf
 
 `pnpm test:worker:production:local` 会创建一次性真实 PostgreSQL与Redis，由owner执行migration/checkpoint setup/seed，再用两个非owner角色和本地Anthropic协议服务器跑通production `role=all` composition。它验证completed、outline resume、cancellation、provider failure、lease takeover，以及dispatcher不能读Job、consumer不能读outbox、两者不能建schema、consumer不能执行checkpoint setup；不使用真实provider key，也不覆盖OS signal或网络分区。
 
-历史SQLite article迁移使用 `pnpm migrate:articles:sqlite -- --source /absolute/path.db`。默认只dry-run；apply还必须设置 `ALLOW_LEGACY_SQLITE_IMPORT=true`、`LEGACY_MIGRATION_DATABASE_URL`并传入dry-run确认的source SHA-256。具体步骤见 `docs/refactor/runbooks/legacy-sqlite-article-migration.md`。
-
 Memory保留期维护使用独立DB-only进程，不需要Redis或模型凭据，并且默认关闭：
 
 ```bash

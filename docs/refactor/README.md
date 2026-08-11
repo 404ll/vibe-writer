@@ -2,7 +2,7 @@
 
 > 状态：MVP Complete；Production hardening deferred。启动日期：2026-08-07，MVP收口：2026-08-10。
 
-本目录是 vibe-writer 重构的权威入口。Web 已由React/Vite迁到Next.js，TypeScript Agent/Worker、durable execution和版本化回归Eval已形成可验证的写作MVP；FastAPI/Python暂时保留为兼容与回滚基线。Memory曾完成实验性基础，但根据[ADR-0063](./decisions/0063-memory-deferred-from-product-mvp.md)已从当前产品范围延后。接下来进入用户验证，不再自动扩建production基础设施。
+本目录是 vibe-writer 重构的权威入口。Web、API、Agent与Worker已经统一为TypeScript；FastAPI/Python、Next fallback rewrite与SQLite兼容导入根据[ADR-0064](./decisions/0064-retire-python-and-adopt-vercel-web.md)退役。当前部署边界是Vercel Next.js Web/API + 外部常驻TypeScript Worker + PostgreSQL/BullMQ。Memory根据[ADR-0063](./decisions/0063-memory-deferred-from-product-mvp.md)延后，不属于当前产品。
 
 ## 文档地图
 
@@ -16,14 +16,14 @@
 | [评测记录](./evals/) | dataset、版本、兼容差异和可重复评测证据 | 每次组件或端到端 eval 后 |
 | [Provider能力审计](./provider-audits/) | 官方能力、保守推断、适用日期与复审触发器 | provider或transport边界变化时 |
 | [切流 Runbook](./runbooks/durable-cutover.md) | durable staging、切流、No-Go与回滚步骤 | 部署边界或门禁变化时 |
-| [SQLite 迁移 Runbook](./runbooks/legacy-sqlite-article-migration.md) | legacy article/version dry-run、apply、核对与回滚 | 数据迁移协议变化时 |
+| [Vercel Preview Runbook](./runbooks/vercel-preview.md) | Vercel Web/API、外部Worker与受保护单用户Preview | 部署边界变化时 |
 | [Memory retention Runbook](./runbooks/memory-retention-maintenance.md) | retention进程配置、backlog、告警和故障恢复 | retention runtime或部署边界变化时 |
 | [Eval Runtime角色 Runbook](./runbooks/eval-runtime-roles.md) | dispatcher、consumer、live sampler角色部署、验证与回滚 | Eval数据库边界变化时 |
 
 ## 当前状态
 
-- MVP已完成：Next.js Web、TypeScript Agent/Workflow、PostgreSQL/BullMQ durable写作主链路、恢复与失败语义及版本化Eval均有代码与回归证据；Memory不再计入当前MVP验收。
-- Production readiness尚未完成：真实auth provider/proxy、公开切流、目标云资源、付费calibration、RAG和容量演练保留在backlog，不阻塞当前MVP。
+- MVP已完成：Next.js Web/API、TypeScript Agent/Workflow、PostgreSQL/BullMQ durable写作主链路、恢复与失败语义及版本化Eval均有代码与回归证据；Memory不计入当前MVP验收。
+- 当前发布目标是受Vercel Authentication保护的个人Preview；Web/API上Vercel，Worker在独立常驻Node环境。公开Production与正式多用户Auth仍未完成。
 - 已完成：[0001 共享 contracts 基建](./iterations/0001-contracts-foundation.md)。
 - 已完成：[0002 迁移 fixture 与版本 manifest](./iterations/0002-migration-fixtures.md)。
 - 已完成：[0003 Next.js App Router 基础迁移](./iterations/0003-nextjs-app-router-foundation.md)。
@@ -84,8 +84,9 @@
 - 最近完成：[0058 Write Runtime 独立数据库角色](./iterations/0058-write-runtime-database-roles.md)，拆分dispatcher/consumer连接并把checkpoint DDL移出runtime；双非owner PostgreSQL/Redis projection与根级回归均已通过。
 - 最近完成：[0059 Eval Runtime 独立数据库角色](./iterations/0059-eval-runtime-database-roles.md)，拆分dispatcher/consumer/live sampler连接并建立sampler列级content-free边界；真实PostgreSQL/Redis角色canary与根级回归均已通过。
 - 最近完成：[0060 MVP 完成审计与范围冻结](./iterations/0060-mvp-completion-audit.md)，按产品验证而非production完备度收口重构，撤回非关键operator扩建并冻结production backlog。
-- 最近完成：[0061 本地 Durable 产品切流](./iterations/0061-local-durable-product-cutover.md)，以`pnpm dev:durable`组合持久化本地PostgreSQL/Redis、最小权限角色、Next durable API与TypeScript Worker，并跑通创建、outline确认、SSE终态、文章编辑和restore；FastAPI/Python继续作为兼容回滚基线。
+- 最近完成：[0061 本地 Durable 产品切流](./iterations/0061-local-durable-product-cutover.md)，以`pnpm dev:durable`组合持久化本地PostgreSQL/Redis、最小权限角色、Next durable API与TypeScript Worker，并跑通创建、outline确认、SSE终态、文章编辑和restore。
 - 最近完成：[0062 Memory 从产品 MVP 延后](./iterations/0062-defer-memory-from-product-mvp.md)，移除post-run提取副作用与核心readiness依赖；历史实现保留但不进入产品入口、启动组合或验收。
+- 最近完成：[0063 Python 退役与 Vercel Preview 边界](./iterations/0063-python-retirement-and-vercel-preview.md)，删除可执行双栈与SQLite fallback，验证Vercel monorepo build并固定外部Worker边界。
 
 ## 维护规则
 
@@ -94,7 +95,7 @@
 3. 改变系统边界、数据所有权或核心技术选择时必须新增 ADR；ADR 不原地改写结论，使用新的 ADR supersede。
 4. Prompt、model profile、tool schema、graph 和 eval dataset 都必须有显式版本，运行记录不能只保存“当前配置”。
 5. PostgreSQL 是业务状态真相；Redis、队列和 trace 平台不能成为唯一数据源。
-6. 新旧运行时并存期间，优先保持 API/SSE 契约兼容，并用行为基线证明迁移没有静默退化。
+6. 历史迁移fixture可作为回归输入，但不得重新接回已退役运行时。
 7. 文档中的 `Done` 只能在对应退出条件和验证命令均有证据时填写。
 
 ## MVP 完成定义
@@ -105,7 +106,7 @@
 - TypeScript Agent/LangGraph.js、PostgreSQL、BullMQ和Worker组成可恢复写作主链路；
 - 取消、人工确认、失败、lease takeover和SSE重连具有契约或集成证据；
 - 共享契约、版本化配置和根级回归可重复执行；
-- Python/FastAPI作为兼容回滚基线保留，不阻塞产品验证。
+- Python/FastAPI兼容运行时已经删除；回滚只使用TypeScript artifact与PostgreSQL备份。
 
 ## Production 完成定义（非 MVP）
 
@@ -117,4 +118,4 @@
 - 人工确认、取消、SSE 重连和失败重试有集成测试；
 - 迁移行为基准、离线 eval 和线上 trace 闭环可运行；
 - 如未来重新引入memory，另行定义作用域、来源、删除、冲突和评测能力；
-- FastAPI/Python 依赖被移除，历史数据迁移或保留策略有验证记录。
+- Vercel Preview与外部Worker连接到同一PostgreSQL，并完成受保护的产品smoke。

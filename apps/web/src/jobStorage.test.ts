@@ -13,17 +13,11 @@ describe('active job storage', () => {
     window.localStorage.clear()
   })
 
-  it('reads the legacy pointer during migration', () => {
-    window.localStorage.setItem('vibe_active_job_id', 'legacy-job')
-    expect(readActiveJobId()).toBe('legacy-job')
-  })
-
   it('writes only the versioned minimal pointer', () => {
-    window.localStorage.setItem('vibe_active_job_id', 'legacy-job')
     writeActiveJobId('job-123')
 
     expect(window.localStorage.getItem(ACTIVE_JOB_STORAGE_KEY)).toBe('job-123')
-    expect(window.localStorage.getItem('vibe_active_job_id')).toBeNull()
+    expect(readActiveJobId()).toBe('job-123')
   })
 
   it('notifies the client hook when the pointer changes', () => {

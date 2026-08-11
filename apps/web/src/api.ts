@@ -25,8 +25,8 @@ export async function getArticles(): Promise<ArticleSummary[]> {
 export async function patchArticle(
   id: string,
   content: string,
-  expectedRevision?: number,
-): Promise<ArticleDetail | null> {
+  expectedRevision: number,
+): Promise<ArticleDetail> {
   const res = await fetch(`${API_BASE}/articles/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,7 @@ export async function patchArticle(
   })
   if (!res.ok) throw new Error('Failed to save article')
   const result = ArticleMutationResponseSchema.parse(await res.json())
-  return result.article ?? null
+  return result.article
 }
 
 /** 获取指定文章的所有历史版本记录摘要 */
@@ -56,8 +56,8 @@ export async function getVersion(articleId: string, versionId: number): Promise<
 export async function restoreVersion(
   articleId: string,
   versionId: number,
-  expectedRevision?: number,
-): Promise<ArticleDetail | null> {
+  expectedRevision: number,
+): Promise<ArticleDetail> {
   const res = await fetch(`${API_BASE}/articles/${articleId}/versions/${versionId}/restore`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -65,5 +65,5 @@ export async function restoreVersion(
   })
   if (!res.ok) throw new Error('Failed to restore version')
   const result = ArticleMutationResponseSchema.parse(await res.json())
-  return result.article ?? null
+  return result.article
 }

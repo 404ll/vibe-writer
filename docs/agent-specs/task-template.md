@@ -22,8 +22,9 @@
 
 ## 相关路径
 
-- `apps/api/...`
 - `apps/web/...`
+- `apps/worker/...`
+- `packages/...`
 - `docs/...`
 
 ## 行为要求
@@ -38,7 +39,7 @@
 # 只保留本任务真正需要的命令
 pnpm test:web
 pnpm build:web
-pnpm test:api
+pnpm test:worker
 ```
 
 ## 已知问题
@@ -52,4 +53,3 @@ pnpm test:api
 - 列出运行过的验证命令和结果。
 - 如果没有运行某个重要验证，说明原因。
 - 默认不 commit、不 push，除非用户明确要求。
-

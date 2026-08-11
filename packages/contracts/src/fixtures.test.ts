@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,11 +25,9 @@ import {
   ReplyRequestSchema,
   StatusResponseSchema,
 } from './jobs'
-import { RuntimeManifestSchema } from './runtime-manifest'
 import { EventHistoryResponseSchema, SSE_EVENT_TYPES } from './sse'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url))
 
 const ApiFixtureSchema = z.object({
   create_job: z.object({
@@ -302,19 +299,5 @@ describe('migration fixtures', () => {
     })
 
     expect(new Set(eventNames)).toEqual(new Set(SSE_EVENT_TYPES))
-  })
-})
-
-describe('Python runtime baseline manifest', () => {
-  it('matches the current graph, prompt and tool-loop source content', () => {
-    const manifest = RuntimeManifestSchema.parse(
-      readJson('fixtures/python-runtime-manifest.json'),
-    )
-
-    for (const artifact of manifest.artifacts) {
-      const content = readFileSync(resolve(repositoryRoot, artifact.path))
-      const actualHash = createHash('sha256').update(content).digest('hex')
-      expect(actualHash, artifact.path).toBe(artifact.sha256)
-    }
   })
 })

@@ -10,12 +10,11 @@ component baseline fixture 同时保存 Python compatibility 与 TypeScript targ
 - `sse-complete.json`：一次包含全部事件种类的成功任务历史。
 - `sse-cancelled.json`：取消终态。
 - `sse-error.json`：错误终态。
-- `python-runtime-manifest.json`：Python graph、prompt、model/tool runtime 基线和内容 hash。
 - `agent-component-baseline.json`：Planner/Reviewer 解析、预算与无效输出基线。
 - `opinion-search-baseline.json`：Coverage、查询策略与来源排序基线。
 - `writer-tool-baseline.json`：Writer tool loop 的协议、错误和轮次基线。
 - `workflow-control-baseline.json`：全文 rewrite route 与 Writer inconclusive policy 基线。
-- `workflow-shadow-baseline.json`：Python/TypeScript LangGraph 共用的无网络、无持久化 workflow shadow 场景与产品级期望投影。
+- `workflow-shadow-baseline.json`：迁移期形成、现在由 TypeScript production projection 复用的无网络 workflow 场景与产品级期望投影。
 - `production-composition-baseline.json`：把 workflow expected 继续约束到 PostgreSQL、BullMQ、Worker、terminal article/event/effect/trace 的 durable projection。
 
 ## 更新规则

@@ -1,6 +1,6 @@
 # @vibe-writer/db
 
-`packages/db` 是 Next.js API 与 Node Worker 共用的 PostgreSQL 数据边界。当前 FastAPI 运行时还没有切换到这里。
+`packages/db` 是 Next.js API 与 Node Worker 共用、且唯一的 PostgreSQL 数据边界。
 
 ## 当前内容
 
@@ -17,7 +17,7 @@
 - `tests/jobs.integration.test.ts`：用 PGlite 执行空库与 populated forward migration、约束和快速 repository 回归；
 - `tests/postgres.integration.test.ts`：用两个独立 PostgreSQL backend session 验证 row-lock claim、event seq/idempotency、effect reservation 与 takeover fencing。
 
-Iteration 0009 起，`queued → running` 和 running terminal transition 需要 claim/fencing；通用 `transitionJob()` 不允许绕过 running lease。Iteration 0010 又移除了 generic optional-run event append：run progress event 必须携带有效 lease identity 和 job-scoped idempotency key。Iteration 0013 已让新 Worker 只通过 terminal repository 原子提交 article、terminal event 与 job/run 状态；旧 `settleClaim()` 暂留迁移兼容和前序协议测试，切流前应收窄或移除。`run_effects` 对外部调用提供 reserve/finish/uncertain journal，但不宣称 exactly-once。Iteration 0021 在同一 effect transaction 中维护 `trace_spans`，只保存可查询的 provider/model/token/latency 等有界元数据。
+Iteration 0009 起，`queued → running` 和 running terminal transition 需要 claim/fencing；通用 `transitionJob()` 不允许绕过 running lease。Iteration 0010 又移除了 generic optional-run event append：run progress event 必须携带有效 lease identity 和 job-scoped idempotency key。Worker 只通过 terminal repository 原子提交 article、terminal event 与 job/run 状态。`run_effects` 对外部调用提供 reserve/finish/uncertain journal，但不宣称 exactly-once。`trace_spans`只保存可查询的 provider/model/token/latency 等有界元数据。
 
 PGlite 只用于快速验证 PostgreSQL 语义。真实多连接 suite 用本机 PostgreSQL 验证 row lock 与 takeover，但仍不替代托管 PostgreSQL、连接池代理、网络故障或进程 kill 测试。suite 会执行 migration 与 `TRUNCATE`，因此只接受 local harness 创建并以随机名称/comment 标记的一次性 loopback database。
 
@@ -46,7 +46,7 @@ CI 不能把共享 PostgreSQL URL 直接传给 `test:postgres`。需要由 CI pr
 
 ## 尚未建立的边界
 
-- 公开 API/Worker 切流、auth/tenant 与实际 source migration；
+- 面向多用户的正式 auth provider；
 - reconciler、托管 PostgreSQL fault test 与收费 provider smoke；
 - checkpoint retention/encryption 与 effect-specific resolver；
 - thread、memory、RAG、automatic live scanner/materializer、grader 与 observability vendor adapter。

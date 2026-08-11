@@ -52,9 +52,13 @@ export async function PATCH(request: Request, context: Context): Promise<Respons
     return durableAuthorizationFailure(authorization.status)
   }
   if (authorization.scope.role === 'viewer') return forbidden()
-  const body = ArticlePatchRequestSchema.safeParse(await safeJson(request))
+  const rawBody = await safeJson(request)
+  if (
+    typeof rawBody === 'object' && rawBody !== null &&
+    !Object.hasOwn(rawBody, 'expected_revision')
+  ) return preconditionRequired()
+  const body = ArticlePatchRequestSchema.safeParse(rawBody)
   if (!body.success) return invalidRequest()
-  if (body.data.expected_revision === undefined) return preconditionRequired()
   const { articleId } = await context.params
   if (!isUuid(articleId)) return notFound('Article not found.')
 

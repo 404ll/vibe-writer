@@ -23,28 +23,20 @@
 
 ## 2. 当前事实
 
-当前 Web 位于 `apps/web`，使用 Next.js App Router。文章首屏由 Server Component 从 FastAPI 读取并通过共享 Zod schema 校验；任务 UI、编辑、Mermaid 和 `fetch + ReadableStream` SSE 位于 Client Component。当前 API 位于 `apps/api`，仍使用 FastAPI、Python LangGraph、SQLAlchemy 和 SQLite。
+当前只有一条TypeScript产品链路。`apps/web`使用Next.js App Router承载页面、`/api/durable/**` Route Handler、SSE和Article UI；`apps/worker`作为独立常驻Node进程承载BullMQ dispatcher/consumer、LangGraph.js、provider调用、heartbeat与恢复。PostgreSQL保存Job、Run、Event、Outbox、Checkpoint和Article事实，Redis/BullMQ只负责投递、重试与并发控制。
 
-一次任务目前按以下方式执行：
+一次任务按以下方式执行：
 
-1. `POST /jobs` 创建 `job_id`，用 `asyncio.create_task()` 启动后台图。
-2. `JobStore` 在单个 Python 进程内保存任务元数据、reply event、取消标志和事件历史。
-3. `GET /jobs/{id}/stream` 为每个订阅者建立 `asyncio.Queue`。
-4. 图执行 `plan → write → review → export`，review 可条件回到 write。
-5. export 将 Markdown 同时写到本地文件和 SQLite article 表。
-6. Web 先连接实时流、再回放历史事件，并用 `_seq` 去重。
+1. Next.js在同一PostgreSQL事务创建Job与Outbox；
+2. dispatcher领取Outbox并发布BullMQ job；
+3. consumer取得lease/fencing token并执行LangGraph.js；
+4. outline interrupt、回复、进度Event与Checkpoint都持久化；
+5. terminal transaction原子提交Article、done Event与Job/Run终态；
+6. Next.js SSE按`_seq`重放，Article Server Component直接读取PostgreSQL。
 
-源码默认的`pnpm dev:web`仍通过`/api/*` rewrite兼容旧FastAPI协议；本地产品模式`pnpm dev:durable`则把浏览器请求和文章Server Component作为同一运行单元切到`/api/durable`，由Node Route Handler、PostgreSQL/BullMQ和TypeScript Worker承接长任务。浏览器只持久化版本化的active job id，PostgreSQL是durable模式下任务状态、事件历史和文章版本的事实来源。
+FastAPI/Python、Next API rewrite、进程内JobStore、SQLite article与跨运行时shadow runner已在Iteration 0063退役。历史fixture和ADR只保存迁移证据，不形成可启动fallback。回滚使用同一TypeScript artifact版本与PostgreSQL备份。
 
-`packages/db` 已建立 PostgreSQL/Drizzle 的 job/run/event/outbox/effect/checkpoint、article/version 以及 interrupt/command schema、migration 和 repository 测试。Next.js 的`/api/durable/*` jobs/events/SSE/article routes已通过本地产品composition承接浏览器主链路；普通Web启动的默认关闭状态和FastAPI rewrite继续提供显式回滚能力。公开生产仍不能沿用development-only本地身份，必须完成真实Auth/Ingress与目标环境部署门禁。
-
-R4 已建立 `packages/model-runtime`、`packages/agent-core` 和 `packages/workflow-runtime`：前者提供供应商无关的 `TextModel` / `ToolModel` 端口；Agent core 承载 Planner/Reviewer、Coverage/Research、Writer/tool loop；workflow runtime 以 LangGraph.js 组装可序列化 state、outline interrupt/resume、逐章写作、有限重试和 export intent。R5 已建立 Worker lease/BullMQ/durable executor、真实 PostgreSQL/PostgresSaver、terminal/article transaction。Iteration 0016 又把 Anthropic/Tavily wire protocol放入独立 `provider-runtime`，并增加默认关闭、可拆 dispatcher/consumer 的 production composition；产品 API 切流、托管部署和 live provider eval仍未完成。
-
-R6曾建立`packages/memory-core`、durable Memory repository、默认关闭的API/UI、retention和确定性Eval基础，但从Iteration 0062起这些内容被归档为未来实验模块，不再构成当前产品能力。`dev:durable`不启用Memory flag或consumer，写作终态不产生Memory extraction Outbox，核心API readiness也不检查Memory schema。历史实现继续由全仓回归保护，重新进入产品前必须新增决策并重新验证source、consent、context injection、质量和成本边界。
-
-所有现有运行环境都尚未切换到 TypeScript Planner/Reviewer/Coverage/Research/Writer/tool loop；这些组件当前只用于 fixture/eval 对照。
-
-主要约束是：任务、SSE 队列、人工回复和历史事件依赖进程内存；本地 SQLite/文件也不适合作为多实例和无状态部署的数据真相。
+部署边界为Vercel Next.js Web/API + 外部常驻TypeScript Worker。首个个人MVP使用受Vercel Authentication保护的Preview和固定单用户identity；公开Production仍需要正式session/identity adapter。Memory实验模块保持默认关闭，不构成当前产品能力。
 
 ## 3. 目标架构
 
@@ -206,7 +198,7 @@ PostgresSaver checkpoint 与 job lease 是两种不同责任：前者恢复 grap
 - 客户端携带最后序号重连；同一事件重复到达必须幂等。
 - `done`、`cancelled`、`error` 是终止事件，收到后主动关闭连接。
 - staging Route Handler 以 `after_seq`/`Last-Event-ID` 做 catch-up，并用 PostgreSQL 有界轮询和 keepalive 维持 fetch-SSE；未配置 Redis notification 只影响延迟，不影响重放正确性。
-- durable routes 只有 `DURABLE_API_ENABLED=true` 才访问数据库；API liveness独立，readiness还要求PostgreSQL可达且durable业务表完整。源码默认`API_BASE=/api`与FastAPI rewrite不变；`pnpm dev:durable`会把`NEXT_PUBLIC_API_BASE=/api/durable`、runtime API flag和`DURABLE_ARTICLE_READ_ENABLED=true`组成一个本地发布单元，使Client API与Server Component文章读取都落到PostgreSQL。公开部署也必须保持这三个开关原子切换。
+- durable routes 只有 `DURABLE_API_ENABLED=true` 才访问数据库；API liveness独立，readiness还要求PostgreSQL可达且durable业务表完整。浏览器默认`API_BASE=/api/durable`，Article Server Component始终读取同一PostgreSQL数据源，不存在独立切流flag或HTTP fallback。
 
 ### 部署健康与退流
 
@@ -224,7 +216,6 @@ PostgresSaver checkpoint 与 job lease 是两种不同责任：前者恢复 grap
 - restore 保存的是恢复动作发生前的 current draft，因此恢复本身可撤销；历史记录不可修改，且 `(article_id, source_revision)` 唯一。
 - revision conflict 返回 `409 + current_revision`，不产生快照。它是客户端刷新、展示冲突或未来做 diff/merge 的明确协议，不允许退回 last-write-wins。
 - current article 的数据库正文是业务真相；terminal 时生成的 `output/*.md` 是一次性导出物，编辑和 restore 不隐式覆盖它。
-- legacy SQLite迁移保留有效article/job UUID，生成deterministic synthetic completed run与done event；未知Python model/prompt/graph/tool版本显式标记unknown。旧version按saved timestamp/id映射source revision，不改写旧restore产生的重复快照；source SHA-256进入code revision，exact replay之外的collision全部失败。
 
 ## 6. Identity、Workspace 与安全边界
 
@@ -240,7 +231,7 @@ external identity (issuer + subject)
 
 `principals` 代表内部主体；`principal_identities` 允许未来把 Auth.js、Clerk、OIDC 或企业 SSO 映射到同一个 principal。`workspaces` 是协作、数据保留和计费的候选边界，`workspace_memberships` 表达角色。Job 直接保存 `workspace_id + created_by_principal_id`，run/event/effect/trace/article 等子图通过不可变 `job_id` 继承 scope。幂等键只在 workspace 内唯一，避免不同租户互相占用请求键。
 
-Next durable path 当前只有供应商无关的 `trusted-proxy` seam：未显式启用时返回 503，缺少有效内部 UUID header 返回 401，无 active membership 返回 403。该模式只能部署在会删除客户端同名 header、完成真实身份验证后重新注入 principal/workspace 的可信代理之后；direct-to-Next 公开流量禁止使用。Server Component 与 Route Handler 使用同一 authorization 函数，避免首屏读取绕过 API 边界。
+Next durable path支持供应商无关的`trusted-proxy` seam，以及个人Preview专用的`protected-single-user`。后者只在Vercel Preview、operator显式声明外部保护且固定UUID合法时工作，并要求Vercel Authentication在请求进入Next前完成访问控制；它不是公开Production auth。Server Component与Route Handler使用同一authorization函数，避免首屏读取绕过API边界。
 
 隔离采用两层：workspace-scoped repository 始终带显式 SQL predicate并执行角色检查；PostgreSQL RLS 再使用 transaction-local `app.principal_id/app.workspace_id` 防止漏写过滤。公开API必须使用非owner、无`BYPASSRLS`的专用数据库角色；Worker、migration、outbox dispatcher使用独立service role。普通RLS不会限制owner，所以使用同一个`DATABASE_URL`虽然测试可运行，但不是公开切流配置。
 
@@ -264,7 +255,7 @@ Iteration 0062进一步缩小产品边界：Memory从MVP承诺、导航、启动
 
 同轮canary以一次性真实PostgreSQL、production build、`next start`和只设置`DATABASE_API_URL`的runtime执行Memory HTTP矩阵；loopback proxy先移除所有客户端`x-vibe-*`，再按测试session注入scope。它证明header协议、membership、repository与RLS组合，但不是某个真实Ingress/Auth供应商已经部署的证据。production仍必须封锁direct-to-Next公网入口并在目标代理复跑伪造header负例。
 
-迁移期的legacy `/api/:path*` rewrite使用Next `fallback`语义：App Router Route Handler（包括动态`/api/durable/**`）先匹配，只有Next不存在的API路径才转发FastAPI。array-form rewrite会在动态route前抢占请求，禁止恢复。
+Iteration 0063按ADR-0064删除Python/FastAPI、legacy rewrite、workflow shadow执行器和SQLite import，并收紧Article revision contract。Vercel只承载Next.js Web/API，BullMQ Worker继续部署为外部常驻进程；两者共享PostgreSQL，Worker另连Redis。
 
 已有数据在migration中归入显式legacy system principal/workspace；新Job没有system默认值。`eval_suites.workspace_id`允许为空，以保留synthetic/system regression suite；未来任何`user_content` case必须绑定workspace。Thread、Memory、source document和embedding都要直接携带或可约束地继承workspace，opaque `namespace_key`不能再承担安全职责。
 
@@ -502,25 +493,15 @@ Memory 专项指标至少包括：should-write precision/recall、冲突处理�
 
 这些决定由 [ADR](./decisions/) 管理。
 
-## 12. 迁移策略
+## 12. 迁移状态
 
-采用 strangler migration：旧 Python API 在新 TS 路径通过行为基线前继续作为参考实现。
-
-- 先共享契约和捕获行为 fixture；
-- 再迁 Next.js 页面，不改变后端协议；
-- 建立 PostgreSQL、job/event/outbox 和 Worker 骨架；
-- Agent 按 Planner/Reviewer → Coverage/Research/Search port → Writer/tool loop → graph 迁移；Reviewer/Coverage 的 inconclusive 与 Research 的结构化失败先独立验证，再在组图时定义 retry/terminal policy；
-- 新旧实现对同一 fixture 运行组件级和端到端 eval；
-- durable job/article 路径通过恢复、取消、SSE、revision conflict、数据迁移和 staging 集成测试后一起切流；
-- memory/eval 平台在稳定运行记录上继续扩展；
-- 最后删除 FastAPI、Python 依赖和本地 SQLite 运行路径。
+Strangler migration已经结束。共享契约、PostgreSQL durable data、TS Agent/Worker、LangGraph.js、SSE和Article revision路径均已接管；Python/FastAPI与SQLite运行时已删除。后续只做同一TypeScript架构内的产品迭代，不再维护双栈等价。
 
 ## 13. 开放问题
 
-- 首个部署目标及 PostgreSQL/Redis 的托管选择；
+- PostgreSQL/Redis 的托管选择与连接池容量；
 - Langfuse/OTel adapter 使用云服务、自托管还是暂不接入；
-- 首个真实认证adapter使用Auth.js、Clerk还是OIDC，以及trusted proxy与专用API DB role的部署形态；
-- 真实部署的旧 SQLite article/version source 位置与执行窗口；
+- 首个正式认证adapter使用Auth.js、Clerk还是OIDC；
 - Memory 管理 UI 如何批量审核 candidate、解释 conflict 与展示 deletion receipt。
 - user-authored durable signal采用显式“记住”动作、偏好设置还是带consent的对话标注，以及产品API如何触发typed extraction；
 - signal删除与in-flight provider reservation/uncertain effect如何协调；

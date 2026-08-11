@@ -30,7 +30,7 @@ describe('useJobStream', () => {
     renderHook(() => useJobStream('job-123', vi.fn()))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/jobs/job-123/stream', {
+      expect(fetch).toHaveBeenCalledWith('/api/durable/jobs/job-123/stream', {
         signal: expect.any(AbortSignal),
       })
     })

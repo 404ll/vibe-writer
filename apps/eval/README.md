@@ -1,18 +1,13 @@
 # @vibe-writer/eval-cli
 
-版本化离线评测入口。组件 suite 把 Planner、Reviewer、Coverage、Search policy/ranking 和 Writer tool loop 的 38 个合成 fixture 统一交给 `@vibe-writer/eval-core`；workflow shadow suite 则让当前 Python 与 TypeScript LangGraph 分别执行同一组脚本化场景，再同时比较显式 expected 与两边的规范化投影。
+版本化离线评测入口。组件 suite 把 Planner、Reviewer、Coverage、Search policy/ranking 和 Writer tool loop 的 38 个合成 fixture 统一交给 `@vibe-writer/eval-core`。迁移期跨运行时 shadow runner 已随 Python 退役删除；历史场景仍作为 production projection 的版本化输入保留。
 
 ```bash
 pnpm eval:components          # 只读 gate；不会更新 baseline
 pnpm eval:components:report   # 输出默认不含正文的 run report
 pnpm eval:components:baseline # 只打印候选 baseline，必须审查后手工更新
 
-API_PYTHON=/path/to/python pnpm eval:workflow-shadow
-API_PYTHON=/path/to/python pnpm eval:workflow-shadow:report
-API_PYTHON=/path/to/python pnpm eval:workflow-shadow:baseline
 ```
-
-Workflow shadow 会清空子进程的应用凭据，只传递 Python 路径所需的最小环境；provider、搜索和 export 使用 synthetic adapter，不访问网络、数据库或 `output/`。当前 3 个场景覆盖无人工介入完成、编辑大纲后确认和全文审稿失败后重写。Python 的进程内等待与 TypeScript 的 LangGraph interrupt/resume 只比较产品级结果，不证明两者 checkpoint 机制相同，也不是 Worker/Redis/PostgreSQL E2E。
 
 重型 durable projection 复用 workflow happy-path expected，并穿过临时 PostgreSQL、Redis/BullMQ、production Worker、terminal article/effect/trace 和 Next SSR：
 

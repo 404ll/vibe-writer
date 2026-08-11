@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from 'react'
 
 export const ACTIVE_JOB_STORAGE_KEY = 'vibe-writer:active-job:v1'
-const LEGACY_ACTIVE_JOB_STORAGE_KEY = 'vibe_active_job_id'
 const ACTIVE_JOB_CHANGED_EVENT = 'vibe-writer:active-job-changed'
 
 function browserStorage(): Storage | null {
@@ -12,9 +11,7 @@ function browserStorage(): Storage | null {
 
 export function readActiveJobId(): string | null {
   const storage = browserStorage()
-  return storage?.getItem(ACTIVE_JOB_STORAGE_KEY)
-    ?? storage?.getItem(LEGACY_ACTIVE_JOB_STORAGE_KEY)
-    ?? null
+  return storage?.getItem(ACTIVE_JOB_STORAGE_KEY) ?? null
 }
 
 function notifyActiveJobChanged() {
@@ -27,7 +24,6 @@ export function writeActiveJobId(jobId: string) {
   const storage = browserStorage()
   if (!storage) return
   storage.setItem(ACTIVE_JOB_STORAGE_KEY, jobId)
-  storage.removeItem(LEGACY_ACTIVE_JOB_STORAGE_KEY)
   notifyActiveJobChanged()
 }
 
@@ -35,7 +31,6 @@ export function clearActiveJobId() {
   const storage = browserStorage()
   if (!storage) return
   storage.removeItem(ACTIVE_JOB_STORAGE_KEY)
-  storage.removeItem(LEGACY_ACTIVE_JOB_STORAGE_KEY)
   notifyActiveJobChanged()
 }
 

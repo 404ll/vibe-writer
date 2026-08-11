@@ -60,4 +60,31 @@ describe('durable request identity boundary', () => {
       DURABLE_LOCAL_PRINCIPAL_ID: 'not-a-uuid',
     })).toEqual({ status: 'auth_unconfigured' })
   })
+
+  it('supports a fixed identity only for an explicitly protected Vercel Preview', () => {
+    const environment = {
+      NODE_ENV: 'production',
+      VERCEL: '1',
+      VERCEL_ENV: 'preview',
+      DURABLE_AUTH_MODE: 'protected-single-user',
+      DURABLE_EXTERNAL_ACCESS_PROTECTION: 'true',
+      DURABLE_SINGLE_USER_PRINCIPAL_ID: '11111111-1111-4111-8111-111111111111',
+      DURABLE_SINGLE_USER_WORKSPACE_ID: '22222222-2222-4222-8222-222222222222',
+    } as const
+    expect(parseRequestIdentity(new Headers(), 'protected-single-user', environment)).toEqual({
+      status: 'parsed',
+      scope: {
+        principalId: environment.DURABLE_SINGLE_USER_PRINCIPAL_ID,
+        workspaceId: environment.DURABLE_SINGLE_USER_WORKSPACE_ID,
+      },
+    })
+    expect(parseRequestIdentity(new Headers(), 'protected-single-user', {
+      ...environment,
+      VERCEL_ENV: 'production',
+    })).toEqual({ status: 'auth_unconfigured' })
+    expect(parseRequestIdentity(new Headers(), 'protected-single-user', {
+      ...environment,
+      DURABLE_EXTERNAL_ACCESS_PROTECTION: 'false',
+    })).toEqual({ status: 'auth_unconfigured' })
+  })
 })

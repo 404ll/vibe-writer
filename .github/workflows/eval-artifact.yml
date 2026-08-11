@@ -20,17 +20,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: apps/api/requirements.txt
-      - run: python -m pip install -r apps/api/requirements.txt
       - run: pnpm install --frozen-lockfile
       - name: Build content-free Eval artifact
         run: pnpm eval:ci:artifact
         env:
-          API_PYTHON: python
           EVAL_CI_CODE_REVISION: ${{ github.sha }}
           EVAL_CI_RUN_ID: ${{ github.run_id }}
           EVAL_CI_RUN_ATTEMPT: ${{ github.run_attempt }}

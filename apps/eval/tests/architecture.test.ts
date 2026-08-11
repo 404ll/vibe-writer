@@ -2,10 +2,6 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const suiteSource = readFileSync(new URL('../src/component-suite.ts', import.meta.url), 'utf8')
-const workflowSuiteSource = readFileSync(
-  new URL('../src/workflow-shadow-suite.ts', import.meta.url),
-  'utf8',
-)
 const memorySuiteSource = readFileSync(
   new URL('../src/memory-governance-suite.ts', import.meta.url),
   'utf8',
@@ -26,10 +22,6 @@ const memoryCalibrationManifest = JSON.parse(readFileSync(
   new URL('../manifests/memory-calibration-v1.json', import.meta.url),
   'utf8',
 )) as { decision: { productionEligible: boolean }; runPolicy: { maxCostMicrousd: number | null } }
-const pythonWorkflowSource = readFileSync(
-  new URL('../python/workflow_shadow.py', import.meta.url),
-  'utf8',
-)
 const queueProtocolSource = readFileSync(
   new URL('../src/queue-protocol.ts', import.meta.url),
   'utf8',
@@ -67,15 +59,6 @@ describe('eval CLI boundaries', () => {
     ]) {
       expect(suiteSource).not.toContain(dependency)
     }
-  })
-
-  it('runs workflow shadow adapters without inherited credentials or product persistence', () => {
-    expect(workflowSuiteSource).toContain("PYTHONPATH: join(repositoryRoot, 'apps', 'api')")
-    expect(workflowSuiteSource).not.toContain('...process.env')
-    expect(pythonWorkflowSource).toContain('export_without_side_effects')
-    expect(pythonWorkflowSource).toContain('graph_module.export_node = export_without_side_effects')
-    expect(pythonWorkflowSource).not.toContain('AsyncSessionLocal(')
-    expect(pythonWorkflowSource).not.toContain('open(output_path')
   })
 
   it('keeps Eval delivery pointer-only and composes graders only in the Eval process', () => {
