@@ -165,7 +165,16 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
           consumerDatabase.client,
           'consumer',
           config.consumerDatabase!.role,
+          config.consumerAccessMode,
         )
+        if (config.consumerAccessMode === 'single-workspace') {
+          const [session] = await consumerDatabase.client<{ workspaceId: string | null }[]>`
+            select nullif(current_setting('app.workspace_id', true), '') as "workspaceId"
+          `
+          if (session?.workspaceId !== config.singleWorkspaceId) {
+            throw new Error('Write consumer single-workspace database session is not scoped')
+          }
+        }
         const [consumerSchema] = await consumerDatabase.client<{ ready: boolean }[]>`
           select (
             to_regclass('public.jobs') is not null

@@ -7,7 +7,9 @@ import { migrateVibePostgresDatabase } from './migrations'
 import {
   assertCurrentWriteRuntimeRole,
   provisionWriteRuntimeRole,
+  type WriteConsumerAccessMode,
 } from './write-runtime-roles'
+import type { PostgresRoleProvisioningMode } from './postgres-role-contract'
 
 const ROLE_PATTERN = /^[a-z][a-z0-9_]{0,62}$/u
 
@@ -73,11 +75,28 @@ async function provision(): Promise<void> {
   const apiRole = required('DURABLE_API_ROLE')
   const dispatcherRole = required('WRITE_DISPATCHER_DATABASE_ROLE')
   const consumerRole = required('WRITE_CONSUMER_DATABASE_ROLE')
+  const consumerAccessMode = (
+    process.env.WRITE_CONSUMER_ACCESS_MODE?.trim() || 'cross-workspace'
+  ) as WriteConsumerAccessMode
+  const provisioningMode = (
+    process.env.POSTGRES_ROLE_PROVISIONING_MODE?.trim() || 'full'
+  ) as PostgresRoleProvisioningMode
+  if (!['cross-workspace', 'single-workspace'].includes(consumerAccessMode)) {
+    throw new Error('WRITE_CONSUMER_ACCESS_MODE must be cross-workspace or single-workspace')
+  }
+  if (!['full', 'managed-service'].includes(provisioningMode)) {
+    throw new Error('POSTGRES_ROLE_PROVISIONING_MODE must be full or managed-service')
+  }
   const admin = createPostgresDatabase(required('DATABASE_ADMIN_URL'), { max: 1 })
   try {
-    await provisionDurableApiRole(admin.client, apiRole)
-    await provisionWriteRuntimeRole(admin.client, 'dispatcher', dispatcherRole)
-    await provisionWriteRuntimeRole(admin.client, 'consumer', consumerRole)
+    await provisionDurableApiRole(admin.client, apiRole, provisioningMode)
+    await provisionWriteRuntimeRole(admin.client, 'dispatcher', dispatcherRole, {
+      provisioningMode,
+    })
+    await provisionWriteRuntimeRole(admin.client, 'consumer', consumerRole, {
+      consumerAccessMode,
+      provisioningMode,
+    })
   } finally {
     await admin.close()
   }
@@ -94,7 +113,12 @@ async function provision(): Promise<void> {
   try {
     await assertCurrentDurableApiRole(api.client, apiRole)
     await assertCurrentWriteRuntimeRole(dispatcher.client, 'dispatcher', dispatcherRole)
-    await assertCurrentWriteRuntimeRole(consumer.client, 'consumer', consumerRole)
+    await assertCurrentWriteRuntimeRole(
+      consumer.client,
+      'consumer',
+      consumerRole,
+      consumerAccessMode,
+    )
   } finally {
     await Promise.all([api.close(), dispatcher.close(), consumer.close()])
   }

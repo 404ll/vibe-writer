@@ -5,6 +5,7 @@ import {
   provisionPostgresRole,
   verifyCurrentPostgresRole,
   type PostgresRoleContract,
+  type PostgresRoleProvisioningMode,
   type PostgresRoleVerification,
   type PostgresTablePrivilege,
 } from './postgres-role-contract'
@@ -48,41 +49,74 @@ export const WRITE_CONSUMER_ROLE_CONTRACT = {
   sequencePrivileges: {},
 } as const satisfies PostgresRoleContract
 
-export type WriteRuntimeRole = 'dispatcher' | 'consumer'
+export const WRITE_CONSUMER_SINGLE_WORKSPACE_ROLE_CONTRACT = {
+  ...WRITE_CONSUMER_ROLE_CONTRACT,
+  key: 'write-consumer-single-workspace',
+  bypassRls: false,
+} as const satisfies PostgresRoleContract
 
-function contractFor(role: WriteRuntimeRole): PostgresRoleContract {
-  return role === 'dispatcher'
-    ? WRITE_DISPATCHER_ROLE_CONTRACT
+export type WriteRuntimeRole = 'dispatcher' | 'consumer'
+export type WriteConsumerAccessMode = 'cross-workspace' | 'single-workspace'
+
+export type WriteRuntimeRoleOptions = {
+  consumerAccessMode?: WriteConsumerAccessMode
+  provisioningMode?: PostgresRoleProvisioningMode
+}
+
+function contractFor(
+  role: WriteRuntimeRole,
+  consumerAccessMode: WriteConsumerAccessMode = 'cross-workspace',
+): PostgresRoleContract {
+  if (role === 'dispatcher') return WRITE_DISPATCHER_ROLE_CONTRACT
+  return consumerAccessMode === 'single-workspace'
+    ? WRITE_CONSUMER_SINGLE_WORKSPACE_ROLE_CONTRACT
     : WRITE_CONSUMER_ROLE_CONTRACT
 }
 
 export function writeRuntimeRoleProvisioningStatements(
   role: WriteRuntimeRole,
   roleName: string,
+  consumerAccessMode: WriteConsumerAccessMode = 'cross-workspace',
 ): string[] {
-  return postgresRoleProvisioningStatements(contractFor(role), roleName)
+  return postgresRoleProvisioningStatements(contractFor(role, consumerAccessMode), roleName)
 }
 
 export async function provisionWriteRuntimeRole(
   client: Sql,
   role: WriteRuntimeRole,
   roleName: string,
+  options: WriteRuntimeRoleOptions = {},
 ): Promise<void> {
-  await provisionPostgresRole(client, contractFor(role), roleName)
+  await provisionPostgresRole(
+    client,
+    contractFor(role, options.consumerAccessMode),
+    roleName,
+    options.provisioningMode,
+  )
 }
 
 export async function verifyCurrentWriteRuntimeRole(
   client: Sql,
   role: WriteRuntimeRole,
   expectedRoleName: string,
+  consumerAccessMode: WriteConsumerAccessMode = 'cross-workspace',
 ): Promise<PostgresRoleVerification> {
-  return verifyCurrentPostgresRole(client, contractFor(role), expectedRoleName)
+  return verifyCurrentPostgresRole(
+    client,
+    contractFor(role, consumerAccessMode),
+    expectedRoleName,
+  )
 }
 
 export async function assertCurrentWriteRuntimeRole(
   client: Sql,
   role: WriteRuntimeRole,
   expectedRoleName: string,
+  consumerAccessMode: WriteConsumerAccessMode = 'cross-workspace',
 ): Promise<PostgresRoleVerification> {
-  return assertCurrentPostgresRole(client, contractFor(role), expectedRoleName)
+  return assertCurrentPostgresRole(
+    client,
+    contractFor(role, consumerAccessMode),
+    expectedRoleName,
+  )
 }

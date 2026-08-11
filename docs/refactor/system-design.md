@@ -257,6 +257,8 @@ Iteration 0062进一步缩小产品边界：Memory从MVP承诺、导航、启动
 
 Iteration 0063按ADR-0064删除Python/FastAPI、legacy rewrite、workflow shadow执行器和SQLite import，并收紧Article revision contract。Vercel只承载Next.js Web/API，BullMQ Worker继续部署为外部常驻进程；两者共享PostgreSQL，Worker另连Redis。
 
+Iteration 0064部署到Neon时采用ADR-0065的托管数据库适配：API与dispatcher仍为普通`NOBYPASSRLS`最小权限角色；固定单用户Preview的consumer也保持`NOBYPASSRLS`，但通过PostgreSQL startup `options`把每条连接固定到唯一workspace。Worker readiness会同时验证角色有效权限全集和session workspace。该模式不支持跨workspace消费，不得扩展为公开多租户Production，也不得以Neon owner或`neon_superuser`代替。
+
 已有数据在migration中归入显式legacy system principal/workspace；新Job没有system默认值。`eval_suites.workspace_id`允许为空，以保留synthetic/system regression suite；未来任何`user_content` case必须绑定workspace。Thread、Memory、source document和embedding都要直接携带或可约束地继承workspace，opaque `namespace_key`不能再承担安全职责。
 
 决策与部署限制见 [ADR-0026](./decisions/0026-provider-neutral-workspace-identity-and-rls.md) 和 [Durable切流Runbook](./runbooks/durable-cutover.md)。

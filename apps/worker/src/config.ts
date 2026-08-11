@@ -1,6 +1,7 @@
 import type { ConnectionOptions } from 'bullmq'
 
 export type WorkerRole = 'all' | 'dispatcher' | 'consumer'
+export type WorkerConsumerAccessMode = 'cross-workspace' | 'single-workspace'
 
 export type WorkerDatabaseConfig = {
   url: string
@@ -11,6 +12,8 @@ export type ProductionWorkerConfig = {
   role: WorkerRole
   dispatcherDatabase?: WorkerDatabaseConfig
   consumerDatabase?: WorkerDatabaseConfig
+  consumerAccessMode: WorkerConsumerAccessMode
+  singleWorkspaceId?: string
   redis: ConnectionOptions
   anthropicApiKey?: string
   anthropicBaseUrl?: string
@@ -71,6 +74,8 @@ function optionalPort(env: NodeJS.ProcessEnv, name: string): number | undefined 
   return value
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
+
 export function redisConnection(redisUrl: string): ConnectionOptions {
   const url = new URL(redisUrl)
   if (!['redis:', 'rediss:'].includes(url.protocol)) throw new Error('REDIS_URL must use redis:// or rediss://')
@@ -93,6 +98,19 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
   if (!['all', 'dispatcher', 'consumer'].includes(role)) throw new Error('DURABLE_WORKER_ROLE must be all, dispatcher, or consumer')
   const dispatcher = role === 'all' || role === 'dispatcher'
   const consumer = role === 'all' || role === 'consumer'
+  const consumerAccessMode = (
+    env.WRITE_CONSUMER_ACCESS_MODE?.trim() || 'cross-workspace'
+  ) as WorkerConsumerAccessMode
+  if (!['cross-workspace', 'single-workspace'].includes(consumerAccessMode)) {
+    throw new Error('WRITE_CONSUMER_ACCESS_MODE must be cross-workspace or single-workspace')
+  }
+  const singleWorkspaceId = env.WORKER_SINGLE_USER_WORKSPACE_ID?.trim()
+  if (
+    consumer && consumerAccessMode === 'single-workspace' &&
+    (!singleWorkspaceId || !UUID_PATTERN.test(singleWorkspaceId))
+  ) {
+    throw new Error('WORKER_SINGLE_USER_WORKSPACE_ID must be a UUID in single-workspace mode')
+  }
   const leaseDurationMs = positiveInt(env, 'WORKER_LEASE_DURATION_MS', 60_000)
   const heartbeatIntervalMs = positiveInt(env, 'WORKER_HEARTBEAT_INTERVAL_MS', 15_000)
   const healthPort = optionalPort(env, 'WORKER_HEALTH_PORT')
@@ -124,6 +142,8 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
     role,
     ...(dispatcherDatabase ? { dispatcherDatabase } : {}),
     ...(consumerDatabase ? { consumerDatabase } : {}),
+    consumerAccessMode,
+    ...(singleWorkspaceId ? { singleWorkspaceId } : {}),
     redis: redisConnection(required(env, 'REDIS_URL')),
     ...(consumer ? {
       anthropicApiKey: required(env, 'ANTHROPIC_API_KEY'),

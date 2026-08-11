@@ -39,13 +39,19 @@ export function getMemoryConsentPolicy(): MemoryConsentPolicyDocument | null {
   return getRegisteredMemoryConsentPolicy(process.env.MEMORY_CONSENT_POLICY_VERSION)
 }
 
-export function getDurableDatabase(): DurableDatabase {
-  const connectionString =
-    process.env.DATABASE_API_URL?.trim() || process.env.DATABASE_URL?.trim()
-  if (!connectionString) throw new Error('Durable API database is not configured')
+export function getDurableDatabaseUrl(
+  environment?: { DATABASE_API_URL?: string },
+): string {
+  const connectionString = (
+    environment?.DATABASE_API_URL ?? process.env.DATABASE_API_URL
+  )?.trim()
+  if (!connectionString) throw new Error('DATABASE_API_URL is required for the Durable API')
+  return connectionString
+}
 
+export function getDurableDatabase(): DurableDatabase {
   durableGlobal.__vibeWriterDurableDatabase ??= createPostgresDatabase(
-    connectionString,
+    getDurableDatabaseUrl(),
     { max: process.env.VERCEL === '1' ? 1 : 10 },
   )
   return durableGlobal.__vibeWriterDurableDatabase

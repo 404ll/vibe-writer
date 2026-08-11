@@ -25,7 +25,7 @@
 2. 保持Include source files outside Root Directory开启，使pnpm workspace package可参与构建。
 3. Framework Preset使用Next.js；仓库中的`apps/web/vercel.json`负责从monorepo根目录安装与构建。
 4. 在Settings → Deployment Protection中为Preview开启Vercel Authentication。
-5. 只向Preview环境写入[`apps/web/.env.example`](../../../apps/web/.env.example)列出的变量。
+5. Marketplace可以用于创建数据库，但完成migration与runtime role后要断开项目级资源连接，移除自动注入的owner变量；只向Preview环境写入[`apps/web/.env.example`](../../../apps/web/.env.example)列出的runtime变量。
 
 关键变量：
 
@@ -40,6 +40,7 @@ DURABLE_SINGLE_USER_WORKSPACE_ID=<existing UUID>
 ```
 
 Memory flags保持`false`。不要把admin、dispatcher、consumer、Redis或provider secret放入Vercel。
+Durable API只接受`DATABASE_API_URL`，不会回退`DATABASE_URL`；这样即使operator误连Marketplace owner变量也会fail closed。
 
 ## 4. Worker服务器
 
@@ -50,7 +51,7 @@ pnpm install --frozen-lockfile
 pnpm start:worker
 ```
 
-环境变量使用根目录[`.env.example`](../../../.env.example)。`DURABLE_WORKER_ROLE=all`适合单机MVP，但内部仍使用两条独立数据库连接。资源较小的个人服务器固定`WORKER_CONCURRENCY=1`；健康服务绑定`127.0.0.1`，端口要避开现有服务，示例使用`8790`。
+环境变量使用根目录[`.env.example`](../../../.env.example)。`DURABLE_WORKER_ROLE=all`适合单机MVP，但内部仍使用两条独立数据库连接。Neon等不允许operator创建`BYPASSRLS`角色的托管PostgreSQL使用`WRITE_CONSUMER_ACCESS_MODE=single-workspace`，并在consumer URL的`options`参数和`WORKER_SINGLE_USER_WORKSPACE_ID`中配置同一个UUID；readiness会校验两者一致。资源较小的个人服务器固定`WORKER_CONCURRENCY=1`；健康服务绑定`127.0.0.1`，端口要避开现有服务，示例使用`8790`。
 
 部署目录、systemd unit和Redis配置必须与机器上的其他应用隔离。部署前只读检查现有端口、服务名和可用内存；不要重启、覆盖或复用其他应用的进程。
 

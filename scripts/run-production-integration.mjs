@@ -194,7 +194,7 @@ try {
     'next', 'start', '-H', '127.0.0.1', '-p', String(webPort),
   ], {
     env: {
-      DATABASE_URL: `postgres://127.0.0.1:${postgresPort}/${databaseName}`,
+      DATABASE_API_URL: `postgres://127.0.0.1:${postgresPort}/${databaseName}`,
       DURABLE_API_ENABLED: 'true',
       DURABLE_AUTH_MODE: 'trusted-proxy',
     },

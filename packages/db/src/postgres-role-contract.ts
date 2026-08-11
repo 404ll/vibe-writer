@@ -44,6 +44,8 @@ export type PostgresRoleContract = {
   sequencePrivileges: Readonly<Record<string, readonly PostgresSequencePrivilege[]>>
 }
 
+export type PostgresRoleProvisioningMode = 'full' | 'managed-service'
+
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]{0,62}$/
 
 function quoteIdentifier(value: string): string {
@@ -173,6 +175,7 @@ export async function provisionPostgresRole(
   client: Sql,
   contract: PostgresRoleContract,
   roleName: string,
+  mode: PostgresRoleProvisioningMode = 'full',
 ): Promise<void> {
   const statements = postgresRoleProvisioningStatements(contract, roleName)
   const firstObjectGrant = statements.findIndex(
@@ -185,10 +188,18 @@ export async function provisionPostgresRole(
   const grantStatements = firstObjectGrant === -1
     ? []
     : statements.slice(firstObjectGrant)
-  for (const statement of resetStatements) {
-    await client.unsafe(statement)
-  }
   const role = quoteIdentifier(roleName)
+  for (const statement of resetStatements) {
+    if (mode === 'managed-service' && statement.startsWith('ALTER ROLE ')) {
+      // Managed PostgreSQL operators such as Neon expose CREATEROLE without
+      // SUPERUSER. They permit LOGIN/NOINHERIT but reject even no-op changes
+      // to SUPERUSER, REPLICATION, and BYPASSRLS attributes. The verifier
+      // below still checks those effective attributes exactly.
+      await client.unsafe(`ALTER ROLE ${role} LOGIN NOINHERIT`)
+    } else {
+      await client.unsafe(statement)
+    }
+  }
   const schemas = managedSchemas(contract)
   const tables = await client<{
     schemaName: string

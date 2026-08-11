@@ -2,7 +2,7 @@
 
 > 状态：MVP Complete；Production hardening deferred。启动日期：2026-08-07，MVP收口：2026-08-10。
 
-本目录是 vibe-writer 重构的权威入口。Web、API、Agent与Worker已经统一为TypeScript；FastAPI/Python、Next fallback rewrite与SQLite兼容导入根据[ADR-0064](./decisions/0064-retire-python-and-adopt-vercel-web.md)退役。当前部署边界是Vercel Next.js Web/API + 外部常驻TypeScript Worker + PostgreSQL/BullMQ。Memory根据[ADR-0063](./decisions/0063-memory-deferred-from-product-mvp.md)延后，不属于当前产品。
+本目录是 vibe-writer 重构的权威入口。Web、API、Agent与Worker已经统一为TypeScript；FastAPI/Python、Next fallback rewrite与SQLite兼容导入根据[ADR-0064](./decisions/0064-retire-python-and-adopt-vercel-web.md)退役。当前部署边界是Vercel Next.js Web/API + 外部常驻TypeScript Worker + PostgreSQL/BullMQ；Neon Preview的固定workspace consumer适配见[ADR-0065](./decisions/0065-managed-postgres-single-workspace-consumer.md)。Memory根据[ADR-0063](./decisions/0063-memory-deferred-from-product-mvp.md)延后，不属于当前产品。
 
 ## 文档地图
 
@@ -87,6 +87,7 @@
 - 最近完成：[0061 本地 Durable 产品切流](./iterations/0061-local-durable-product-cutover.md)，以`pnpm dev:durable`组合持久化本地PostgreSQL/Redis、最小权限角色、Next durable API与TypeScript Worker，并跑通创建、outline确认、SSE终态、文章编辑和restore。
 - 最近完成：[0062 Memory 从产品 MVP 延后](./iterations/0062-defer-memory-from-product-mvp.md)，移除post-run提取副作用与核心readiness依赖；历史实现保留但不进入产品入口、启动组合或验收。
 - 最近完成：[0063 Python 退役与 Vercel Preview 边界](./iterations/0063-python-retirement-and-vercel-preview.md)，删除可执行双栈与SQLite fallback，验证Vercel monorepo build并固定外部Worker边界。
+- 进行中：[0064 Vercel、Neon 与外部 Worker 部署](./iterations/0064-vercel-neon-worker-deployment.md)，Neon Free schema、checkpoint、三套最小权限角色与固定workspace已就绪；等待Vercel secret写入、Preview和服务器Worker验收。
 
 ## 维护规则
 

@@ -5,6 +5,7 @@ import {
   provisionPostgresRole,
   verifyCurrentPostgresRole,
   type PostgresRoleContract,
+  type PostgresRoleProvisioningMode,
   type PostgresRoleVerification,
   type PostgresTablePrivilege,
 } from './postgres-role-contract'
@@ -53,8 +54,12 @@ export function durableApiRoleProvisioningStatements(roleName: string): string[]
   return postgresRoleProvisioningStatements(DURABLE_API_ROLE_CONTRACT, roleName)
 }
 
-export async function provisionDurableApiRole(client: Sql, roleName: string): Promise<void> {
-  await provisionPostgresRole(client, DURABLE_API_ROLE_CONTRACT, roleName)
+export async function provisionDurableApiRole(
+  client: Sql,
+  roleName: string,
+  mode: PostgresRoleProvisioningMode = 'full',
+): Promise<void> {
+  await provisionPostgresRole(client, DURABLE_API_ROLE_CONTRACT, roleName, mode)
 }
 
 export type DurableApiRoleVerification = PostgresRoleVerification

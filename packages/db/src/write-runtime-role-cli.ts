@@ -2,8 +2,10 @@ import { createPostgresDatabase } from './client'
 import {
   assertCurrentWriteRuntimeRole,
   provisionWriteRuntimeRole,
+  type WriteConsumerAccessMode,
   type WriteRuntimeRole,
 } from './write-runtime-roles'
+import type { PostgresRoleProvisioningMode } from './postgres-role-contract'
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim()
@@ -22,15 +24,31 @@ const roleName = requiredEnvironment(
     ? 'WRITE_DISPATCHER_DATABASE_ROLE'
     : 'WRITE_CONSUMER_DATABASE_ROLE',
 )
+const consumerAccessMode = (
+  process.env.WRITE_CONSUMER_ACCESS_MODE?.trim() || 'cross-workspace'
+) as WriteConsumerAccessMode
+if (!['cross-workspace', 'single-workspace'].includes(consumerAccessMode)) {
+  throw new Error('WRITE_CONSUMER_ACCESS_MODE must be cross-workspace or single-workspace')
+}
+const provisioningMode = (
+  process.env.POSTGRES_ROLE_PROVISIONING_MODE?.trim() || 'full'
+) as PostgresRoleProvisioningMode
+if (!['full', 'managed-service'].includes(provisioningMode)) {
+  throw new Error('POSTGRES_ROLE_PROVISIONING_MODE must be full or managed-service')
+}
 
 if (command === 'provision') {
   const database = createPostgresDatabase(requiredEnvironment('DATABASE_ADMIN_URL'), { max: 1 })
   try {
-    await provisionWriteRuntimeRole(database.client, role, roleName)
+    await provisionWriteRuntimeRole(database.client, role, roleName, {
+      consumerAccessMode,
+      provisioningMode,
+    })
     process.stdout.write(`${JSON.stringify({
       schemaVersion: 1,
       command,
       runtimeRole: role,
+      consumerAccessMode,
       roleName,
       status: 'provisioned',
     })}\n`)
@@ -48,11 +66,13 @@ if (command === 'provision') {
       database.client,
       role,
       roleName,
+      consumerAccessMode,
     )
     process.stdout.write(`${JSON.stringify({
       schemaVersion: 1,
       command,
       runtimeRole: role,
+      consumerAccessMode,
       roleName,
       status: 'verified',
       schemaPrivilegeCount: verification.schemaPrivileges.length,

@@ -50,6 +50,21 @@ describe('production worker config', () => {
     })).toThrow('DATABASE_WRITE_CONSUMER_URL')
   })
 
+  it('requires an explicit UUID for managed single-workspace consumers', () => {
+    expect(() => loadProductionWorkerConfig({
+      ...baseEnv,
+      WRITE_CONSUMER_ACCESS_MODE: 'single-workspace',
+    })).toThrow('WORKER_SINGLE_USER_WORKSPACE_ID')
+    expect(loadProductionWorkerConfig({
+      ...baseEnv,
+      WRITE_CONSUMER_ACCESS_MODE: 'single-workspace',
+      WORKER_SINGLE_USER_WORKSPACE_ID: '22222222-2222-4222-8222-222222222222',
+    })).toMatchObject({
+      consumerAccessMode: 'single-workspace',
+      singleWorkspaceId: '22222222-2222-4222-8222-222222222222',
+    })
+  })
+
   it('enables a bounded health listener only when an explicit port is configured', () => {
     expect(loadProductionWorkerConfig({
       ...baseEnv,

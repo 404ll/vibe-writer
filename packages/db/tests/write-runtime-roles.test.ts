@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   WRITE_CONSUMER_ROLE_CONTRACT,
+  WRITE_CONSUMER_SINGLE_WORKSPACE_ROLE_CONTRACT,
   WRITE_CONSUMER_ROLE_TABLE_PRIVILEGES,
   WRITE_DISPATCHER_ROLE_CONTRACT,
   WRITE_DISPATCHER_ROLE_TABLE_PRIVILEGES,
@@ -37,6 +38,20 @@ describe('Write runtime PostgreSQL role contracts', () => {
       expect(privileges).not.toContain('REFERENCES')
       expect(privileges).not.toContain('TRIGGER')
     }
+  })
+
+  it('keeps the managed single-workspace consumer subject to RLS', () => {
+    expect(WRITE_CONSUMER_SINGLE_WORKSPACE_ROLE_CONTRACT).toMatchObject({
+      key: 'write-consumer-single-workspace',
+      bypassRls: false,
+      tablePrivileges: WRITE_CONSUMER_ROLE_TABLE_PRIVILEGES,
+    })
+    const statements = writeRuntimeRoleProvisioningStatements(
+      'consumer',
+      'vibe_writer_write_consumer',
+      'single-workspace',
+    )
+    expect(statements[0]).toContain('NOINHERIT NOBYPASSRLS NOREPLICATION')
   })
 
   it('resets both managed schemas before granting the consumer contract', () => {

@@ -2,9 +2,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   durableMemoryManagementApiEnabled,
   durableMemorySignalApiEnabled,
+  getDurableDatabaseUrl,
   getMemoryConsentPolicy,
   getMemoryConsentPolicyVersion,
 } from './durableDatabase'
+
+describe('durable database configuration', () => {
+  it('requires the dedicated API role and never falls back to an owner URL', () => {
+    expect(getDurableDatabaseUrl({
+      DATABASE_API_URL: '  postgresql://api@db/vibe  ',
+    })).toBe('postgresql://api@db/vibe')
+    expect(() => getDurableDatabaseUrl({ DATABASE_API_URL: '' }))
+      .toThrow('DATABASE_API_URL is required')
+  })
+})
 
 describe('durable Memory signal configuration', () => {
   afterEach(() => vi.unstubAllEnvs())
