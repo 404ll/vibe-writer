@@ -1,0 +1,9 @@
+{
+  "events": [
+    { "event": "stage_update", "data": { "stage": "write", "_seq": 0 } },
+    {
+      "event": "error",
+      "data": { "message": "fixture failure", "_seq": 1 }
+    }
+  ]
+}

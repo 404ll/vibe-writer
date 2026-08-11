@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "dataset_id": "production-takeover-baseline-v1",
+  "cases": [
+    {
+      "id": "expired-lease-fenced-takeover",
+      "workflow_case_id": "happy-no-intervention",
+      "target_words": 600,
+      "expected": {
+        "jobStatus": "completed",
+        "runStatuses": ["failed", "completed"],
+        "runErrorCodes": ["lease_expired", null],
+        "articleCount": 1,
+        "articleRevision": 0,
+        "canonicalMarkdown": "# 稳定写作\n\n## 第一章\n第一章正文-v1",
+        "eventTypes": ["done"],
+        "outboxStatuses": ["published"],
+        "effectStatusCounts": { "succeeded": 5, "uncertain": 1 },
+        "effectErrorCodes": ["lease_takeover"],
+        "traceStatusCounts": { "succeeded": 5, "uncertain": 1 },
+        "traceErrorCodes": ["lease_takeover"],
+        "traceIdCount": 2,
+        "providerRequestCount": 5,
+        "staleEffectFinishResult": "lease_lost",
+        "staleTerminalResult": "lease_lost"
+      }
+    }
+  ]
+}

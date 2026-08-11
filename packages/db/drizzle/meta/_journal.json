@@ -1,0 +1,202 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786041577654,
+      "tag": "20260806183937_unusual_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786049112415,
+      "tag": "20260806204512_awesome_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786050813013,
+      "tag": "20260806211333_cold_daredevil",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786051275386,
+      "tag": "20260806212115_tough_captain_midlands",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786069286782,
+      "tag": "20260807022126_lazy_slapstick",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786070434519,
+      "tag": "20260807024034_natural_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786072377648,
+      "tag": "20260807031257_sudden_mariko_yashida",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786073792576,
+      "tag": "20260807033632_chunky_bastion",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786079594748,
+      "tag": "20260807051314_mushy_misty_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786083373769,
+      "tag": "20260807061613_nosy_swarm",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786087377097,
+      "tag": "20260807072257_huge_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786088764389,
+      "tag": "20260807074604_ambitious_the_professor",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786089898245,
+      "tag": "20260807080458_soft_starjammers",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786090280583,
+      "tag": "20260807081120_quick_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786090798010,
+      "tag": "20260807081958_deep_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786092646075,
+      "tag": "20260807085046_equal_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786094420933,
+      "tag": "20260807092020_woozy_hellion",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786097652844,
+      "tag": "20260807101412_talented_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786099788889,
+      "tag": "20260807104948_flippant_quentin_quire",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786100584020,
+      "tag": "20260807110304_careful_black_cat",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786101998412,
+      "tag": "20260807112638_natural_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786103206088,
+      "tag": "20260807114646_fine_swarm",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786104280327,
+      "tag": "20260807120440_red_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786106388126,
+      "tag": "20260807123948_provider_dual_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786270716660,
+      "tag": "20260809101836_memory_calibration_authorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786271746047,
+      "tag": "20260809103546_memory_retention_due_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786274398702,
+      "tag": "20260809111958_late_tombstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1786275197449,
+      "tag": "20260809113317_safe_random",
+      "breakpoints": true
+    }
+  ]
+}

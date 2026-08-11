@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "dataset_id": "production-cancellation-baseline-v1",
+  "cases": [
+    {
+      "id": "running-provider-call-cancelled",
+      "topic": "运行中取消",
+      "target_words": 600,
+      "expected": {
+        "jobStatus": "cancelled",
+        "runStatuses": ["cancelled"],
+        "articleCount": 0,
+        "eventTypes": ["cancelled"],
+        "outboxStatuses": ["published"],
+        "effectStatuses": ["uncertain"],
+        "traceStatuses": ["uncertain"],
+        "providerRequestCount": 1,
+        "cancellationResult": "cancel_requested"
+      }
+    }
+  ]
+}

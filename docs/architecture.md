@@ -1,121 +1,47 @@
-# vibe-writer 架构设计
+# vibe-writer 架构入口
 
-## 项目目标
+> 状态：当前架构索引。最后核对：2026-08-07。
 
-用户输入一个写作主题（如「Agent入门-必知必会」），agent 自动完成：
-- 规划文章大纲
-- 搜索相关知识
-- 撰写各章节内容
-- AI 生成配图
-- 导出 Markdown 文件
+vibe-writer 已把 Web 从 React/Vite 迁到 Next.js App Router，正在继续把 FastAPI/Python Agent 迁到 TypeScript Worker。完整目标、边界和迁移约束统一维护在 [重构系统设计](./refactor/system-design.md)；本文件只提供当前入口，避免历史设计继续被误认为现状。
 
----
+## 当前实现
 
-## 整体流程
-
-```
-用户输入主题
-    ↓
-Plan：拆解文章大纲（章节列表 + 每节要点）
-    ↓
-并行执行每个章节：
-    ├── Tavily 搜索相关内容
-    ├── 撰写章节正文
-    └── DALL-E 生成配图
-    ↓
-汇总 → 调整格式 → 导出 Markdown
+```text
+apps/web   Next.js 16 App Router + React 19
+    │
+    ├── Server Component：文章首屏读取和 Zod 校验
+    ├── Client Component：任务交互、编辑、历史版本和 Mermaid
+    └── fetch + ReadableStream：SSE 实时事件和历史回放
+            │
+            │ /api rewrite 与服务端查询
+            ▼
+apps/api   FastAPI + asyncio + LangGraph Python
+    ├── plan → write → review → export
+    ├── JobStore：进程内任务、回复、取消和事件历史
+    └── SQLite：文章和文章版本
 ```
 
----
+Next.js 当前不承载长任务；它负责页面、同源代理和浏览器交互，写作 workflow 仍全部在 FastAPI/Python 中运行。当前工作流是分阶段 LangGraph 状态图，不是多个自治 Agent 互相协商。
 
-## Agent 架构设计
+## 当前 TypeScript Durable MVP
 
-### 核心机制（来自 learn-claude-code）
-
-| 需求 | 采用机制 | 说明 |
-|---|---|---|
-| 拆解大纲 | TodoWrite + 任务图（DAG） | 章节间有顺序依赖，用 blockedBy 管理 |
-| 每章节独立撰写 | Subagent | 每章节上下文隔离，避免互相干扰 |
-| 搜索+配图耗时操作 | 后台任务并行 | 多章节同时搜索，不阻塞主流程 |
-| 写作风格/格式规范 | Skill 按需加载 | 不同风格的写作指南按需注入 |
-| 长文写作不丢进度 | 持久化任务图 | 任务状态写入磁盘，中断可恢复 |
-
-### 工具列表（TOOLS）
-
-| 工具名 | 用途 |
-|---|---|
-| `search` | 调用 Tavily API 搜索相关内容 |
-| `generate_image` | 调用 DALL-E 生成配图 |
-| `write_file` | 写入文件 |
-| `read_file` | 读取文件 |
-| `task_create` | 创建章节任务 |
-| `task_update` | 更新任务状态 |
-| `task_list` | 查看任务进度 |
-
----
-
-## MVP 开发顺序
-
-**第一阶段：跑通核心流程**
-- 输入主题 → 生成大纲 → 逐章节写作 → 输出 Markdown
-- 不含搜索和配图
-
-**第二阶段：接入搜索**
-- 集成 Tavily API
-- 每个章节写作前先搜索相关资料
-
-**第三阶段：接入配图**
-- 集成 DALL-E API
-- 根据章节内容自动生成配图
-
-**第四阶段：体验优化**
-- 写作风格 skill 支持
-- 任务进度可视化
-- 断点续写
-
----
-
-## 目录结构
-
-```
-vibe-writer/
-  apps/
-    api/
-      backend/       ← FastAPI + LangGraph 后端包
-      tests/         ← pytest 测试
-      requirements.txt
-    web/
-      src/           ← React + TypeScript 前端
-      package.json
-  docs/
-    architecture.md  ← 本文档
-  output/            ← 生成的文章
-  package.json       ← 根级 pnpm 命令入口
-  pnpm-workspace.yaml
-  .env.example
+```text
+Next.js Web/API
+    │
+    ├── PostgreSQL：Job、Run、事件、checkpoint、Article和版本
+    ├── Redis/BullMQ：写作任务异步投递、并发和重试
+    ├── Node Worker：LangGraph.js 写作长任务
+    └── Eval：版本化component/workflow回归门禁
 ```
 
----
+Memory相关schema、API和测试作为默认关闭的归档实验模块保留，不属于当前产品MVP、启动依赖或架构心智模型。
 
-## 工具链 & 依赖
+## 权威文档
 
-| 工具/服务 | 用途 | 文档 |
-|---|---|---|
-| Anthropic API | 核心 LLM | https://docs.anthropic.com |
-| Tavily API | 搜索引擎 | https://docs.tavily.com |
-| DALL-E API (OpenAI) | AI 配图 | https://platform.openai.com/docs |
-| brainstorming skill | 方案头脑风暴 | https://github.com/obra/superpowers |
+- [重构文档中心](./refactor/README.md)
+- [系统设计](./refactor/system-design.md)
+- [技术路线图](./refactor/roadmap.md)
+- [ADR 决策记录](./refactor/decisions/)
+- [迭代日志](./refactor/iteration-log.md)
 
-### 安装的 Skills
-
-| Skill | 来源 | 用途 |
-|---|---|---|
-| brainstorming | `obra/superpowers@brainstorming` | 架构方案头脑风暴 |
-
-### 使用的 MCP
-
-暂无，后续按需添加。
-
----
-
-*持续更新中...*
+`docs/superpowers/` 下的文件和 [2026-04 评测报告](./evaluation-report-2026-04.md) 是历史材料，只能用来解释演进过程，不能单独证明当前行为。

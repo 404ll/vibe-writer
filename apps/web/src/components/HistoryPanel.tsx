@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import type { JobState } from '../types'
 import { getArticles } from '../api'
 import type { ArticleSummary } from '../api'
+import { articleRoute } from '../routes'
 
 interface Props {
   currentJob: JobState | null
@@ -30,30 +31,29 @@ function groupByDate(articles: ArticleSummary[]): { label: string; items: Articl
 }
 
 export function HistoryPanel({ currentJob }: Props) {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [loading, setLoading] = useState(true)
-
-  async function fetchArticles() {
-    try {
-      const data = await getArticles()
-      setArticles(data)
-    } catch {
-      // 静默失败
-    } finally {
-      setLoading(false)
-    }
-  }
+  const hasCompletedJob = currentJob?.stage === 'done'
 
   useEffect(() => {
-    fetchArticles()
-  }, [])
+    let cancelled = false
 
-  useEffect(() => {
-    if (currentJob?.stage === 'done') {
-      fetchArticles()
+    getArticles()
+      .then((data) => {
+        if (!cancelled) setArticles(data)
+      })
+      .catch(() => {
+        // 历史记录不阻塞工作台。
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-  }, [currentJob?.stage])
+  }, [hasCompletedJob])
 
   return (
     <div className="card history-panel">
@@ -78,9 +78,9 @@ export function HistoryPanel({ currentJob }: Props) {
                   className="history-item"
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/articles/${a.id}`)}
+                  onClick={() => router.push(articleRoute(a.id))}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') navigate(`/articles/${a.id}`)
+                    if (e.key === 'Enter' || e.key === ' ') router.push(articleRoute(a.id))
                   }}
                 >
                   <div className="history-title">{a.topic}</div>

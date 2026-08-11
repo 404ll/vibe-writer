@@ -1,0 +1,30 @@
+{
+  "name": "@vibe-writer/agent-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./coverage": "./src/coverage.ts",
+    "./planner": "./src/planner.ts",
+    "./reviewer": "./src/reviewer.ts",
+    "./research": "./src/research.ts",
+    "./tool-loop": "./src/tool-loop.ts",
+    "./versions": "./src/versions.ts",
+    "./writer": "./src/writer.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vibe-writer/contracts": "workspace:*",
+    "@vibe-writer/model-runtime": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.9"
+  }
+}

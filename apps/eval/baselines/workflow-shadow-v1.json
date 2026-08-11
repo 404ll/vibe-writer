@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "workflow-shadow-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:03ed4e181fb2f1dc5d2b66e637535dc72517b8eeba6decea0e0a3ec59a0d03ce"
+  },
+  "target": {
+    "key": "python-typescript-workflow-shadow",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "workflow-shadow-baseline-v1/edited-outline-confirm",
+    "workflow-shadow-baseline-v1/full-review-rewrite",
+    "workflow-shadow-baseline-v1/happy-no-intervention"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "cross_runtime_exact_match": {
+      "scoreCount": 3,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

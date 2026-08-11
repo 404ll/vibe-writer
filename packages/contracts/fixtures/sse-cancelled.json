@@ -1,0 +1,6 @@
+{
+  "events": [
+    { "event": "stage_update", "data": { "stage": "plan", "_seq": 0 } },
+    { "event": "cancelled", "data": { "_seq": 1 } }
+  ]
+}

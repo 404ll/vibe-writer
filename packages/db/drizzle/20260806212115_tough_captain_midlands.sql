@@ -1,0 +1,2 @@
+ALTER TABLE "job_events" ADD CONSTRAINT "job_events_idempotency_key_check" CHECK (length(trim("job_events"."idempotency_key")) > 0);--> statement-breakpoint
+ALTER TABLE "job_events" ADD CONSTRAINT "job_events_payload_fingerprint_check" CHECK (length(trim("job_events"."payload_fingerprint")) > 0);

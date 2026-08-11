@@ -7,7 +7,7 @@ from backend.agent.reviewer import ReviewAgent, ReviewResult
 async def test_review_chapter_passed():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text='{"passed": true, "feedback": ""}')]
+    mock_message.content = [MagicMock(type="text", text='{"passed": true, "feedback": ""}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -26,7 +26,7 @@ async def test_review_chapter_passed():
 async def test_review_chapter_failed():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text='{"passed": false, "feedback": "内容过短，建议补充实际案例"}')]
+    mock_message.content = [MagicMock(type="text", text='{"passed": false, "feedback": "内容过短，建议补充实际案例"}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -45,7 +45,7 @@ async def test_review_chapter_failed():
 async def test_review_full_returns_per_chapter_results():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text='{"results": [{"passed": true, "feedback": ""}, {"passed": false, "feedback": "逻辑跳跃，建议加过渡段"}]}')]
+    mock_message.content = [MagicMock(type="text", text='{"results": [{"passed": true, "feedback": ""}, {"passed": false, "feedback": "逻辑跳跃，建议加过渡段"}]}')]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -69,7 +69,7 @@ async def test_review_full_fallback_when_parse_fails():
     """LLM 输出格式异常时，所有章节默认 PASSED（不中断流程）"""
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="无法解析的输出")]
+    mock_message.content = [MagicMock(type="text", text="无法解析的输出")]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):

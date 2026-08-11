@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: vibe_writer
+      POSTGRES_USER: vibe_writer_admin
+      POSTGRES_PASSWORD: vibe_writer_dev_admin
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - vibe_writer_durable_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibe_writer_admin -d vibe_writer"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6389:6379"
+    volumes:
+      - vibe_writer_durable_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  vibe_writer_durable_postgres:
+  vibe_writer_durable_redis:

@@ -1,0 +1,37 @@
+{
+  "name": "@vibe-writer/worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "start:memory-retention": "tsx src/memory-retention-main.ts",
+    "migrate:articles:sqlite": "tsx src/migrate-legacy-articles.ts",
+    "test": "vitest run tests/runner.test.ts tests/workflow-executor.test.ts tests/workflow-services.test.ts tests/effect-journal.test.ts tests/process-runtime.test.ts tests/health-server.test.ts tests/durable-terminal.integration.test.ts tests/memory-extraction.integration.test.ts tests/memory-reconciliation.test.ts tests/memory-retention.test.ts tests/memory-retention.integration.test.ts tests/versioned-memory-extractor.test.ts tests/outbox-dispatcher.test.ts tests/architecture.test.ts",
+    "test:redis": "vitest run tests/redis.integration.test.ts",
+    "test:production": "vitest run tests/production.integration.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/core": "1.2.5",
+    "@langchain/langgraph": "1.4.9",
+    "@vibe-writer/checkpoint-runtime": "workspace:*",
+    "@vibe-writer/agent-core": "workspace:*",
+    "@vibe-writer/contracts": "workspace:*",
+    "@vibe-writer/db": "workspace:*",
+    "@vibe-writer/model-runtime": "workspace:*",
+    "@vibe-writer/memory-core": "workspace:*",
+    "@vibe-writer/provider-runtime": "workspace:*",
+    "@vibe-writer/workflow-runtime": "workspace:*",
+    "bullmq": "5.81.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@types/node": "^24.12.2",
+    "@vibe-writer/eval-core": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.9"
+  }
+}

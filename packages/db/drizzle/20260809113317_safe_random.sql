@@ -1,0 +1,1 @@
+CREATE INDEX "memory_source_signals_workspace_author_id_idx" ON "memory_source_signals" USING btree ("workspace_id","created_by_principal_id","id");

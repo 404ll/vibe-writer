@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "dataset_id": "opinion-search-baseline-v1",
+  "as_of_date": "2026-08-07",
+  "coverage_output_cases": [
+    {
+      "id": "paired-coverage-points",
+      "raw": "{\"opinions\":[\"解释 Agent 的执行循环\",\"区分短期上下文与长期记忆\"],\"search_queries\":[\"Agent 执行循环\",\"AI 长期记忆 架构\"]}",
+      "compatibility_status": "ready",
+      "compatibility_opinions_text": "- 解释 Agent 的执行循环\n- 区分短期上下文与长期记忆",
+      "compatibility_queries": ["Agent 执行循环", "AI 长期记忆 架构"],
+      "target_status": "ready",
+      "target_points": [
+        {"text": "解释 Agent 的执行循环", "search_query": "Agent 执行循环"},
+        {"text": "区分短期上下文与长期记忆", "search_query": "AI 长期记忆 架构"}
+      ]
+    },
+    {
+      "id": "invalid-json",
+      "raw": "无法解析的输出",
+      "compatibility_status": "empty",
+      "compatibility_opinions_text": "",
+      "compatibility_queries": [],
+      "target_status": "inconclusive",
+      "target_points": []
+    },
+    {
+      "id": "mismatched-list-lengths",
+      "raw": "{\"opinions\":[\"覆盖点一\",\"覆盖点二\"],\"search_queries\":[\"查询一\"]}",
+      "compatibility_status": "ready",
+      "compatibility_opinions_text": "- 覆盖点一\n- 覆盖点二",
+      "compatibility_queries": ["查询一"],
+      "target_status": "inconclusive",
+      "target_points": []
+    },
+    {
+      "id": "non-string-entry",
+      "raw": "{\"opinions\":[\"有效覆盖点\",42],\"search_queries\":[\"有效查询\",null]}",
+      "compatibility_status": "ready",
+      "compatibility_opinions_text": "- 有效覆盖点",
+      "compatibility_queries": ["有效查询"],
+      "target_status": "inconclusive",
+      "target_points": []
+    },
+    {
+      "id": "empty-lists",
+      "raw": "{\"opinions\":[],\"search_queries\":[]}",
+      "compatibility_status": "empty",
+      "compatibility_opinions_text": "",
+      "compatibility_queries": [],
+      "target_status": "inconclusive",
+      "target_points": []
+    }
+  ],
+  "search_policy_cases": [
+    {
+      "id": "general-technical-query",
+      "query": "LangGraph checkpoint 原理",
+      "compatibility": {
+        "news_like": false,
+        "max_results": 5,
+        "search_depth": "advanced",
+        "days": 365
+      },
+      "target": {
+        "topic": "general",
+        "max_results": 5,
+        "search_depth": "advanced",
+        "start_date": "2025-08-07",
+        "end_date": "2026-08-07"
+      }
+    },
+    {
+      "id": "time-sensitive-query",
+      "query": "2026 最新 AI 监管政策",
+      "compatibility": {
+        "news_like": true,
+        "max_results": 5,
+        "search_depth": "advanced",
+        "days": 90,
+        "topic": "news"
+      },
+      "target": {
+        "topic": "news",
+        "max_results": 5,
+        "search_depth": "advanced",
+        "start_date": "2026-05-09",
+        "end_date": "2026-08-07"
+      }
+    },
+    {
+      "id": "historical-year-query",
+      "query": "2020 SolarWinds 攻击技术分析",
+      "compatibility": {
+        "news_like": true,
+        "max_results": 5,
+        "search_depth": "advanced",
+        "days": 90,
+        "topic": "news"
+      },
+      "target": {
+        "topic": "general",
+        "max_results": 5,
+        "search_depth": "advanced",
+        "start_date": "2020-01-01",
+        "end_date": "2020-12-31"
+      }
+    },
+    {
+      "id": "historical-current-comparison",
+      "query": "2020 与 2026 AI 监管政策对比",
+      "compatibility": {
+        "news_like": true,
+        "max_results": 5,
+        "search_depth": "advanced",
+        "days": 90,
+        "topic": "news"
+      },
+      "target": {
+        "topic": "general",
+        "max_results": 5,
+        "search_depth": "advanced",
+        "start_date": "2020-01-01",
+        "end_date": "2026-08-07"
+      }
+    }
+  ],
+  "search_ranking_cases": [
+    {
+      "id": "news-undated-before-old-compatibility-delta",
+      "news_like": true,
+      "documents": [
+        {"id": "old-dated", "published_at": "2024-01-01"},
+        {"id": "undated", "published_at": null},
+        {"id": "recent-dated", "published_at": "2026-08-01"}
+      ],
+      "compatibility_order": ["recent-dated", "undated", "old-dated"],
+      "target_order": ["recent-dated", "old-dated", "undated"]
+    },
+    {
+      "id": "general-dated-recency",
+      "news_like": false,
+      "documents": [
+        {"id": "undated", "published_at": null},
+        {"id": "older", "published_at": "2025-01-01"},
+        {"id": "newer", "published_at": "2026-07-01"}
+      ],
+      "compatibility_order": ["newer", "older", "undated"],
+      "target_order": ["newer", "older", "undated"]
+    }
+  ]
+}

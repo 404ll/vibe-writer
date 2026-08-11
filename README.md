@@ -1,8 +1,14 @@
 # vibe-writer
 
-一个基于 React、FastAPI 和 LangGraph 的 AI 长文写作工作台。用户提交主题后，系统会生成大纲（可选人工确认），并行完成章节论点、按需资料搜索、写作和审稿，最后导出 Markdown，并提供文章编辑、历史版本与 Mermaid 图表渲染。
+> TypeScript 全栈 MVP 已可本地整链路运行。系统设计、ADR、技术路线图和逐次验证记录统一维护在 [`docs/refactor/`](./docs/refactor/README.md)；推荐使用 `pnpm dev:durable` 启动 Next.js API、PostgreSQL、BullMQ 与 TypeScript Worker，FastAPI/Python 作为兼容回滚路径保留。
 
-> 当前实现快照：2026-07。本文以仓库现有代码为准，明确区分已经实现的能力和尚未完成的方向。
+> 本地 durable 模式会把浏览器 API 与文章读取统一切到 `/api/durable`，任务、事件、checkpoint、文章和版本写入 PostgreSQL。Docker volume 会保留本地数据；SQLite 不会被自动导入。
+
+> 本地模式使用仅在 development 生效的固定开发身份，不等于公开生产认证。真实 Auth/Ingress、历史数据迁移和生产部署仍是公开切流前置项。Memory 已明确延后到当前产品 MVP 之外：不显示入口、不产生提取任务，也不是当前项目验收能力；仓库中的相关代码仅作为归档基础保留。
+
+一个基于 Next.js、FastAPI 和 LangGraph 的 AI 长文写作工作台。用户提交主题后，系统会生成大纲（可选人工确认），并行完成章节论点、按需资料搜索、写作和审稿，最后导出 Markdown，并提供文章编辑、历史版本与 Mermaid 图表渲染。
+
+> 当前实现快照：2026-08。本文以仓库现有代码为准，明确区分已经实现的能力和尚未完成的方向。
 
 ## 核心能力
 
@@ -15,10 +21,40 @@
 
 ## 快速启动
 
+### 推荐：TypeScript durable MVP
+
+环境要求：Node.js `>=20.9.0`、pnpm 10、Docker，以及包含 `ANTHROPIC_API_KEY` 和 `MODEL_ID` 的根目录 `.env`。
+
+```bash
+pnpm install
+pnpm dev:durable
+```
+
+命令会启动持久化的本地 PostgreSQL/Redis，执行 migration、checkpoint schema、最小权限角色初始化，再启动 Next.js 与 TypeScript Worker：
+
+- 产品页面：`http://127.0.0.1:3000`
+- Worker readiness：`http://127.0.0.1:3001/ready`
+- 停止应用：在运行终端按 `Ctrl-C`，数据库与队列数据继续保留
+- 停止并移除容器：`pnpm dev:durable:down`（命名 volume 默认仍保留）
+
+隔离 worktree 没有根目录 `.env` 时，可以显式指定已有配置：
+
+```bash
+DURABLE_DEV_ENV_FILE=/absolute/path/to/.env pnpm dev:durable
+```
+
+不调用付费模型的完整产品 smoke：
+
+```bash
+pnpm test:durable-product:local
+```
+
+### 兼容路径：FastAPI/Python
+
 环境要求：
 
 - Python 3.11+
-- Node.js `^20.19.0` 或 `>=22.12.0`（Vite 8 的运行要求）
+- Node.js `>=20.9.0`（Next.js 16 的运行要求）
 - pnpm 10
 
 ```bash
@@ -42,10 +78,10 @@ cd apps/api
 
 # 5. 另开终端，从仓库根目录启动前端
 pnpm dev:web
-# http://localhost:5173
+# http://localhost:3000
 ```
 
-开发环境中，前端请求 `/api/*`，Vite 将其代理到 `http://127.0.0.1:8000` 并移除 `/api` 前缀。
+开发和生产运行中，浏览器请求同源 `/api/*`，Next.js rewrite 默认代理到 `http://127.0.0.1:8000` 并移除 `/api` 前缀。生产构建如果使用其他 API 地址，需要在 `next build` 时设置 `API_PROXY_TARGET`。
 
 `MODEL_ID` 默认是 `deepseek-v4-flash`。如果使用 Anthropic 官方服务或其他兼容服务，需要确保 `ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL` 和 `MODEL_ID` 属于同一服务商并且模型可用。没有 `TAVILY_API_KEY` 时项目仍能写作，但搜索工具会返回“搜索不可用”并跳过真实检索。
 
@@ -56,20 +92,33 @@ pnpm test:web
 pnpm build:web
 pnpm lint:web
 pnpm test:api
+pnpm test:worker
+pnpm test:eval-core
+pnpm test:eval-cli
+pnpm test:eval-queue:local # 临时 Redis：独立 Eval outbox/queue/lease/report
+pnpm eval:components        # 只读比较 tracked component baseline
+pnpm eval:components:report # 输出默认不含正文的 JSON report
+API_PYTHON=/path/to/python pnpm eval:workflow-shadow # Python/TS graph shadow gate
+pnpm eval:production-composition:local # PostgreSQL + Redis + Worker + Next 重型门禁
+pnpm test:worker:redis:local # 临时 Redis：BullMQ duplicate/stalled/cancel/shutdown
+pnpm test:db:postgres:local  # 临时 PostgreSQL：DB fencing + PostgresSaver 恢复/接管
 pnpm verify
 ```
 
+Memory相关命令仍由`pnpm verify`作为归档模块回归，但不属于当前产品MVP或日常启动要求。
+
 当前已知状态：
 
-- `pnpm test:web`、`pnpm build:web` 可通过。
-- `pnpm lint:web` 存在既有 lint 错误。
-- `pnpm test:api` 存在既有 Agent/LLM mock 相关失败。
-- `pnpm verify` 通过 `&&` 串联 API 测试、前端 lint 和前端 build；当前会在 API 测试失败后停止，不能作为全绿验证入口。
+- `pnpm test:web`、`pnpm lint:web`、`pnpm build:web` 可通过。
+- `pnpm test:api` 当前可通过；隔离 worktree 需要通过 `API_PYTHON` 指定已初始化的 Python 解释器，或先建立根目录 `.venv`。
+- `pnpm verify` 通过 `&&` 串联 contracts、model-runtime、eval-core、eval-cli、38-case component gate、3-case Python/TypeScript workflow shadow gate、agent-core、workflow-runtime、db、worker、API 与 Web 验证。
+- `pnpm eval:components:baseline` 只向 stdout 打印候选 baseline，不会修改 tracked 文件；接受 dataset 变化需要提升 suite version 并人工评审。
+- `pnpm test:db:postgres:local` 需要本机 `initdb`、`pg_ctl`、`createdb`、`psql`，会在系统临时目录建立并标记独立 cluster，依次验证 DB fencing 与 PostgresSaver checkpoint，测试结束后确认服务停止再删除。底层 suite 会拒绝没有随机 database name、loopback 地址和 harness comment 的目标，不能把共享数据库 URL 直接传给 destructive integration test。
 
 ## 架构概览
 
 ```text
-浏览器（React + TypeScript）
+浏览器（Next.js App Router + React + TypeScript）
     │
     ├── POST /jobs                  创建任务，获取 job_id
     ├── GET  /jobs/{id}/stream      SSE 实时事件流
@@ -210,7 +259,7 @@ data: {"title":"第一章","token":"...","_seq":7}
 3. 实时流中与历史重叠的事件通过 _seq 去重
 ```
 
-页面刷新时，前端从 `localStorage` 恢复 `job_id`，再通过历史事件重建 UI。这里恢复的是同一个后端进程中的事件状态；`JobStore` 和事件历史没有持久化，服务重启后不能恢复任务。
+页面刷新时，前端从版本化的 `localStorage` key 恢复最小 `job_id` 指针，再通过历史事件重建 UI。这里恢复的是同一个后端进程中的事件状态；`JobStore` 和事件历史没有持久化，服务重启后不能恢复任务。
 
 后端重启后，旧 job 的 `/stream` 和 `/events` 会返回 404；当前前端没有专门的“任务已失效”状态，可能继续保留旧 `job_id` 并尝试重连。
 
@@ -264,13 +313,14 @@ export 节点会：
 
 | 层 | 技术 | 当前用途 |
 |---|---|---|
-| 前端 | React 19、TypeScript、Vite 8 | 工作台、任务状态、文章阅读与编辑 |
+| Web | Next.js 16 App Router、React 19、TypeScript | 工作台、任务状态、文章阅读与编辑；同源 `/api/*` 代理 |
 | 实时通信 | SSE、Fetch、ReadableStream | 进度事件、回放、去重和重连 |
-| 后端 | FastAPI、asyncio、Pydantic | HTTP API、后台任务和事件流 |
-| 工作流 | LangGraph | `plan → write → review → export` 和条件重写 |
+| 当前后端 | FastAPI、asyncio、Pydantic、LangGraph Python | 当前 HTTP API、后台任务、事件流和生产写作工作流 |
+| TS 目标后端 | Drizzle、PostgreSQL、LangGraph.js、Node Worker | durable job/event 数据层、Agent/工作流迁移与 lease/fencing 基础；尚未接管请求 |
 | LLM | Anthropic Python SDK | 普通调用、JSON 解析和 tool loop；支持配置兼容 base URL 与模型 ID |
 | 搜索 | Tavily | Writer 按需搜索资料 |
-| 数据 | SQLAlchemy async、aiosqlite | 文章和历史版本持久化 |
+| 当前数据 | SQLAlchemy async、aiosqlite | 当前文章和历史版本持久化 |
+| TS 目标数据 | PostgreSQL、Drizzle ORM、PGlite（快速测试） | durable job/run/event/outbox/effect schema；真实 PostgreSQL 多连接 integration 已建立，尚未接入当前运行路径 |
 | 内容 | react-markdown、remark-gfm、Mermaid | Markdown/GFM/图表渲染 |
 | 测试 | pytest、pytest-asyncio、Vitest | 后端和前端单元测试 |
 
@@ -299,16 +349,34 @@ apps/
 │   ├── output/                    推荐启动方式下生成的 Markdown（不提交）
 │   ├── data/                      推荐启动方式下的本地 SQLite（不提交）
 │   └── requirements.txt
-└── web/
-    ├── src/
-    │   ├── App.tsx               任务 UI 状态和事件消费
-    │   ├── api.ts                文章 API client
-    │   ├── sseEvents.ts          SSE 事件协议与分组
-    │   ├── hooks/useJobStream.ts SSE 连接、解析、回放和重连
-    │   ├── components/           工作台组件
-    │   └── pages/ArticlePage.tsx 文章阅读、编辑和历史版本
-    ├── vite.config.ts             开发代理和 Vitest 配置
-    └── package.json               @vibe-writer/web workspace
+├── web/
+│   ├── app/
+│   │   ├── layout.tsx             App Router 根布局
+│   │   ├── page.tsx               写作工作台入口
+│   │   └── articles/[id]/page.tsx 文章详情 Server Component
+│   ├── src/
+│   │   ├── api.ts                 文章 API client
+│   │   ├── sseEvents.ts           SSE 事件协议与分组
+│   │   ├── hooks/useJobStream.ts  SSE 连接、解析、回放和重连
+│   │   ├── components/
+│   │   │   ├── WritingWorkspace.tsx 任务 UI 状态和事件消费
+│   │   │   └── ArticlePage.tsx    文章阅读、编辑和历史版本
+│   │   └── server/articleQueries.ts  服务端文章读取
+│   ├── next.config.ts             同源 API rewrite
+│   ├── vitest.config.ts           Web 测试配置
+│   └── package.json               @vibe-writer/web workspace
+└── worker/
+    ├── src/runner.ts              queue-neutral lease/heartbeat/settle 编排
+    └── tests/                     Worker fault 与架构边界测试
+
+packages/
+├── contracts/                     共享 Zod API/SSE/fixture 契约
+├── model-runtime/                 模型与工具调用抽象
+├── agent-core/                    Planner/Research/Writer/Reviewer TS 组件
+├── workflow-runtime/              LangGraph.js 确定性工作流
+└── db/                            Drizzle schema、migration、fenced event/effect repository
+
+scripts/run-postgres-integration.mjs  临时本机 PostgreSQL 多连接测试基座
 
 docs/                              架构、评估、设计和任务记录
 package.json                       根级 pnpm 命令
@@ -328,7 +396,7 @@ pnpm-workspace.yaml                workspace 配置
 | 全文审稿一次性接收所有章节 | 超长文章可能触及模型上下文上限 | 按章节或分批审稿，再汇总全局结果 |
 | 审稿 JSON 解析失败时默认通过 | 模型输出格式异常可能绕过质量检查 | 引入严格 schema、有限重试和显式失败状态 |
 | 恢复历史版本前不会保存当前内容，恢复后还会重复保存被恢复内容 | 当前版本会被直接覆盖，无法撤销本次恢复 | 恢复前先快照当前内容，并明确版本链语义 |
-| 生产环境 API 地址仍默认 `http://localhost:8000` | 部署到非本机环境时需要修改配置 | 改为构建时环境变量和同源反向代理 |
+| `/api/*` rewrite 的目标在 Next.js 构建时固定 | 变更后端地址需要设置 `API_PROXY_TARGET` 并重新构建 | Worker/API 切换时由部署配置显式注入，避免浏览器持有跨域地址 |
 
 ## 演进记录
 

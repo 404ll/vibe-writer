@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "dataset_id": "writer-tool-baseline-v1",
+  "tool_loop_cases": [
+    {
+      "id": "terminal-text",
+      "classification": "equivalent",
+      "delta_reason": null,
+      "max_tool_rounds": 8,
+      "responses": [
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "最终正文"}]}
+      ],
+      "handlers": [],
+      "compatibility": {"text": "最终正文", "model_requests": 1},
+      "target": {
+        "status": "completed",
+        "text": "最终正文",
+        "reason": null,
+        "model_requests": 1,
+        "execution_outcomes": []
+      }
+    },
+    {
+      "id": "search-then-final",
+      "classification": "observable_equivalent",
+      "delta_reason": null,
+      "max_tool_rounds": 8,
+      "responses": [
+        {
+          "stop_reason": "tool_use",
+          "blocks": [
+            {"type": "tool_use", "id": "call-search-1", "name": "search", "input": {"query": "Agent 评测"}}
+          ]
+        },
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "带资料正文"}]}
+      ],
+      "handlers": [{"name": "search", "kind": "return", "output": "资料摘要"}],
+      "compatibility": {"text": "带资料正文", "model_requests": 2},
+      "target": {
+        "status": "completed",
+        "text": "带资料正文",
+        "reason": null,
+        "model_requests": 2,
+        "execution_outcomes": ["success"]
+      }
+    },
+    {
+      "id": "unknown-tool-recovers",
+      "classification": "observable_equivalent",
+      "delta_reason": null,
+      "max_tool_rounds": 8,
+      "responses": [
+        {
+          "stop_reason": "tool_use",
+          "blocks": [
+            {"type": "tool_use", "id": "call-unknown-1", "name": "missing", "input": {}}
+          ]
+        },
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "降级正文"}]}
+      ],
+      "handlers": [],
+      "compatibility": {"text": "降级正文", "model_requests": 2},
+      "target": {
+        "status": "completed",
+        "text": "降级正文",
+        "reason": null,
+        "model_requests": 2,
+        "execution_outcomes": ["unknown_tool"]
+      }
+    },
+    {
+      "id": "handler-error-recovers",
+      "classification": "intentional_delta",
+      "delta_reason": "TS redacts the handler exception before returning a tool result to the model.",
+      "max_tool_rounds": 8,
+      "responses": [
+        {
+          "stop_reason": "tool_use",
+          "blocks": [
+            {"type": "tool_use", "id": "call-error-1", "name": "search", "input": {"query": "失败查询"}}
+          ]
+        },
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "错误后正文"}]}
+      ],
+      "handlers": [{"name": "search", "kind": "error", "output": "API secret detail"}],
+      "compatibility": {"text": "错误后正文", "model_requests": 2},
+      "target": {
+        "status": "completed",
+        "text": "错误后正文",
+        "reason": null,
+        "model_requests": 2,
+        "execution_outcomes": ["handler_error"]
+      }
+    },
+    {
+      "id": "invalid-input-recovers",
+      "classification": "intentional_delta",
+      "delta_reason": "TS validates tool input before dispatch and records invalid_input instead of a handler TypeError.",
+      "max_tool_rounds": 8,
+      "responses": [
+        {
+          "stop_reason": "tool_use",
+          "blocks": [
+            {"type": "tool_use", "id": "call-invalid-1", "name": "search", "input": {"bad": "field"}}
+          ]
+        },
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "修正后正文"}]}
+      ],
+      "handlers": [{"name": "search", "kind": "return", "output": "不会执行"}],
+      "compatibility": {"text": "修正后正文", "model_requests": 2},
+      "target": {
+        "status": "completed",
+        "text": "修正后正文",
+        "reason": null,
+        "model_requests": 2,
+        "execution_outcomes": ["invalid_input"]
+      }
+    },
+    {
+      "id": "finalization-after-two-tool-rounds",
+      "classification": "intentional_delta",
+      "delta_reason": "TS allows one final text request after the configured tool rounds are exhausted.",
+      "max_tool_rounds": 2,
+      "responses": [
+        {
+          "stop_reason": "tool_use",
+          "blocks": [{"type": "tool_use", "id": "call-1", "name": "search", "input": {"query": "一"}}]
+        },
+        {
+          "stop_reason": "tool_use",
+          "blocks": [{"type": "tool_use", "id": "call-2", "name": "search", "input": {"query": "二"}}]
+        },
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "预算内最终正文"}]}
+      ],
+      "handlers": [{"name": "search", "kind": "return", "output": "资料"}],
+      "compatibility": {"text": "", "model_requests": 2},
+      "target": {
+        "status": "completed",
+        "text": "预算内最终正文",
+        "reason": null,
+        "model_requests": 3,
+        "execution_outcomes": ["success", "success"]
+      }
+    },
+    {
+      "id": "tool-use-without-call",
+      "classification": "intentional_delta",
+      "delta_reason": "TS stops on a contradictory tool_use response instead of silently continuing.",
+      "max_tool_rounds": 8,
+      "responses": [
+        {"stop_reason": "tool_use", "blocks": []},
+        {"stop_reason": "end_turn", "blocks": [{"type": "text", "text": "Python 继续后的正文"}]}
+      ],
+      "handlers": [],
+      "compatibility": {"text": "Python 继续后的正文", "model_requests": 2},
+      "target": {
+        "status": "inconclusive",
+        "text": "",
+        "reason": "invalid_model_response",
+        "model_requests": 1,
+        "execution_outcomes": []
+      }
+    },
+    {
+      "id": "empty-final-text",
+      "classification": "intentional_delta",
+      "delta_reason": "TS reports empty_final_text instead of treating an empty string as successful output.",
+      "max_tool_rounds": 8,
+      "responses": [{"stop_reason": "end_turn", "blocks": []}],
+      "handlers": [],
+      "compatibility": {"text": "", "model_requests": 1},
+      "target": {
+        "status": "inconclusive",
+        "text": "",
+        "reason": "empty_final_text",
+        "model_requests": 1,
+        "execution_outcomes": []
+      }
+    }
+  ]
+}

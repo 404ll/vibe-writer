@@ -1,12 +1,17 @@
 import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import mermaid from 'mermaid'
 
-let mermaidReady = false
+type MermaidApi = typeof import('mermaid')['default']
 
-function ensureMermaid() {
-  if (mermaidReady) return
-  mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' })
-  mermaidReady = true
+let mermaidPromise: Promise<MermaidApi> | null = null
+
+function loadMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then(({ default: mermaid }) => {
+      mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' })
+      return mermaid
+    })
+  }
+  return mermaidPromise
 }
 
 export function MermaidBlock({ code }: { code: string }) {
@@ -15,13 +20,12 @@ export function MermaidBlock({ code }: { code: string }) {
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
-    ensureMermaid()
     if (!ref.current || !code.trim()) return
 
     let cancelled = false
     setFailed(false)
-    mermaid
-      .render(`mmd-${id}`, code.trim())
+    loadMermaid()
+      .then((mermaid) => mermaid.render(`mmd-${id}`, code.trim()))
       .then(({ svg, bindFunctions }) => {
         if (cancelled || !ref.current) return
         ref.current.innerHTML = svg

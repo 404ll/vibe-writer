@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "dataset_id": "workflow-control-baseline-v1",
+  "rewrite_route_cases": [
+    {
+      "id": "all-chapters-pass",
+      "review_count": 1,
+      "chapter_passed": [true, true],
+      "compatibility_route": "export",
+      "target_route": "export",
+      "classification": "equivalent",
+      "delta_reason": null
+    },
+    {
+      "id": "first-review-has-failure",
+      "review_count": 1,
+      "chapter_passed": [false, true],
+      "compatibility_route": "write",
+      "target_route": "rewrite",
+      "classification": "observable_equivalent",
+      "delta_reason": null
+    },
+    {
+      "id": "second-review-still-fails",
+      "review_count": 2,
+      "chapter_passed": [false, true],
+      "compatibility_route": "export",
+      "target_route": "export_with_warnings",
+      "classification": "intentional_delta",
+      "delta_reason": "TS preserves a quality warning instead of silently accepting the failed review."
+    }
+  ],
+  "writer_policy_cases": [
+    {"id": "empty-first-attempt", "reason": "empty_final_text", "attempts": 1, "target": "retry"},
+    {"id": "empty-second-attempt", "reason": "empty_final_text", "attempts": 2, "target": "terminal"},
+    {"id": "invalid-response-first-attempt", "reason": "invalid_model_response", "attempts": 1, "target": "retry"},
+    {"id": "invalid-response-second-attempt", "reason": "invalid_model_response", "attempts": 2, "target": "terminal"},
+    {"id": "max-tokens-first-attempt", "reason": "max_tokens", "attempts": 1, "target": "retry"},
+    {"id": "max-tokens-second-attempt", "reason": "max_tokens", "attempts": 2, "target": "terminal"},
+    {"id": "pause-first-attempt", "reason": "pause_turn", "attempts": 1, "target": "retry"},
+    {"id": "pause-second-attempt", "reason": "pause_turn", "attempts": 2, "target": "terminal"},
+    {"id": "refusal-is-terminal", "reason": "refusal", "attempts": 1, "target": "terminal"},
+    {"id": "tool-budget-is-terminal", "reason": "max_tool_rounds", "attempts": 1, "target": "terminal"}
+  ]
+}

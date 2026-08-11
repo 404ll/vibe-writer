@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "memory-governance-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:c8e9d4272a9a1b83611de447b0614c1f198ff2a532655a27840a56617dd9716f"
+  },
+  "target": {
+    "key": "memory-policy-and-review-transition",
+    "version": "2026-08-07-v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "memory-policy/changed-value-conflict",
+    "memory-policy/cross-workspace-active",
+    "memory-policy/eligible-candidate",
+    "memory-policy/exact-duplicate",
+    "memory-policy/expired-at-boundary",
+    "memory-policy/explicit-user-sensitive-candidate",
+    "memory-policy/low-confidence-model",
+    "memory-policy/normalization-stable",
+    "memory-policy/sensitive-model-inference",
+    "memory-policy/unknown-proposal-field",
+    "memory-review/conflict-kind-mismatch",
+    "memory-review/conflict-with-wrong-active-id",
+    "memory-review/conflict-without-active",
+    "memory-review/create-revision-one",
+    "memory-review/explicit-conflict-replacement",
+    "memory-review/invalid-active-revision",
+    "memory-review/stale-new-candidate",
+    "memory-review/unexpected-new-candidate-replacement"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "memory_governance_exact_match": {
+      "scoreCount": 18,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

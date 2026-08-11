@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "evalBaseline": {
+    "schemaVersion": 1,
+    "suite": {
+      "key": "memory-extraction-quality",
+      "version": "2026-08-07-v1",
+      "datasetFingerprint": "sha256:cdf98abed426776a4617dd09c0b8e9f116c6e247106ab3b5659fcce4642f4a01"
+    },
+    "target": {
+      "key": "reference-memory-extractor",
+      "version": "2026-08-07-v1"
+    },
+    "trialsPerCase": 1,
+    "expectedCaseKeys": [
+      "ambiguous/contradictory",
+      "ambiguous/question",
+      "ambiguous/quoted-third-party",
+      "ambiguous/tentative",
+      "ambiguous/unknown-scope",
+      "assistant/generated-concise-article",
+      "assistant/generated-source-policy",
+      "assistant/inferred-user-style",
+      "durable/en-bullet-format",
+      "durable/en-citation-constraint",
+      "durable/en-date-format",
+      "durable/en-project-typescript",
+      "durable/en-source-correction",
+      "durable/zh-concise-tone",
+      "durable/zh-first-person",
+      "durable/zh-language",
+      "durable/zh-marketing-correction",
+      "durable/zh-no-emoji",
+      "sensitive/health-treatment",
+      "sensitive/political-affiliation",
+      "sensitive/precise-location",
+      "task/en-current-prototype-typescript",
+      "task/en-one-off-poetic",
+      "task/zh-this-article-concise"
+    ],
+    "maximumTargetErrors": 0,
+    "maximumEvaluatorErrors": 0,
+    "metrics": {
+      "memory_extraction_case_exact": {
+        "scoreCount": 24,
+        "maximumErrorCount": 0,
+        "minimumPassRate": 1
+      }
+    }
+  },
+  "qualityGates": {
+    "minimumShouldWritePrecision": 1,
+    "minimumShouldWriteRecall": 1,
+    "minimumShouldWriteAccuracy": 1,
+    "minimumSlotExactRate": 1,
+    "maximumInvalidOutputCount": 0,
+    "maximumTaskLeakCount": 0,
+    "maximumAssistantLeakCount": 0,
+    "maximumSensitiveLeakCount": 0
+  }
+}

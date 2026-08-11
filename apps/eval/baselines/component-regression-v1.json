@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "component-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:5b5be39e7de72c80e5f413c9e95cdc3baf27a05069475ef4fb4eee7bb703a3f0"
+  },
+  "target": {
+    "key": "typescript-agent-components",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "agent-component-baseline-v1/json-object/direct-object",
+    "agent-component-baseline-v1/json-object/invalid-json",
+    "agent-component-baseline-v1/json-object/markdown-fence",
+    "agent-component-baseline-v1/json-object/surrounding-prose",
+    "agent-component-baseline-v1/planner-outline/chinese-separator",
+    "agent-component-baseline-v1/planner-outline/fullwidth-number",
+    "agent-component-baseline-v1/planner-outline/noise-and-empty-lines",
+    "agent-component-baseline-v1/planner-outline/numbered-dot",
+    "agent-component-baseline-v1/planner-outline/numbered-without-separator",
+    "agent-component-baseline-v1/planner-trim/large-budget-six-chapters",
+    "agent-component-baseline-v1/planner-trim/up-to-1000-three-chapters",
+    "agent-component-baseline-v1/planner-trim/up-to-2000-four-chapters",
+    "agent-component-baseline-v1/planner-trim/up-to-4000-five-chapters",
+    "agent-component-baseline-v1/reviewer-output/chapter-invalid-json",
+    "agent-component-baseline-v1/reviewer-output/chapter-invalid-shape",
+    "agent-component-baseline-v1/reviewer-output/chapter-valid-pass",
+    "agent-component-baseline-v1/reviewer-output/full-invalid-json",
+    "agent-component-baseline-v1/reviewer-output/full-missing-result",
+    "agent-component-baseline-v1/reviewer-output/full-valid-results",
+    "opinion-search-baseline-v1/coverage-output/empty-lists",
+    "opinion-search-baseline-v1/coverage-output/invalid-json",
+    "opinion-search-baseline-v1/coverage-output/mismatched-list-lengths",
+    "opinion-search-baseline-v1/coverage-output/non-string-entry",
+    "opinion-search-baseline-v1/coverage-output/paired-coverage-points",
+    "opinion-search-baseline-v1/search-policy/general-technical-query",
+    "opinion-search-baseline-v1/search-policy/historical-current-comparison",
+    "opinion-search-baseline-v1/search-policy/historical-year-query",
+    "opinion-search-baseline-v1/search-policy/time-sensitive-query",
+    "opinion-search-baseline-v1/search-ranking/general-dated-recency",
+    "opinion-search-baseline-v1/search-ranking/news-undated-before-old-compatibility-delta",
+    "writer-tool-baseline-v1/writer-tool-loop/empty-final-text",
+    "writer-tool-baseline-v1/writer-tool-loop/finalization-after-two-tool-rounds",
+    "writer-tool-baseline-v1/writer-tool-loop/handler-error-recovers",
+    "writer-tool-baseline-v1/writer-tool-loop/invalid-input-recovers",
+    "writer-tool-baseline-v1/writer-tool-loop/search-then-final",
+    "writer-tool-baseline-v1/writer-tool-loop/terminal-text",
+    "writer-tool-baseline-v1/writer-tool-loop/tool-use-without-call",
+    "writer-tool-baseline-v1/writer-tool-loop/unknown-tool-recovers"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "exact_match": {
+      "scoreCount": 38,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

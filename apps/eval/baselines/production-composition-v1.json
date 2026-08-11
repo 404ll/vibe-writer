@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "production-composition-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:f508f9f098625cd2700daedacc60a42d60c3a5587195cdc03c7c35ced3e9fe71"
+  },
+  "target": {
+    "key": "typescript-durable-production-composition",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "production-composition-baseline-v1/happy-durable-terminal"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "durable_projection_exact_match": {
+      "scoreCount": 1,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

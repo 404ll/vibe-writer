@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "production-cancellation-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:20e6fb2613f46d0ee2aed173b70f8f8b0c3e848f20d17b565739ce26ab83eb60"
+  },
+  "target": {
+    "key": "typescript-durable-production-cancellation",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "production-cancellation-baseline-v1/running-provider-call-cancelled"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "durable_cancellation_exact_match": {
+      "scoreCount": 1,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "dataset_id": "production-composition-baseline-v2",
+  "cases": [
+    {
+      "id": "happy-durable-terminal",
+      "workflow_case_id": "happy-no-intervention",
+      "target_words": 600,
+      "expected": {
+        "jobStatus": "completed",
+        "runStatuses": ["completed"],
+        "articleCount": 1,
+        "articleRevision": 0,
+        "canonicalMarkdown": "# 稳定写作\n\n## 第一章\n第一章正文-v1",
+        "eventTypes": ["done"],
+        "outboxStatuses": ["published"],
+        "effectKeys": [
+          "model:chapter:0:coverage:attempt:1",
+          "model:chapter:0:review:attempt:1",
+          "model:chapter:0:write:attempt:1:request:1",
+          "model:full-review:attempt:1",
+          "model:plan:attempt:1"
+        ],
+        "traceOperations": [
+          "coverage-planner.plan",
+          "planner.plan",
+          "reviewer.chapter",
+          "reviewer.full",
+          "writer.chapter"
+        ],
+        "traceIdCount": 1,
+        "providerRequestCount": 5
+      }
+    },
+    {
+      "id": "outline-reply-durable-resume",
+      "workflow_case_id": "edited-outline-confirm",
+      "target_words": 600,
+      "expected": {
+        "jobStatus": "completed",
+        "runStatuses": ["completed", "completed"],
+        "articleCount": 1,
+        "articleRevision": 0,
+        "canonicalMarkdown": "# 人工确认\n\n## 编辑章\n编辑章正文-v1",
+        "eventTypes": ["outline_ready", "done"],
+        "outboxStatuses": ["published", "published"],
+        "effectKeys": [
+          "model:chapter:0:coverage:attempt:1",
+          "model:chapter:0:review:attempt:1",
+          "model:chapter:0:write:attempt:1:request:1",
+          "model:full-review:attempt:1",
+          "model:plan:attempt:1"
+        ],
+        "traceOperations": [
+          "coverage-planner.plan",
+          "planner.plan",
+          "reviewer.chapter",
+          "reviewer.full",
+          "writer.chapter"
+        ],
+        "traceIdCount": 2,
+        "providerRequestCount": 5
+      }
+    }
+  ]
+}

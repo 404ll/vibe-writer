@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "dataset_id": "agent-component-baseline-v1",
+  "planner_outline_cases": [
+    {
+      "id": "numbered-dot",
+      "raw": "1. 什么是 Agent\n2. 核心组件\n3. 实战案例",
+      "expected_chapters": ["什么是 Agent", "核心组件", "实战案例"]
+    },
+    {
+      "id": "chinese-separator",
+      "raw": "1、引言\n2、正文\n3、结论",
+      "expected_chapters": ["引言", "正文", "结论"]
+    },
+    {
+      "id": "noise-and-empty-lines",
+      "raw": "以下是大纲：\n1. 章节一\n\n2. 章节二\n以上共两章。",
+      "expected_chapters": ["章节一", "章节二"]
+    },
+    {
+      "id": "numbered-without-separator",
+      "raw": "1 仍被旧解析器接受\nnot numbered",
+      "expected_chapters": ["1 仍被旧解析器接受"]
+    },
+    {
+      "id": "fullwidth-number",
+      "raw": "１. 全角数字编号",
+      "expected_chapters": ["全角数字编号"]
+    }
+  ],
+  "planner_trim_cases": [
+    {
+      "id": "up-to-1000-three-chapters",
+      "chapters": ["一", "二", "三", "四"],
+      "target_words": 1000,
+      "expected_chapters": ["一", "二", "三"]
+    },
+    {
+      "id": "up-to-2000-four-chapters",
+      "chapters": ["一", "二", "三", "四", "五"],
+      "target_words": 2000,
+      "expected_chapters": ["一", "二", "三", "四"]
+    },
+    {
+      "id": "up-to-4000-five-chapters",
+      "chapters": ["一", "二", "三", "四", "五", "六"],
+      "target_words": 4000,
+      "expected_chapters": ["一", "二", "三", "四", "五"]
+    },
+    {
+      "id": "large-budget-six-chapters",
+      "chapters": ["一", "二", "三", "四", "五", "六", "七"],
+      "target_words": 5000,
+      "expected_chapters": ["一", "二", "三", "四", "五", "六"]
+    }
+  ],
+  "json_object_cases": [
+    {
+      "id": "direct-object",
+      "raw": "{\"passed\": true, \"feedback\": \"\"}",
+      "expected": {"passed": true, "feedback": ""}
+    },
+    {
+      "id": "markdown-fence",
+      "raw": "```json\n{\"passed\": false, \"feedback\": \"需要修改\"}\n```",
+      "expected": {"passed": false, "feedback": "需要修改"}
+    },
+    {
+      "id": "surrounding-prose",
+      "raw": "审稿结果：{\"passed\": true, \"feedback\": \"\"} 完毕",
+      "expected": {"passed": true, "feedback": ""}
+    },
+    {
+      "id": "invalid-json",
+      "raw": "无法解析的输出",
+      "expected": null
+    }
+  ],
+  "reviewer_output_cases": [
+    {
+      "id": "chapter-valid-pass",
+      "scope": "chapter",
+      "raw": "{\"passed\": true, \"feedback\": \"\"}",
+      "chapter_count": 1,
+      "compatibility_verdicts": ["passed"],
+      "target_verdicts": ["passed"]
+    },
+    {
+      "id": "chapter-invalid-json",
+      "scope": "chapter",
+      "raw": "无法解析的输出",
+      "chapter_count": 1,
+      "compatibility_verdicts": ["passed"],
+      "target_verdicts": ["inconclusive"]
+    },
+    {
+      "id": "chapter-invalid-shape",
+      "scope": "chapter",
+      "raw": "{\"passed\": \"false\", \"feedback\": \"类型错误\"}",
+      "chapter_count": 1,
+      "compatibility_verdicts": ["passed"],
+      "target_verdicts": ["inconclusive"]
+    },
+    {
+      "id": "full-valid-results",
+      "scope": "full",
+      "raw": "{\"results\": [{\"passed\": true, \"feedback\": \"\"}, {\"passed\": false, \"feedback\": \"需要过渡\"}]}",
+      "chapter_count": 2,
+      "compatibility_verdicts": ["passed", "failed"],
+      "target_verdicts": ["passed", "failed"]
+    },
+    {
+      "id": "full-missing-result",
+      "scope": "full",
+      "raw": "{\"results\": [{\"passed\": false, \"feedback\": \"需要修改\"}]}",
+      "chapter_count": 2,
+      "compatibility_verdicts": ["failed", "passed"],
+      "target_verdicts": ["failed", "inconclusive"]
+    },
+    {
+      "id": "full-invalid-json",
+      "scope": "full",
+      "raw": "not json",
+      "chapter_count": 2,
+      "compatibility_verdicts": ["passed", "passed"],
+      "target_verdicts": ["inconclusive", "inconclusive"]
+    }
+  ]
+}

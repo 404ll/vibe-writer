@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "dataset_id": "workflow-shadow-baseline-v1",
+  "cases": [
+    {
+      "id": "happy-no-intervention",
+      "topic": "稳定写作",
+      "initial_outline": ["第一章"],
+      "intervention_on_outline": false,
+      "replies": [],
+      "full_review_rounds": [["passed"]],
+      "expected": {
+        "phase": "completed",
+        "outline": ["第一章"],
+        "canonicalMarkdown": "# 稳定写作\n\n## 第一章\n第一章正文-v1",
+        "stageSequence": ["plan", "write", "review", "export"],
+        "outlineReviewCount": 0,
+        "writeCalls": 1,
+        "fullReviewCalls": 1
+      }
+    },
+    {
+      "id": "edited-outline-confirm",
+      "topic": "人工确认",
+      "initial_outline": ["旧大纲"],
+      "intervention_on_outline": true,
+      "replies": [{"message": "", "outline": ["编辑章"]}],
+      "full_review_rounds": [["passed"]],
+      "expected": {
+        "phase": "completed",
+        "outline": ["编辑章"],
+        "canonicalMarkdown": "# 人工确认\n\n## 编辑章\n编辑章正文-v1",
+        "stageSequence": ["plan", "write", "review", "export"],
+        "outlineReviewCount": 1,
+        "writeCalls": 1,
+        "fullReviewCalls": 1
+      }
+    },
+    {
+      "id": "full-review-rewrite",
+      "topic": "全文重审",
+      "initial_outline": ["第一章"],
+      "intervention_on_outline": false,
+      "replies": [],
+      "full_review_rounds": [["failed"], ["passed"]],
+      "expected": {
+        "phase": "completed",
+        "outline": ["第一章"],
+        "canonicalMarkdown": "# 全文重审\n\n## 第一章\n第一章正文-v2",
+        "stageSequence": ["plan", "write", "review", "write", "review", "export"],
+        "outlineReviewCount": 0,
+        "writeCalls": 2,
+        "fullReviewCalls": 2
+      }
+    }
+  ]
+}

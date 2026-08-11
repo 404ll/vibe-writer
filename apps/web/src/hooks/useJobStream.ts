@@ -55,7 +55,9 @@ export function useJobStream(
 ) {
   // EventSource 的回调只注册一次；用 ref 保存最新的 onEvent，避免回调里拿到旧函数。
   const onEventRef = useRef(onEvent)
-  onEventRef.current = onEvent
+  useEffect(() => {
+    onEventRef.current = onEvent
+  }, [onEvent])
 
   useEffect(() => {
     if (!jobId) return
@@ -76,7 +78,8 @@ export function useJobStream(
         lastSeq = seq
       }
       // _seq 只用于前端去重，不继续传给页面层业务逻辑。
-      const { _seq: _, ...payload } = data
+      const payload = { ...data }
+      delete payload._seq
       onEventRef.current(type as SSEEventType, payload)
     }
 

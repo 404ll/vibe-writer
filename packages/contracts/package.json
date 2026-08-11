@@ -1,0 +1,38 @@
+{
+  "name": "@vibe-writer/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent-component-fixtures": "./src/agent-component-fixtures.ts",
+    "./articles": "./src/articles.ts",
+    "./jobs": "./src/jobs.ts",
+    "./memory-management": "./src/memory-management.ts",
+    "./memory-policy": "./src/memory-policy.ts",
+    "./memory-signals": "./src/memory-signals.ts",
+    "./production-composition-fixtures": "./src/production-composition-fixtures.ts",
+    "./production-cancellation-fixtures": "./src/production-cancellation-fixtures.ts",
+    "./production-failure-fixtures": "./src/production-failure-fixtures.ts",
+    "./production-takeover-fixtures": "./src/production-takeover-fixtures.ts",
+    "./research": "./src/research.ts",
+    "./research-component-fixtures": "./src/research-component-fixtures.ts",
+    "./runtime-manifest": "./src/runtime-manifest.ts",
+    "./sse": "./src/sse.ts",
+    "./writer-component-fixtures": "./src/writer-component-fixtures.ts",
+    "./workflow-component-fixtures": "./src/workflow-component-fixtures.ts",
+    "./workflow-shadow-fixtures": "./src/workflow-shadow-fixtures.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.5"
+  }
+}

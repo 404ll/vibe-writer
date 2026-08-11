@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "key": "memory-extraction-live-calibration",
+  "status": "planned",
+  "dataset": {
+    "suiteKey": "memory-extraction-quality",
+    "suiteVersion": "2026-08-07-v1",
+    "fingerprint": "sha256:cdf98abed426776a4617dd09c0b8e9f116c6e247106ab3b5659fcce4642f4a01",
+    "caseCount": 24
+  },
+  "target": {
+    "provider": "anthropic",
+    "transport": "messages_sync",
+    "model": null,
+    "modelProfile": null,
+    "promptVersion": "2026-08-07-v1",
+    "extractorVersion": "v1",
+    "pricingVersion": null
+  },
+  "runPolicy": {
+    "trialsPerCase": 3,
+    "maxCalls": 72,
+    "maxCostMicrousd": null,
+    "captureOutput": false,
+    "requireUsage": true,
+    "requireHttpRequestId": true,
+    "requireResponseObjectId": true
+  },
+  "providerCapabilityAudit": {
+    "checkedAt": "2026-08-07",
+    "syncMessageTerminalLookup": "not_documented",
+    "adminUsageGranularity": "aggregate_only",
+    "batchResultLookup": "batch_only",
+    "automaticUncertainResolutionEligible": false,
+    "sources": [
+      "https://platform.claude.com/docs/en/api/messages",
+      "https://platform.claude.com/docs/en/api/errors",
+      "https://platform.claude.com/docs/en/api/admin/usage_report/retrieve",
+      "https://platform.claude.com/docs/en/api/messages/batches/results"
+    ]
+  },
+  "qualityGates": {
+    "minimumShouldWritePrecision": 1,
+    "minimumShouldWriteRecall": 1,
+    "minimumShouldWriteAccuracy": 1,
+    "minimumSlotExactRate": 1,
+    "maximumInvalidOutputCount": 0,
+    "maximumTaskLeakCount": 0,
+    "maximumAssistantLeakCount": 0,
+    "maximumSensitiveLeakCount": 0
+  },
+  "decision": {
+    "productionEligible": false,
+    "blockers": [
+      "model_unselected",
+      "pricing_snapshot_unbound",
+      "live_trials_missing",
+      "request_level_terminal_lookup_unavailable"
+    ]
+  }
+}

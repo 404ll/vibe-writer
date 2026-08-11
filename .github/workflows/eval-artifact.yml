@@ -1,0 +1,44 @@
+name: Eval artifact
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  eval-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+      - run: python -m pip install -r apps/api/requirements.txt
+      - run: pnpm install --frozen-lockfile
+      - name: Build content-free Eval artifact
+        run: pnpm eval:ci:artifact
+        env:
+          API_PYTHON: python
+          EVAL_CI_CODE_REVISION: ${{ github.sha }}
+          EVAL_CI_RUN_ID: ${{ github.run_id }}
+          EVAL_CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+      - name: Retain Eval artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ github.sha }}-${{ github.run_attempt }}
+          path: output/eval-ci/eval-summary.json
+          if-no-files-found: error
+          retention-days: 30

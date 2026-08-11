@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "production-takeover-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:601bc40b1ebfd498e70b5a178fa4459f542c387f1bd01326fc195f3b7e0ee490"
+  },
+  "target": {
+    "key": "typescript-durable-production-takeover",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "production-takeover-baseline-v1/expired-lease-fenced-takeover"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "durable_takeover_exact_match": {
+      "scoreCount": 1,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

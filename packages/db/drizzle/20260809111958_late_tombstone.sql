@@ -1,0 +1,2 @@
+CREATE INDEX "memories_workspace_id_idx" ON "memories" USING btree ("workspace_id","id");--> statement-breakpoint
+CREATE INDEX "memory_candidates_workspace_id_idx" ON "memory_candidates" USING btree ("workspace_id","id");

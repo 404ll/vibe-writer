@@ -14,7 +14,7 @@ async def test_search_returns_research_string():
 
     mock_llm_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="- Agent 能自主执行任务\n- LangChain 是常用框架")]
+    mock_message.content = [MagicMock(type="text", text="- Agent 能自主执行任务\n- LangChain 是常用框架")]
     mock_llm_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.search.TavilyClient", return_value=mock_tavily), \

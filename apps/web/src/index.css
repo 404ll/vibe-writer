@@ -76,7 +76,238 @@ body::before {
   animation: crt-flicker 2.8s steps(2, end) infinite;
 }
 
-#root {
+.memory-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.memory-nav {
+  min-height: 72px;
+  padding: 14px 28px;
+  border-bottom: 4px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.memory-nav > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.memory-back-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.memory-role,
+.memory-chip {
+  display: inline-flex;
+  padding: 4px 8px;
+  border: 2px solid var(--border);
+  background: var(--accent-active);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.memory-main {
+  width: min(1180px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 44px 0 72px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+
+.memory-heading,
+.memory-policy-card,
+.memory-section-wide,
+.memory-notice {
+  grid-column: 1 / -1;
+}
+
+.memory-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.memory-heading h1 {
+  font-size: clamp(28px, 5vw, 48px);
+}
+
+.memory-heading > p:last-child,
+.memory-policy-card > p,
+.memory-meta,
+.memory-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.memory-state-card {
+  width: min(620px, calc(100vw - 48px));
+  margin: 72px auto;
+  display: grid;
+  gap: 16px;
+}
+
+.memory-notice {
+  border: 3px solid var(--border);
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.memory-notice--success { background: var(--success-bg); }
+.memory-notice--error { background: var(--danger-bg); }
+
+.memory-policy-card,
+.memory-section {
+  display: grid;
+  gap: 18px;
+}
+
+.memory-policy-card h2,
+.memory-section h2 {
+  font-size: 20px;
+}
+
+.memory-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.memory-policy-grid article,
+.memory-item,
+.memory-audit {
+  border: 2px solid var(--border);
+  background: var(--bg);
+  padding: 14px;
+}
+
+.memory-policy-grid h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.memory-policy-grid p {
+  font-size: 13px;
+}
+
+.memory-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.memory-form label {
+  display: grid;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memory-form select,
+.memory-form input,
+.memory-form textarea {
+  width: 100%;
+  border: 2px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 10px;
+  font: inherit;
+}
+
+.memory-form textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.memory-form-wide { grid-column: 1 / -1; }
+
+.memory-consent {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: start;
+  font-weight: 500 !important;
+}
+
+.memory-consent input { width: 18px; height: 18px; }
+
+.memory-section-heading,
+.memory-item-heading,
+.memory-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memory-section-heading > span,
+.memory-item-heading > span {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memory-item-heading > div,
+.memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.memory-list {
+  display: grid;
+  gap: 14px;
+}
+
+.memory-item {
+  display: grid;
+  gap: 12px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
+
+.memory-item > .ghost-button,
+.memory-actions {
+  justify-self: start;
+}
+
+.memory-actions {
+  justify-content: flex-start;
+}
+
+.memory-actions .btn-primary {
+  min-height: auto;
+  padding: 9px 12px;
+}
+
+.memory-audit {
+  display: grid;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+@media (max-width: 820px) {
+  .memory-main { grid-template-columns: minmax(0, 1fr); }
+  .memory-policy-grid,
+  .memory-form { grid-template-columns: minmax(0, 1fr); }
+  .memory-form-wide { grid-column: auto; }
+  .memory-heading,
+  .memory-policy-card,
+  .memory-section-wide,
+  .memory-notice { grid-column: auto; }
+}
+
+#app-root {
   position: relative;
   z-index: 1;
   min-height: 100%;
@@ -264,6 +495,11 @@ code {
   justify-content: flex-end;
   flex: 1;
   min-width: 0;
+}
+
+.nav-memory-link {
+  flex: 0 0 auto;
+  text-decoration: none;
 }
 
 .nav-pet-frame {

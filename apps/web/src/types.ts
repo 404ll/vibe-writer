@@ -1,4 +1,5 @@
 import type { SSEEventType } from './sseEvents'
+import type { StageStatus } from '@vibe-writer/contracts/jobs'
 
 export type {
   ChapterEvent,
@@ -7,12 +8,7 @@ export type {
   ReviewEvent,
   SSEEventType,
 } from './sseEvents'
-
-export type StageStatus = "plan" | "write" | "review" | "export" | "done" | "error";
-
-export interface InterventionConfig {
-  on_outline: boolean;
-}
+export type { InterventionConfig, ReviewResult, StageStatus } from '@vibe-writer/contracts/jobs'
 
 export const WORD_COUNT_OPTIONS = [
   { label: '短文', words: 800 },
@@ -20,11 +16,6 @@ export const WORD_COUNT_OPTIONS = [
   { label: '长文', words: 4000 },
   { label: '不限制', words: null },
 ] as const
-
-export interface ReviewResult {
-  passed: boolean;
-  feedback: string;
-}
 
 export interface ActivityEntry {
   id: number;

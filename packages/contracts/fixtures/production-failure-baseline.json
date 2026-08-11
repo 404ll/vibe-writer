@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "dataset_id": "production-failure-baseline-v1",
+  "cases": [
+    {
+      "id": "provider-unavailable-terminal-failure",
+      "topic": "供应商失败",
+      "target_words": 600,
+      "provider_status": 503,
+      "expected": {
+        "jobStatus": "failed",
+        "jobErrorCode": "workflow_service_exception",
+        "runStatuses": ["failed"],
+        "runErrorCodes": ["workflow_service_exception"],
+        "articleCount": 0,
+        "eventTypes": ["error"],
+        "outboxStatuses": ["published"],
+        "effectStatuses": ["failed", "failed"],
+        "effectErrorCodes": ["provider_unavailable", "provider_unavailable"],
+        "traceStatuses": ["failed", "failed"],
+        "traceErrorCodes": ["provider_unavailable", "provider_unavailable"],
+        "providerRequestCount": 2
+      }
+    }
+  ]
+}

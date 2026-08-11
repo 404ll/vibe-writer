@@ -1,0 +1,65 @@
+{
+  "events": [
+    { "event": "stage_update", "data": { "stage": "plan", "_seq": 0 } },
+    {
+      "event": "outline_ready",
+      "data": { "outline": ["运行时边界", "Memory 与 Eval"], "_seq": 1 }
+    },
+    { "event": "stage_update", "data": { "stage": "write", "_seq": 2 } },
+    {
+      "event": "generating_opinions",
+      "data": { "title": "运行时边界", "_seq": 3 }
+    },
+    { "event": "opinions_ready", "data": { "title": "运行时边界", "_seq": 4 } },
+    {
+      "event": "searching",
+      "data": { "title": "运行时边界", "query": "durable agent worker", "index": 1, "_seq": 5 }
+    },
+    {
+      "event": "search_done",
+      "data": {
+        "title": "运行时边界",
+        "query": "durable agent worker",
+        "preview": "检索摘要",
+        "chars": 4,
+        "_seq": 6
+      }
+    },
+    {
+      "event": "writing_chapter",
+      "data": { "title": "运行时边界", "token": "章节正文", "_seq": 7 }
+    },
+    {
+      "event": "reviewing_chapter",
+      "data": { "title": "运行时边界", "_seq": 8 }
+    },
+    {
+      "event": "chapter_done",
+      "data": {
+        "title": "运行时边界",
+        "review": { "passed": true, "feedback": "" },
+        "_seq": 9
+      }
+    },
+    { "event": "stage_update", "data": { "stage": "review", "_seq": 10 } },
+    { "event": "reviewing_full", "data": { "_seq": 11 } },
+    {
+      "event": "review_done",
+      "data": {
+        "results": [
+          { "title": "运行时边界", "passed": true, "feedback": "" }
+        ],
+        "_seq": 12
+      }
+    },
+    { "event": "stage_update", "data": { "stage": "export", "_seq": 13 } },
+    {
+      "event": "done",
+      "data": {
+        "output_path": "output/agent.md",
+        "article_id": "article-contract-fixture",
+        "_seq": 14
+      }
+    }
+  ]
+}

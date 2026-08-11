@@ -1,0 +1,1254 @@
+{
+  "id": "45a37034-f728-48be-b5e4-cd7f352cc5c0",
+  "prevId": "d852ce9d-ad27-40e1-8fb0-fd7f3f2cfc37",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.checkpoint_attempts": {
+      "name": "checkpoint_attempts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checkpoint_thread_id": {
+          "name": "checkpoint_thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "root_checkpoint_namespace": {
+          "name": "root_checkpoint_namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "graph_version": {
+          "name": "graph_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'preparing'"
+        },
+        "forked_from_run_id": {
+          "name": "forked_from_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "forked_from_checkpoint_thread_id": {
+          "name": "forked_from_checkpoint_thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "forked_from_checkpoint_namespace": {
+          "name": "forked_from_checkpoint_namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "forked_from_checkpoint_id": {
+          "name": "forked_from_checkpoint_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latest_checkpoint_id": {
+          "name": "latest_checkpoint_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activated_at": {
+          "name": "activated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "checkpoint_attempts_run_uidx": {
+          "name": "checkpoint_attempts_run_uidx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "checkpoint_attempts_storage_uidx": {
+          "name": "checkpoint_attempts_storage_uidx",
+          "columns": [
+            {
+              "expression": "checkpoint_thread_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "checkpoint_attempts_job_active_uidx": {
+          "name": "checkpoint_attempts_job_active_uidx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"checkpoint_attempts\".\"status\" = 'active'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "checkpoint_attempts_job_created_idx": {
+          "name": "checkpoint_attempts_job_created_idx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "checkpoint_attempts_job_id_jobs_id_fk": {
+          "name": "checkpoint_attempts_job_id_jobs_id_fk",
+          "tableFrom": "checkpoint_attempts",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "checkpoint_attempts_run_id_runs_id_fk": {
+          "name": "checkpoint_attempts_run_id_runs_id_fk",
+          "tableFrom": "checkpoint_attempts",
+          "tableTo": "runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "checkpoint_attempts_forked_from_run_id_runs_id_fk": {
+          "name": "checkpoint_attempts_forked_from_run_id_runs_id_fk",
+          "tableFrom": "checkpoint_attempts",
+          "tableTo": "runs",
+          "columnsFrom": [
+            "forked_from_run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "checkpoint_attempts_status_check": {
+          "name": "checkpoint_attempts_status_check",
+          "value": "\"checkpoint_attempts\".\"status\" in ('preparing', 'active', 'superseded')"
+        },
+        "checkpoint_attempts_identity_check": {
+          "name": "checkpoint_attempts_identity_check",
+          "value": "length(trim(\"checkpoint_attempts\".\"checkpoint_thread_id\")) > 0\n        and length(trim(\"checkpoint_attempts\".\"graph_version\")) > 0\n        and \"checkpoint_attempts\".\"root_checkpoint_namespace\" = ''"
+        },
+        "checkpoint_attempts_activation_check": {
+          "name": "checkpoint_attempts_activation_check",
+          "value": "(\"checkpoint_attempts\".\"status\" = 'preparing' and \"checkpoint_attempts\".\"activated_at\" is null)\n        or (\"checkpoint_attempts\".\"status\" in ('active', 'superseded') and \"checkpoint_attempts\".\"activated_at\" is not null)"
+        },
+        "checkpoint_attempts_fork_shape_check": {
+          "name": "checkpoint_attempts_fork_shape_check",
+          "value": "(\n        \"checkpoint_attempts\".\"forked_from_run_id\" is null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_thread_id\" is null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_namespace\" is null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_id\" is null\n      ) or (\n        \"checkpoint_attempts\".\"forked_from_run_id\" is not null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_thread_id\" is not null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_namespace\" is not null\n        and \"checkpoint_attempts\".\"forked_from_checkpoint_id\" is not null\n        and length(trim(\"checkpoint_attempts\".\"forked_from_checkpoint_thread_id\")) > 0\n        and length(trim(\"checkpoint_attempts\".\"forked_from_checkpoint_id\")) > 0\n      )"
+        },
+        "checkpoint_attempts_latest_check": {
+          "name": "checkpoint_attempts_latest_check",
+          "value": "\"checkpoint_attempts\".\"latest_checkpoint_id\" is null\n        or length(trim(\"checkpoint_attempts\".\"latest_checkpoint_id\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.job_events": {
+      "name": "job_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload_fingerprint": {
+          "name": "payload_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_data": {
+          "name": "event_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "job_events_id_uidx": {
+          "name": "job_events_id_uidx",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "job_events_job_idempotency_uidx": {
+          "name": "job_events_job_idempotency_uidx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "job_events_job_created_at_idx": {
+          "name": "job_events_job_created_at_idx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "job_events_job_id_jobs_id_fk": {
+          "name": "job_events_job_id_jobs_id_fk",
+          "tableFrom": "job_events",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_events_run_id_runs_id_fk": {
+          "name": "job_events_run_id_runs_id_fk",
+          "tableFrom": "job_events",
+          "tableTo": "runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "job_events_pkey": {
+          "name": "job_events_pkey",
+          "columns": [
+            "job_id",
+            "seq"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "job_events_seq_check": {
+          "name": "job_events_seq_check",
+          "value": "\"job_events\".\"seq\" >= 0"
+        },
+        "job_events_idempotency_key_check": {
+          "name": "job_events_idempotency_key_check",
+          "value": "length(trim(\"job_events\".\"idempotency_key\")) > 0"
+        },
+        "job_events_payload_fingerprint_check": {
+          "name": "job_events_payload_fingerprint_check",
+          "value": "length(trim(\"job_events\".\"payload_fingerprint\")) > 0"
+        },
+        "job_events_type_check": {
+          "name": "job_events_type_check",
+          "value": "\"job_events\".\"event_type\" in (\n        'done', 'cancelled', 'error',\n        'stage_update', 'outline_ready',\n        'generating_opinions', 'opinions_ready', 'searching', 'search_done',\n        'writing_chapter', 'reviewing_chapter', 'chapter_done',\n        'reviewing_full', 'review_done'\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.jobs": {
+      "name": "jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "topic": {
+          "name": "topic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "style": {
+          "name": "style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "target_words": {
+          "name": "target_words",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "intervention": {
+          "name": "intervention",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"on_outline\":true}'::jsonb"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'plan'"
+        },
+        "next_event_seq": {
+          "name": "next_event_seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cancel_requested_at": {
+          "name": "cancel_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heartbeat_at": {
+          "name": "heartbeat_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "jobs_idempotency_key_uidx": {
+          "name": "jobs_idempotency_key_uidx",
+          "columns": [
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "jobs_status_created_at_idx": {
+          "name": "jobs_status_created_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "jobs_lease_expiry_idx": {
+          "name": "jobs_lease_expiry_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "jobs_status_check": {
+          "name": "jobs_status_check",
+          "value": "\"jobs\".\"status\" in ('queued', 'running', 'awaiting_input', 'completed', 'failed', 'cancelled')"
+        },
+        "jobs_stage_check": {
+          "name": "jobs_stage_check",
+          "value": "\"jobs\".\"stage\" in ('plan', 'write', 'review', 'export')"
+        },
+        "jobs_target_words_check": {
+          "name": "jobs_target_words_check",
+          "value": "\"jobs\".\"target_words\" is null or \"jobs\".\"target_words\" > 0"
+        },
+        "jobs_next_event_seq_check": {
+          "name": "jobs_next_event_seq_check",
+          "value": "\"jobs\".\"next_event_seq\" >= 0"
+        },
+        "jobs_version_check": {
+          "name": "jobs_version_check",
+          "value": "\"jobs\".\"version\" >= 0"
+        },
+        "jobs_terminal_finished_at_check": {
+          "name": "jobs_terminal_finished_at_check",
+          "value": "(\n        \"jobs\".\"status\" in ('completed', 'failed', 'cancelled') and \"jobs\".\"finished_at\" is not null\n      ) or (\n        \"jobs\".\"status\" not in ('completed', 'failed', 'cancelled') and \"jobs\".\"finished_at\" is null\n      )"
+        },
+        "jobs_lease_shape_check": {
+          "name": "jobs_lease_shape_check",
+          "value": "(\n        \"jobs\".\"lease_owner\" is null and \"jobs\".\"lease_token\" is null\n        and \"jobs\".\"lease_expires_at\" is null and \"jobs\".\"heartbeat_at\" is null\n      ) or (\n        \"jobs\".\"lease_owner\" is not null and \"jobs\".\"lease_token\" is not null\n        and \"jobs\".\"lease_expires_at\" is not null and \"jobs\".\"heartbeat_at\" is not null\n      )"
+        },
+        "jobs_running_lease_check": {
+          "name": "jobs_running_lease_check",
+          "value": "(\n        \"jobs\".\"status\" = 'running' and \"jobs\".\"lease_token\" is not null\n      ) or (\n        \"jobs\".\"status\" <> 'running' and \"jobs\".\"lease_token\" is null\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.outbox_events": {
+      "name": "outbox_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aggregate_type": {
+          "name": "aggregate_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aggregate_id": {
+          "name": "aggregate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "locked_by": {
+          "name": "locked_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_token": {
+          "name": "lock_token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "outbox_events_idempotency_key_uidx": {
+          "name": "outbox_events_idempotency_key_uidx",
+          "columns": [
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "outbox_events_ready_idx": {
+          "name": "outbox_events_ready_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "outbox_events_status_check": {
+          "name": "outbox_events_status_check",
+          "value": "\"outbox_events\".\"status\" in ('pending', 'publishing', 'published', 'failed')"
+        },
+        "outbox_events_attempts_check": {
+          "name": "outbox_events_attempts_check",
+          "value": "\"outbox_events\".\"attempts\" >= 0"
+        },
+        "outbox_events_lock_shape_check": {
+          "name": "outbox_events_lock_shape_check",
+          "value": "(\"outbox_events\".\"status\" = 'publishing' and \"outbox_events\".\"locked_by\" is not null and \"outbox_events\".\"lock_token\" is not null and \"outbox_events\".\"locked_at\" is not null)\n        or (\"outbox_events\".\"status\" <> 'publishing' and \"outbox_events\".\"locked_by\" is null and \"outbox_events\".\"lock_token\" is null and \"outbox_events\".\"locked_at\" is null)"
+        },
+        "outbox_events_published_shape_check": {
+          "name": "outbox_events_published_shape_check",
+          "value": "(\"outbox_events\".\"status\" = 'published' and \"outbox_events\".\"published_at\" is not null)\n        or (\"outbox_events\".\"status\" <> 'published' and \"outbox_events\".\"published_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.run_effects": {
+      "name": "run_effects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effect_key": {
+          "name": "effect_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effect_type": {
+          "name": "effect_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'reserved'"
+        },
+        "result_metadata": {
+          "name": "result_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "run_effects_job_key_uidx": {
+          "name": "run_effects_job_key_uidx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effect_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_effects_run_status_idx": {
+          "name": "run_effects_run_status_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "run_effects_job_id_jobs_id_fk": {
+          "name": "run_effects_job_id_jobs_id_fk",
+          "tableFrom": "run_effects",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "run_effects_run_id_runs_id_fk": {
+          "name": "run_effects_run_id_runs_id_fk",
+          "tableFrom": "run_effects",
+          "tableTo": "runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "run_effects_type_check": {
+          "name": "run_effects_type_check",
+          "value": "\"run_effects\".\"effect_type\" in ('model_call', 'tool_call', 'search', 'export')"
+        },
+        "run_effects_status_check": {
+          "name": "run_effects_status_check",
+          "value": "\"run_effects\".\"status\" in ('reserved', 'succeeded', 'failed', 'uncertain')"
+        },
+        "run_effects_finished_shape_check": {
+          "name": "run_effects_finished_shape_check",
+          "value": "(\n        \"run_effects\".\"status\" = 'reserved' and \"run_effects\".\"finished_at\" is null\n      ) or (\n        \"run_effects\".\"status\" <> 'reserved' and \"run_effects\".\"finished_at\" is not null\n      )"
+        },
+        "run_effects_key_check": {
+          "name": "run_effects_key_check",
+          "value": "length(trim(\"run_effects\".\"effect_key\")) > 0"
+        },
+        "run_effects_fingerprint_check": {
+          "name": "run_effects_fingerprint_check",
+          "value": "length(trim(\"run_effects\".\"request_fingerprint\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.runs": {
+      "name": "runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "worker_id": {
+          "name": "worker_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heartbeat_at": {
+          "name": "heartbeat_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model_profile": {
+          "name": "model_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt_version": {
+          "name": "prompt_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "graph_version": {
+          "name": "graph_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tool_versions": {
+          "name": "tool_versions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_revision": {
+          "name": "code_revision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trace_id": {
+          "name": "trace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "runs_job_attempt_uidx": {
+          "name": "runs_job_attempt_uidx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "attempt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "runs_job_created_at_idx": {
+          "name": "runs_job_created_at_idx",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "runs_job_id_jobs_id_fk": {
+          "name": "runs_job_id_jobs_id_fk",
+          "tableFrom": "runs",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "runs_attempt_check": {
+          "name": "runs_attempt_check",
+          "value": "\"runs\".\"attempt\" > 0"
+        },
+        "runs_status_check": {
+          "name": "runs_status_check",
+          "value": "\"runs\".\"status\" in ('queued', 'running', 'completed', 'failed', 'cancelled')"
+        },
+        "runs_terminal_finished_at_check": {
+          "name": "runs_terminal_finished_at_check",
+          "value": "(\n        \"runs\".\"status\" in ('completed', 'failed', 'cancelled') and \"runs\".\"finished_at\" is not null\n      ) or (\n        \"runs\".\"status\" not in ('completed', 'failed', 'cancelled') and \"runs\".\"finished_at\" is null\n      )"
+        },
+        "runs_lease_shape_check": {
+          "name": "runs_lease_shape_check",
+          "value": "(\n        \"runs\".\"worker_id\" is null and \"runs\".\"lease_token\" is null\n        and \"runs\".\"lease_expires_at\" is null and \"runs\".\"heartbeat_at\" is null\n      ) or (\n        \"runs\".\"worker_id\" is not null and \"runs\".\"lease_token\" is not null\n        and \"runs\".\"lease_expires_at\" is not null and \"runs\".\"heartbeat_at\" is not null\n      )"
+        },
+        "runs_running_lease_check": {
+          "name": "runs_running_lease_check",
+          "value": "\"runs\".\"status\" <> 'running' or \"runs\".\"lease_token\" is not null"
+        },
+        "runs_version_fields_check": {
+          "name": "runs_version_fields_check",
+          "value": "length(trim(\"runs\".\"prompt_version\")) > 0\n        and length(trim(\"runs\".\"graph_version\")) > 0\n        and length(trim(\"runs\".\"code_revision\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

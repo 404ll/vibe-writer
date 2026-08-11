@@ -44,7 +44,7 @@ def test_parse_outline_chinese_enum_separator():
 async def test_plan_returns_chapter_list():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="1. 什么是 Agent\n2. 核心组件\n3. 实战案例")]
+    mock_message.content = [MagicMock(type="text", text="1. 什么是 Agent\n2. 核心组件\n3. 实战案例")]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):
@@ -57,7 +57,7 @@ async def test_plan_returns_chapter_list():
 async def test_plan_handles_empty_lines():
     mock_client = MagicMock()
     mock_message = MagicMock()
-    mock_message.content = [MagicMock(text="1. 章节一\n\n2. 章节二\n")]
+    mock_message.content = [MagicMock(type="text", text="1. 章节一\n\n2. 章节二\n")]
     mock_client.messages.create = AsyncMock(return_value=mock_message)
 
     with patch("backend.agent.base.anthropic.AsyncAnthropic", return_value=mock_client):

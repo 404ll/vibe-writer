@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "suite": {
+    "key": "production-failure-regression",
+    "version": "2026-08-07-v1",
+    "datasetFingerprint": "sha256:d15a470966bda9b5a18f2561d89d0599d8494ae7ab8b994fa7e06858cbd7e89c"
+  },
+  "target": {
+    "key": "typescript-durable-production-failure",
+    "version": "v1"
+  },
+  "trialsPerCase": 1,
+  "expectedCaseKeys": [
+    "production-failure-baseline-v1/provider-unavailable-terminal-failure"
+  ],
+  "maximumTargetErrors": 0,
+  "maximumEvaluatorErrors": 0,
+  "metrics": {
+    "durable_failure_exact_match": {
+      "scoreCount": 1,
+      "maximumErrorCount": 0,
+      "minimumPassRate": 1
+    }
+  }
+}

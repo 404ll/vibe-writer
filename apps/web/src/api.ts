@@ -1,28 +1,18 @@
 import { API_BASE } from './config'
+import type {
+  ArticleDetail,
+  ArticleSummary,
+  ArticleVersionDetail,
+  ArticleVersionSummary,
+} from '@vibe-writer/contracts/articles'
+import { ArticleMutationResponseSchema } from '@vibe-writer/contracts/articles'
 
-export interface ArticleSummary {
-  id: string
-  job_id: string
-  topic: string
-  word_count: number
-  created_at: string
-}
-
-export interface ArticleDetail extends ArticleSummary {
-  content: string
-}
-
-export interface ArticleVersionSummary {
-  id: number
-  saved_at: string
-  word_count: number
-}
-
-export interface ArticleVersionDetail {
-  id: number
-  content: string
-  saved_at: string
-}
+export type {
+  ArticleDetail,
+  ArticleSummary,
+  ArticleVersionDetail,
+  ArticleVersionSummary,
+} from '@vibe-writer/contracts/articles'
 
 /** 获取所有文章的摘要列表 */
 export async function getArticles(): Promise<ArticleSummary[]> {
@@ -31,22 +21,20 @@ export async function getArticles(): Promise<ArticleSummary[]> {
   return res.json()
 }
 
-/** 获取指定文章的详细内容 */
-export async function getArticle(id: string): Promise<ArticleDetail> {
-  const res = await fetch(`${API_BASE}/articles/${id}`)
-  if (res.status === 404) throw new Error('Article not found')
-  if (!res.ok) throw new Error('Failed to fetch article')
-  return res.json()
-}
-
 /** 更新保存指定文章的内容 */
-export async function patchArticle(id: string, content: string): Promise<void> {
+export async function patchArticle(
+  id: string,
+  content: string,
+  expectedRevision?: number,
+): Promise<ArticleDetail | null> {
   const res = await fetch(`${API_BASE}/articles/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, expected_revision: expectedRevision }),
   })
   if (!res.ok) throw new Error('Failed to save article')
+  const result = ArticleMutationResponseSchema.parse(await res.json())
+  return result.article ?? null
 }
 
 /** 获取指定文章的所有历史版本记录摘要 */
@@ -65,9 +53,17 @@ export async function getVersion(articleId: string, versionId: number): Promise<
 }
 
 /** 将指定文章回滚恢复到某个历史版本 */
-export async function restoreVersion(articleId: string, versionId: number): Promise<void> {
+export async function restoreVersion(
+  articleId: string,
+  versionId: number,
+  expectedRevision?: number,
+): Promise<ArticleDetail | null> {
   const res = await fetch(`${API_BASE}/articles/${articleId}/versions/${versionId}/restore`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_revision: expectedRevision }),
   })
   if (!res.ok) throw new Error('Failed to restore version')
+  const result = ArticleMutationResponseSchema.parse(await res.json())
+  return result.article ?? null
 }
