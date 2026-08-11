@@ -1,7 +1,7 @@
 # Iteration 0068：Reviewer 推理 token 余量
 
 - 日期：2026-08-11
-- 状态：In progress
+- 状态：Superseded
 
 ## 问题
 
@@ -15,4 +15,4 @@ Writer已能完成正文，但Full Reviewer连续两次在1024 token处截断，
 
 ## 验证
 
-尚未完成。只有Agent Core测试、服务器Worker就绪和真实Article生成通过后，才能标记为`Done`。
+Agent Core与Worker测试通过，服务器Worker也恢复就绪；但真实复验的第二次Chapter Review仍精确耗尽4096 token。本迭代由[Iteration 0069](./0069-reviewer-global-token-ceiling.md)取代，不标记为`Done`。

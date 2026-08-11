@@ -120,7 +120,7 @@ describe('ReviewerService target behavior', () => {
       expect(results.map((result) => result.verdict)).toEqual(testCase.target_verdicts)
       expect(model.requests[0]).toMatchObject({
         operation: testCase.scope === 'chapter' ? 'reviewer.chapter' : 'reviewer.full',
-        maxTokens: 4096,
+        maxTokens: 8192,
         promptVersion:
           testCase.scope === 'chapter'
             ? PROMPT_VERSIONS.chapterReviewer
