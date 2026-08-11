@@ -55,13 +55,20 @@ describe('production worker config', () => {
       ...baseEnv,
       WRITE_CONSUMER_ACCESS_MODE: 'single-workspace',
     })).toThrow('WORKER_SINGLE_USER_WORKSPACE_ID')
+    expect(() => loadProductionWorkerConfig({
+      ...baseEnv,
+      WRITE_CONSUMER_ACCESS_MODE: 'single-workspace',
+      WORKER_SINGLE_USER_WORKSPACE_ID: '22222222-2222-4222-8222-222222222222',
+    })).toThrow('WORKER_SINGLE_USER_PRINCIPAL_ID')
     expect(loadProductionWorkerConfig({
       ...baseEnv,
       WRITE_CONSUMER_ACCESS_MODE: 'single-workspace',
       WORKER_SINGLE_USER_WORKSPACE_ID: '22222222-2222-4222-8222-222222222222',
+      WORKER_SINGLE_USER_PRINCIPAL_ID: '11111111-1111-4111-8111-111111111111',
     })).toMatchObject({
       consumerAccessMode: 'single-workspace',
       singleWorkspaceId: '22222222-2222-4222-8222-222222222222',
+      singlePrincipalId: '11111111-1111-4111-8111-111111111111',
     })
   })
 

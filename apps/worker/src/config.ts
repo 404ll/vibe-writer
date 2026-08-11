@@ -14,6 +14,7 @@ export type ProductionWorkerConfig = {
   consumerDatabase?: WorkerDatabaseConfig
   consumerAccessMode: WorkerConsumerAccessMode
   singleWorkspaceId?: string
+  singlePrincipalId?: string
   redis: ConnectionOptions
   anthropicApiKey?: string
   anthropicBaseUrl?: string
@@ -105,11 +106,18 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
     throw new Error('WRITE_CONSUMER_ACCESS_MODE must be cross-workspace or single-workspace')
   }
   const singleWorkspaceId = env.WORKER_SINGLE_USER_WORKSPACE_ID?.trim()
+  const singlePrincipalId = env.WORKER_SINGLE_USER_PRINCIPAL_ID?.trim()
   if (
     consumer && consumerAccessMode === 'single-workspace' &&
     (!singleWorkspaceId || !UUID_PATTERN.test(singleWorkspaceId))
   ) {
     throw new Error('WORKER_SINGLE_USER_WORKSPACE_ID must be a UUID in single-workspace mode')
+  }
+  if (
+    consumer && consumerAccessMode === 'single-workspace' &&
+    (!singlePrincipalId || !UUID_PATTERN.test(singlePrincipalId))
+  ) {
+    throw new Error('WORKER_SINGLE_USER_PRINCIPAL_ID must be a UUID in single-workspace mode')
   }
   const leaseDurationMs = positiveInt(env, 'WORKER_LEASE_DURATION_MS', 60_000)
   const heartbeatIntervalMs = positiveInt(env, 'WORKER_HEARTBEAT_INTERVAL_MS', 15_000)
@@ -144,6 +152,7 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
     ...(consumerDatabase ? { consumerDatabase } : {}),
     consumerAccessMode,
     ...(singleWorkspaceId ? { singleWorkspaceId } : {}),
+    ...(singlePrincipalId ? { singlePrincipalId } : {}),
     redis: redisConnection(required(env, 'REDIS_URL')),
     ...(consumer ? {
       anthropicApiKey: required(env, 'ANTHROPIC_API_KEY'),

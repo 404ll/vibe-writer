@@ -172,11 +172,21 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
           config.consumerAccessMode,
         )
         if (config.consumerAccessMode === 'single-workspace') {
-          const [session] = await consumerDatabase.client<{ workspaceId: string | null }[]>`
-            select nullif(current_setting('app.workspace_id', true), '') as "workspaceId"
+          // jobs 的 RLS 在更新时同时校验 workspace 与创建者。托管数据库无法授予
+          // BYPASSRLS，因此单用户 Consumer 必须在连接建立时固定两层身份。
+          const [session] = await consumerDatabase.client<{
+            workspaceId: string | null
+            principalId: string | null
+          }[]>`
+            select
+              nullif(current_setting('app.workspace_id', true), '') as "workspaceId",
+              nullif(current_setting('app.principal_id', true), '') as "principalId"
           `
-          if (session?.workspaceId !== config.singleWorkspaceId) {
-            throw new Error('Write consumer single-workspace database session is not scoped')
+          if (
+            session?.workspaceId !== config.singleWorkspaceId ||
+            session?.principalId !== config.singlePrincipalId
+          ) {
+            throw new Error('Write consumer single-workspace database session is not fully scoped')
           }
         }
         const [consumerSchema] = await consumerDatabase.client<{ ready: boolean }[]>`

@@ -99,7 +99,9 @@ export type WriterInput = {
 
 export function maxTokensForChapter(chapterWords?: number): number {
   if (!chapterWords) return 4096
-  return Math.min(8192, Math.max(512, Math.trunc(chapterWords * 2.2)))
+  // 兼容模型可能把内部推理也计入 max_tokens。小章节仍保留 4096 的请求上限，
+  // 由提示词控制正文长度；否则模型会在输出正文前被截断，且重试无法恢复。
+  return Math.min(8192, Math.max(4096, Math.trunc(chapterWords * 2.2)))
 }
 
 function sourceMetadata(result: ResearchResult): JsonObject[] {

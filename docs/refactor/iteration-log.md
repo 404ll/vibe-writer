@@ -69,5 +69,7 @@
 | 0063 | 2026-08-11 | Done | Python 退役与 Vercel Preview 边界 | [记录](./iterations/0063-python-retirement-and-vercel-preview.md) |
 | 0064 | 2026-08-11 | In progress | Vercel、Neon 与外部 Worker 部署 | [记录](./iterations/0064-vercel-neon-worker-deployment.md) |
 | 0065 | 2026-08-11 | Done | 核心代码认知注释与分层说明文件 | [记录](./iterations/0065-core-code-commentary-and-readmes.md) |
+| 0066 | 2026-08-11 | In progress | 单用户 Consumer 主体作用域 | [记录](./iterations/0066-single-user-consumer-principal-scope.md) |
+| 0067 | 2026-08-11 | In progress | Writer 推理 token 余量 | [记录](./iterations/0067-writer-thinking-token-headroom.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。
