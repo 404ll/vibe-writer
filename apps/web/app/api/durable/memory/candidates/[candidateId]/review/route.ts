@@ -1,7 +1,7 @@
 import {
   ReviewMemoryCandidateRequestSchema,
   ReviewMemoryCandidateResponseSchema,
-} from '@vibe-writer/contracts/memory-management'
+} from '@vibe-writer/contracts/memory/management/candidates'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,

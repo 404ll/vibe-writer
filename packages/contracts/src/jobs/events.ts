@@ -1,36 +1,13 @@
 import { z } from 'zod'
-import { ReviewResultSchema, WorkflowStageSchema } from './jobs'
+import { ReviewResultSchema, WorkflowStageSchema } from './commands'
+import type { SSEEventType } from './event-types'
 
-export const SSE_EVENT_GROUPS = {
-  lifecycle: ['done', 'cancelled', 'error'],
-  planning: ['stage_update', 'outline_ready'],
-  chapter: [
-    'generating_opinions',
-    'opinions_ready',
-    'searching',
-    'search_done',
-    'writing_chapter',
-    'reviewing_chapter',
-    'chapter_done',
-  ],
-  review: ['reviewing_full', 'review_done'],
-} as const
-
-export type JobLifecycleEvent = (typeof SSE_EVENT_GROUPS.lifecycle)[number]
-export type PlanningEvent = (typeof SSE_EVENT_GROUPS.planning)[number]
-export type ChapterEvent = (typeof SSE_EVENT_GROUPS.chapter)[number]
-export type ReviewEvent = (typeof SSE_EVENT_GROUPS.review)[number]
-export type SSEEventType = JobLifecycleEvent | PlanningEvent | ChapterEvent | ReviewEvent
-
-export const SSE_EVENT_TYPES = [
-  ...SSE_EVENT_GROUPS.lifecycle,
-  ...SSE_EVENT_GROUPS.planning,
-  ...SSE_EVENT_GROUPS.chapter,
-  ...SSE_EVENT_GROUPS.review,
-] as const satisfies readonly SSEEventType[]
-
-export const SSEEventTypeSchema = z.enum(SSE_EVENT_TYPES)
-export const TERMINAL_EVENTS: ReadonlySet<SSEEventType> = new Set(SSE_EVENT_GROUPS.lifecycle)
+/**
+ * 可持久化、可重放的任务事件载荷。
+ *
+ * Worker 产生事件 -> 数据仓储分配 `_seq` 并保存 -> Route Handler 通过历史接口或
+ * SSE stream 输出 -> `useJobStream` 按 `_seq` 补齐和去重 -> 页面更新任务状态。
+ */
 
 // 组件级事件在进入数据库前可以没有 `_seq`；持久化后的事件由数据仓储分配
 // 单调递增序号，供服务端推送重放和前端去重。可选性只服务这两个生命周期阶段。
@@ -43,7 +20,12 @@ const sequenced = <T extends z.ZodRawShape>(shape: T) =>
 const title = { title: z.string() }
 const reviewWithTitleSchema = ReviewResultSchema.extend({ title: z.string() })
 
+/**
+ * `event` 是判别字段：事件名确定后，TypeScript 和 Zod 都能收窄到对应的 `data`。
+ * 这保证调用方不能把 `outline_ready` 的 payload 错当成章节或终止事件处理。
+ */
 export const JobEventSchema = z.discriminatedUnion('event', [
+  // 规划阶段：阶段切换，以及等待用户确认的完整大纲。
   z.object({
     event: z.literal('stage_update'),
     data: sequenced({ stage: WorkflowStageSchema }),
@@ -52,6 +34,8 @@ export const JobEventSchema = z.discriminatedUnion('event', [
     event: z.literal('outline_ready'),
     data: sequenced({ outline: z.array(z.string()) }),
   }),
+
+  // 章节阶段：观点生成、检索、正文流式 token 和单章审查结果。
   z.object({ event: z.literal('generating_opinions'), data: sequenced(title) }),
   z.object({ event: z.literal('opinions_ready'), data: sequenced(title) }),
   z.object({
@@ -80,11 +64,15 @@ export const JobEventSchema = z.discriminatedUnion('event', [
     event: z.literal('chapter_done'),
     data: sequenced({ ...title, review: ReviewResultSchema }),
   }),
+
+  // 全文审查阶段。
   z.object({ event: z.literal('reviewing_full'), data: sequenced({}) }),
   z.object({
     event: z.literal('review_done'),
     data: sequenced({ results: z.array(reviewWithTitleSchema) }),
   }),
+
+  // 生命周期终态：成功、主动取消或失败。done 携带最终文章 ID 供页面跳转。
   z.object({
     event: z.literal('done'),
     data: sequenced({
@@ -99,12 +87,15 @@ export const JobEventSchema = z.discriminatedUnion('event', [
   }),
 ])
 
+/** 页面刷新或 SSE 重连时，用历史接口批量补齐已经持久化的事件。 */
 export const EventHistoryResponseSchema = z.object({
   events: z.array(JobEventSchema),
 })
 
 export type JobEvent = z.infer<typeof JobEventSchema>
 export type EventHistoryResponse = z.infer<typeof EventHistoryResponseSchema>
+
+/** 按事件名取得精确 payload，例如 `JobEventData<'done'>`。 */
 export type JobEventData<TEvent extends SSEEventType> = Extract<
   JobEvent,
   { event: TEvent }

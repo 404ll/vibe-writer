@@ -1,7 +1,7 @@
 import {
   DeleteMemoryRequestSchema,
   DeleteMemoryResponseSchema,
-} from '@vibe-writer/contracts/memory-management'
+} from '@vibe-writer/contracts/memory/management/records'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,

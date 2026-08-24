@@ -5,9 +5,9 @@ import {
 } from '@vibe-writer/contracts/jobs'
 import {
   JobEventSchema,
-  TERMINAL_EVENTS,
   type JobEvent,
-} from '@vibe-writer/contracts/sse'
+} from '@vibe-writer/contracts/jobs/events'
+import { TERMINAL_EVENTS } from '@vibe-writer/contracts/jobs/event-types'
 import { and, asc, eq, gt, inArray, isNull, lte, max, or, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import {

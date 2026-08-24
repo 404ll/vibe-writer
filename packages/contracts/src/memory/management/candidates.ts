@@ -1,77 +1,20 @@
 import { z } from 'zod'
-import { MemorySubjectSchema } from './memory-signals'
+import { MemorySubjectSchema } from '../signals'
+import {
+  MEMORY_EVIDENCE_SOURCE_KINDS,
+  MEMORY_MATERIALIZE_REASONS,
+  MEMORY_PROPOSERS,
+  MEMORY_REJECTION_REASONS,
+  MEMORY_SENSITIVITIES,
+  MemoryCandidateEventTypeSchema,
+  MemoryCandidateStatusSchema,
+  MemoryKeySchema,
+  MemoryKindSchema,
+  MemoryManagementTimestampSchema,
+  MemoryPolicyOutcomeSchema,
+} from './shared'
 
-export const MEMORY_KINDS = ['preference', 'constraint', 'correction'] as const
-export const MEMORY_CANDIDATE_STATUSES = [
-  'pending_review',
-  'materialized',
-  'rejected',
-  'expired',
-] as const
-export const MEMORY_POLICY_OUTCOMES = ['candidate', 'conflict'] as const
-export const MEMORY_PROPOSERS = ['user', 'model'] as const
-export const MEMORY_SENSITIVITIES = ['normal', 'sensitive'] as const
-export const MEMORY_EVIDENCE_SOURCE_KINDS = ['run', 'signal'] as const
-export const MEMORY_CANDIDATE_EVENT_TYPES = [
-  'proposed',
-  'materialized',
-  'rejected',
-  'expired',
-] as const
-
-export const MEMORY_MATERIALIZE_REASONS = [
-  'confirmed_accurate',
-  'confirmed_preference',
-  'confirmed_constraint',
-  'confirmed_correction',
-  'confirmed_change',
-] as const
-
-export const MEMORY_REJECTION_REASONS = [
-  'incorrect',
-  'not_stable',
-  'not_user_authored',
-  'sensitive',
-  'superseded',
-] as const
-
-export const MEMORY_DELETE_REASONS = [
-  'user_requested_erasure',
-  'incorrect',
-  'superseded',
-  'workspace_policy_erasure',
-] as const
-
-const MemoryKeySchema = z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,255}$/u)
-const TimestampSchema = z.iso.datetime({ offset: true })
-
-export const MemoryManagementPageQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.string().trim().min(1).max(1_024).optional(),
-}).strict()
-
-export const MemoryKindSchema = z.enum(MEMORY_KINDS)
-export const MemoryCandidateStatusSchema = z.enum(MEMORY_CANDIDATE_STATUSES)
-export const MemoryPolicyOutcomeSchema = z.enum(MEMORY_POLICY_OUTCOMES)
-export const MemoryCandidateEventTypeSchema = z.enum(MEMORY_CANDIDATE_EVENT_TYPES)
-
-export const ActiveMemorySchema = z.object({
-  id: z.uuid(),
-  subject: MemorySubjectSchema,
-  memory_key: MemoryKeySchema,
-  kind: MemoryKindSchema,
-  content: z.string().min(1).max(4_096),
-  current_revision: z.number().int().positive(),
-  expires_at: TimestampSchema,
-  created_at: TimestampSchema,
-  updated_at: TimestampSchema,
-}).strict()
-
-export const ListActiveMemoriesResponseSchema = z.object({
-  memories: z.array(ActiveMemorySchema),
-  next_cursor: z.string().min(1).max(1_024).nullable(),
-}).strict()
-
+/** 尚未成为活跃记忆、需要审核或等待策略处理的候选。 */
 export const MemoryCandidateSchema = z.object({
   id: z.uuid(),
   source_kind: z.enum(MEMORY_EVIDENCE_SOURCE_KINDS),
@@ -99,12 +42,12 @@ export const MemoryCandidateSchema = z.object({
   policy_version: z.string().trim().min(1).max(256),
   policy_outcome: MemoryPolicyOutcomeSchema,
   status: MemoryCandidateStatusSchema,
-  expires_at: TimestampSchema,
-  reviewed_at: TimestampSchema.nullable(),
+  expires_at: MemoryManagementTimestampSchema,
+  reviewed_at: MemoryManagementTimestampSchema.nullable(),
   decision_reason_code: z.string().min(1).max(256).nullable(),
   materialized_memory_id: z.uuid().nullable(),
   materialized_revision: z.number().int().positive().nullable(),
-  created_at: TimestampSchema,
+  created_at: MemoryManagementTimestampSchema,
 }).strict()
 
 export const ListMemoryCandidatesResponseSchema = z.object({
@@ -116,7 +59,7 @@ export const MemoryCandidateEventSchema = z.object({
   seq: z.number().int().nonnegative(),
   event_type: MemoryCandidateEventTypeSchema,
   reason_code: z.string().min(1).max(256),
-  created_at: TimestampSchema,
+  created_at: MemoryManagementTimestampSchema,
 }).strict()
 
 export const ListMemoryCandidateEventsResponseSchema = z.object({
@@ -124,6 +67,7 @@ export const ListMemoryCandidateEventsResponseSchema = z.object({
   events: z.array(MemoryCandidateEventSchema),
 }).strict()
 
+/** materialize 会生成活跃记忆；reject 只关闭候选，两类决定要求不同原因码。 */
 const MaterializeMemoryCandidateRequestSchema = z.object({
   decision: z.literal('materialize'),
   reason_code: z.enum(MEMORY_MATERIALIZE_REASONS),
@@ -140,6 +84,7 @@ export const ReviewMemoryCandidateRequestSchema = z.discriminatedUnion('decision
   RejectMemoryCandidateRequestSchema,
 ])
 
+/** status 是判别字段，页面可以安全收窄物化、拒绝和已过期三种结果。 */
 export const ReviewMemoryCandidateResponseSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('materialized'),
@@ -159,22 +104,7 @@ export const ReviewMemoryCandidateResponseSchema = z.discriminatedUnion('status'
   }).strict(),
 ])
 
-export const DeleteMemoryRequestSchema = z.object({
-  reason_code: z.enum(MEMORY_DELETE_REASONS),
-}).strict()
-
-export const DeleteMemoryResponseSchema = z.object({
-  status: z.literal('deleted'),
-  memory_id: z.uuid(),
-  reason_code: z.enum(MEMORY_DELETE_REASONS),
-  deleted_at: TimestampSchema,
-  replayed: z.boolean(),
-}).strict()
-
-export type ActiveMemory = z.infer<typeof ActiveMemorySchema>
 export type MemoryCandidate = z.infer<typeof MemoryCandidateSchema>
 export type MemoryCandidateEvent = z.infer<typeof MemoryCandidateEventSchema>
 export type ReviewMemoryCandidateRequest = z.infer<typeof ReviewMemoryCandidateRequestSchema>
 export type ReviewMemoryCandidateResponse = z.infer<typeof ReviewMemoryCandidateResponseSchema>
-export type DeleteMemoryRequest = z.infer<typeof DeleteMemoryRequestSchema>
-export type DeleteMemoryResponse = z.infer<typeof DeleteMemoryResponseSchema>

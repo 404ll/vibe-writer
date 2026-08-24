@@ -2,15 +2,15 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { AgentComponentFixtureSchema } from './agent-component-fixtures'
-import { ResearchComponentFixtureSchema } from './research-component-fixtures'
-import { WriterComponentFixtureSchema } from './writer-component-fixtures'
-import { WorkflowComponentFixtureSchema } from './workflow-component-fixtures'
-import { WorkflowShadowFixtureSchema } from './workflow-shadow-fixtures'
-import { ProductionCompositionFixtureSchema } from './production-composition-fixtures'
-import { ProductionCancellationFixtureSchema } from './production-cancellation-fixtures'
-import { ProductionFailureFixtureSchema } from './production-failure-fixtures'
-import { ProductionTakeoverFixtureSchema } from './production-takeover-fixtures'
+import { AgentComponentFixtureSchema } from '../eval/agent-component-fixtures'
+import { ResearchComponentFixtureSchema } from '../eval/research-component-fixtures'
+import { WriterComponentFixtureSchema } from '../eval/writer-component-fixtures'
+import { WorkflowComponentFixtureSchema } from '../eval/workflow-component-fixtures'
+import { WorkflowShadowFixtureSchema } from '../eval/workflow-shadow-fixtures'
+import { ProductionCompositionFixtureSchema } from '../eval/production-composition-fixtures'
+import { ProductionCancellationFixtureSchema } from '../eval/production-cancellation-fixtures'
+import { ProductionFailureFixtureSchema } from '../eval/production-failure-fixtures'
+import { ProductionTakeoverFixtureSchema } from '../eval/production-takeover-fixtures'
 import { z } from 'zod'
 import {
   ArticleDetailSchema,
@@ -18,16 +18,16 @@ import {
   ArticleSummarySchema,
   ArticleVersionDetailSchema,
   ArticleVersionsResponseSchema,
-} from './articles'
+} from '../articles'
 import {
   CreateJobRequestSchema,
   CreateJobResponseSchema,
   ReplyRequestSchema,
   StatusResponseSchema,
-} from './jobs'
-import { EventHistoryResponseSchema, SSE_EVENT_TYPES } from './sse'
+} from '../jobs/commands'
+import { EventHistoryResponseSchema, SSE_EVENT_TYPES } from '../jobs/sse'
 
-const packageRoot = fileURLToPath(new URL('..', import.meta.url))
+const packageRoot = fileURLToPath(new URL('../..', import.meta.url))
 
 const ApiFixtureSchema = z.object({
   create_job: z.object({

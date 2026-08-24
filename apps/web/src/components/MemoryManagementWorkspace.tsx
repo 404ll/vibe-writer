@@ -3,16 +3,18 @@
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import {
-  DeleteMemoryRequestSchema,
-  DeleteMemoryResponseSchema,
-  ListActiveMemoriesResponseSchema,
   ListMemoryCandidateEventsResponseSchema,
   ListMemoryCandidatesResponseSchema,
   ReviewMemoryCandidateRequestSchema,
   ReviewMemoryCandidateResponseSchema,
   type MemoryCandidate,
   type MemoryCandidateEvent,
-} from '@vibe-writer/contracts/memory-management'
+} from '@vibe-writer/contracts/memory/management/candidates'
+import {
+  DeleteMemoryRequestSchema,
+  DeleteMemoryResponseSchema,
+  ListActiveMemoriesResponseSchema,
+} from '@vibe-writer/contracts/memory/management/records'
 import type { MemoryManagementBootstrapResponse } from '@vibe-writer/contracts/memory-policy'
 import {
   CreateMemorySignalRequestSchema,

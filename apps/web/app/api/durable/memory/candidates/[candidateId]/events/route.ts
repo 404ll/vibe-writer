@@ -1,4 +1,4 @@
-import { ListMemoryCandidateEventsResponseSchema } from '@vibe-writer/contracts/memory-management'
+import { ListMemoryCandidateEventsResponseSchema } from '@vibe-writer/contracts/memory/management/candidates'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,

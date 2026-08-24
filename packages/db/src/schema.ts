@@ -1,4 +1,4 @@
-import type { SSEEventType } from '@vibe-writer/contracts/sse'
+import type { SSEEventType } from '@vibe-writer/contracts/jobs/event-types'
 import type { EvalModelExecutionBinding } from '@vibe-writer/eval-core'
 import { sql } from 'drizzle-orm'
 import {

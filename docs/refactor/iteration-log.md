@@ -74,5 +74,6 @@
 | 0068 | 2026-08-11 | Superseded | Reviewer 推理 token 余量 | [记录](./iterations/0068-reviewer-thinking-token-headroom.md) |
 | 0069 | 2026-08-11 | Superseded | Reviewer 全局 token 硬上限 | [记录](./iterations/0069-reviewer-global-token-ceiling.md) |
 | 0070 | 2026-08-11 | Done | 显式模型推理模式 | [记录](./iterations/0070-explicit-model-thinking-mode.md) |
+| 0071 | 2026-08-24 | Done | 共享契约目录与模块职责拆分 | [记录](./iterations/0071-contract-module-boundaries.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。

@@ -3,7 +3,7 @@ export {
   SSE_EVENT_GROUPS,
   SSE_EVENT_TYPES,
   TERMINAL_EVENTS,
-} from '@vibe-writer/contracts/sse'
+} from '@vibe-writer/contracts/jobs/event-types'
 
 export type {
   ChapterEvent,
@@ -11,4 +11,4 @@ export type {
   PlanningEvent,
   ReviewEvent,
   SSEEventType,
-} from '@vibe-writer/contracts/sse'
+} from '@vibe-writer/contracts/jobs/event-types'

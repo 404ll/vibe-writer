@@ -1,10 +1,10 @@
 import 'server-only'
 
 import type {
-  ActiveMemory,
   MemoryCandidate,
   MemoryCandidateEvent,
-} from '@vibe-writer/contracts/memory-management'
+} from '@vibe-writer/contracts/memory/management/candidates'
+import type { ActiveMemory } from '@vibe-writer/contracts/memory/management/records'
 import {
   MemoryCandidateNotFoundError,
   MemoryNotFoundError,

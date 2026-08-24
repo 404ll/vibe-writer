@@ -1,22 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { CreateJobRequestSchema, ReplyRequestSchema } from './jobs'
+import { CreateJobRequestSchema, ReplyRequestSchema } from '../jobs/commands'
 import {
   DeleteMemoryRequestSchema,
   MemoryManagementPageQuerySchema,
   ReviewMemoryCandidateRequestSchema,
-} from './memory-management'
+} from '../memory/management'
 import {
   MemoryConsentPolicyDocumentSchema,
   MemoryPolicyAccessResponseSchema,
-} from './memory-policy'
+} from '../memory/policy'
 import {
   CreateMemorySignalRequestSchema,
   DeleteMemorySignalRequestSchema,
   MemorySignalIdempotencyKeySchema,
   MemorySignalPageQuerySchema,
-} from './memory-signals'
-import { SearchDocumentSchema, SearchRequestSchema } from './research'
-import { JobEventSchema, SSE_EVENT_GROUPS, SSE_EVENT_TYPES, TERMINAL_EVENTS } from './sse'
+} from '../memory/signals'
+import { SearchDocumentSchema, SearchRequestSchema } from '../research'
+import {
+  JobEventSchema,
+  SSE_EVENT_GROUPS,
+  SSE_EVENT_TYPES,
+  TERMINAL_EVENTS,
+} from '../jobs/sse'
 
 describe('job contracts', () => {
   it('applies defaults compatible with the current FastAPI request model', () => {

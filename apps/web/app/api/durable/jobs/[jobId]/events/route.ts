@@ -1,4 +1,4 @@
-import { EventHistoryResponseSchema } from '@vibe-writer/contracts/sse'
+import { EventHistoryResponseSchema } from '@vibe-writer/contracts/jobs/events'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,

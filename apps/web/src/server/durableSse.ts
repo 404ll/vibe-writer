@@ -1,8 +1,8 @@
 import {
   TERMINAL_EVENTS,
-  type JobEvent,
   type SSEEventType,
-} from '@vibe-writer/contracts/sse'
+} from '@vibe-writer/contracts/jobs/event-types'
+import type { JobEvent } from '@vibe-writer/contracts/jobs/events'
 
 export type DurableEventSource = {
   listEventsAfter(jobId: string, afterSeq: number): Promise<JobEvent[]>

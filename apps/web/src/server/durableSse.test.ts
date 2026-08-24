@@ -1,4 +1,4 @@
-import type { JobEvent } from '@vibe-writer/contracts/sse'
+import type { JobEvent } from '@vibe-writer/contracts/jobs/events'
 import { describe, expect, it, vi } from 'vitest'
 import { createDurableEventStream, encodeSseEvent } from './durableSse'
 

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { JobEventSchema, type JobEvent } from '@vibe-writer/contracts/sse'
+import { JobEventSchema, type JobEvent } from '@vibe-writer/contracts/jobs/events'
 import { and, eq, gt, sql } from 'drizzle-orm'
 import type { PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import {

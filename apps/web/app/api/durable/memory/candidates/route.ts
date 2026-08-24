@@ -1,7 +1,5 @@
-import {
-  ListMemoryCandidatesResponseSchema,
-  MemoryManagementPageQuerySchema,
-} from '@vibe-writer/contracts/memory-management'
+import { ListMemoryCandidatesResponseSchema } from '@vibe-writer/contracts/memory/management/candidates'
+import { MemoryManagementPageQuerySchema } from '@vibe-writer/contracts/memory/management/shared'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,
