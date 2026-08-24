@@ -12,6 +12,10 @@ interface TocEntry {
   level: number
 }
 
+/**
+ * 从原始 Markdown 中提取一到三级标题生成目录。
+ * 标题锚点复用正文渲染的 slugifyHeading，保证目录 href 与实际 heading id 一致。
+ */
 function extractToc(markdown: string): TocEntry[] {
   return markdown
     .split('\n')
@@ -34,9 +38,9 @@ export function ArticlePage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [activeSlug, setActiveSlug] = useState('')
-  const [isEditing, setIsEditing] = useState(false)
-  const [editContent, setEditContent] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)//是否是编辑态
+  const [editContent, setEditContent] = useState('')// 正在修改的 Markdown 草稿
+  const [saving, setSaving] = useState(false)//是否保存
   const [showHistory, setShowHistory] = useState(false)
   const [versions, setVersions] = useState<ArticleVersionSummary[]>([])
   const [previewContent, setPreviewContent] = useState<string | null>(null)
@@ -50,7 +54,9 @@ export function ArticlePage() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // 固定 components 对象引用，避免文章状态变化时重复创建 react-markdown 渲染器映射。
   const mdComponents = useMemo(() => buildMarkdownComponents(true), [])
+  // 编辑和历史预览可能与正文共存，因此不生成 heading id，避免重复锚点。
   const mdComponentsPreview = useMemo(() => buildMarkdownComponents(false), [])
 
   useEffect(() => {
@@ -80,9 +86,12 @@ export function ArticlePage() {
     URL.revokeObjectURL(url)
   }
 
+  //编辑
   function handleEdit() {
     if (!article) return
+    //复制当前文章内容到编辑区
     setEditContent(article.content)
+    //切换到编辑态
     setIsEditing(true)
   }
 
@@ -172,6 +181,7 @@ export function ArticlePage() {
         <span className="article-word-count">
           {article.word_count?.toLocaleString()} 字
         </span>
+        {/* 编辑态按钮组 */ }
         {isEditing ? (
           <>
             <button
@@ -253,6 +263,7 @@ export function ArticlePage() {
               <div className="article-preview-pane">
                 <p className="article-editor-label">预览</p>
                 <div className="prose">
+                  {/* remark-gfm 解析表格、删除线等 GFM 语法；components 接管 Mermaid 代码块。 */}
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
                     {editContent}
                   </ReactMarkdown>
@@ -271,6 +282,7 @@ export function ArticlePage() {
           ) : (
             /* 阅读态：原有渲染 */
             <div className="prose article-paper">
+              {/* 阅读态生成标题 id，使目录链接和滚动位置观察指向同一批 heading。 */}
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {article.content}
               </ReactMarkdown>
@@ -330,6 +342,7 @@ export function ArticlePage() {
                 </button>
               </div>
               <div className="prose version-preview-prose">
+                {/* 历史版本复用同一 Markdown/Mermaid 渲染链路，但不参与正文目录定位。 */}
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
                   {previewContent}
                 </ReactMarkdown>
