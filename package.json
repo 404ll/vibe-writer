@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.0.0",
   "scripts": {
+    "dev:api": "cd apps/api && ../../.venv/bin/python -m uvicorn backend.main:app --reload",
     "dev:web": "pnpm --filter @vibe-writer/web dev",
     "build:web": "pnpm --filter @vibe-writer/web build",
     "lint:web": "pnpm --filter @vibe-writer/web lint",

@@ -31,5 +31,4 @@ export const SSE_EVENT_TYPES = [
   ...SSE_EVENT_GROUPS.review,
 ] as const satisfies readonly SSEEventType[]
 
-// 收到这些事件后，说明任务已经结束，可以主动关闭 SSE 长连接。
 export const TERMINAL_EVENTS: ReadonlySet<SSEEventType> = new Set(SSE_EVENT_GROUPS.lifecycle)

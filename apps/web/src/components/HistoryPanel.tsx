@@ -33,27 +33,24 @@ export function HistoryPanel({ currentJob }: Props) {
   const navigate = useNavigate()
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [loading, setLoading] = useState(true)
-
-  async function fetchArticles() {
-    try {
-      const data = await getArticles()
-      setArticles(data)
-    } catch {
-      // 静默失败
-    } finally {
-      setLoading(false)
-    }
-  }
+  const completedJobId = currentJob?.stage === 'done' ? currentJob.jobId : null
 
   useEffect(() => {
-    fetchArticles()
-  }, [])
+    let cancelled = false
 
-  useEffect(() => {
-    if (currentJob?.stage === 'done') {
-      fetchArticles()
+    getArticles()
+      .then((data) => {
+        if (!cancelled) setArticles(data)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-  }, [currentJob?.stage])
+  }, [completedJobId])
 
   return (
     <div className="card history-panel">
