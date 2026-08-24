@@ -82,6 +82,47 @@ describe('useJobStream', () => {
     expect(onEvent).toHaveBeenCalledTimes(2)
   })
 
+  it('stops the stream when a terminal event is replayed from history', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(streamResponse([]) as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          events: [
+            { event: 'done', data: { article_id: 'article-1', _seq: 2 } },
+          ],
+        }),
+      } as Response)
+
+    const onEvent = vi.fn()
+    renderHook(() => useJobStream('job-123', onEvent))
+
+    await waitFor(() => {
+      expect(onEvent).toHaveBeenCalledWith('done', { article_id: 'article-1' })
+    })
+
+    const streamSignal = vi.mocked(fetch).mock.calls[0][1]?.signal
+    expect(streamSignal?.aborted).toBe(true)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops retrying when the job no longer exists', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 404 } as Response)
+
+    const onEvent = vi.fn()
+    renderHook(() => useJobStream('missing-job', onEvent))
+
+    await waitFor(() => {
+      expect(onEvent).toHaveBeenCalledWith('error', {
+        message: '任务不存在或后端已重启，请重新创建任务',
+      })
+    })
+
+    const streamSignal = vi.mocked(fetch).mock.calls[0][1]?.signal
+    expect(streamSignal?.aborted).toBe(true)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('groups SSE events by frontend workflow area', () => {
     expect(SSE_EVENT_GROUPS.lifecycle).toEqual(['done', 'cancelled', 'error'])
     expect(SSE_EVENT_GROUPS.planning).toEqual(['stage_update', 'outline_ready'])

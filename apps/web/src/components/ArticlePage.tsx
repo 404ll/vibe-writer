@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { patchArticle, getVersions, getVersion, restoreVersion } from '../api'
 import type { ArticleDetail, ArticleVersionSummary } from '../api'
-import { buildMarkdownComponents, slugifyHeading } from './markdownComponents'
+import { MarkdownContent } from './markdownComponents'
+import { slugifyHeading } from './markdownUtils'
 import { HOME_ROUTE } from '../routes'
 
 interface TocEntry {
@@ -47,9 +46,6 @@ export function ArticlePage({
   const [versions, setVersions] = useState<ArticleVersionSummary[]>([])
   const [previewContent, setPreviewContent] = useState<string | null>(null)
   const [previewVersionId, setPreviewVersionId] = useState<number | null>(null)
-
-  const mdComponents = useMemo(() => buildMarkdownComponents(true), [])
-  const mdComponentsPreview = useMemo(() => buildMarkdownComponents(false), [])
 
   useEffect(() => {
     if (!article) return
@@ -249,9 +245,7 @@ export function ArticlePage({
               <div className="article-preview-pane">
                 <p className="article-editor-label">预览</p>
                 <div className="prose">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
-                    {editContent}
-                  </ReactMarkdown>
+                  <MarkdownContent>{editContent}</MarkdownContent>
                 </div>
               </div>
               {/* 右栏：编辑 */}
@@ -267,9 +261,7 @@ export function ArticlePage({
           ) : (
             /* 阅读态：原有渲染 */
             <div className="prose article-paper">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                {article.content}
-              </ReactMarkdown>
+              <MarkdownContent withHeadingIds>{article.content}</MarkdownContent>
             </div>
           )}
         </main>
@@ -326,9 +318,7 @@ export function ArticlePage({
                 </button>
               </div>
               <div className="prose version-preview-prose">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponentsPreview}>
-                  {previewContent}
-                </ReactMarkdown>
+                <MarkdownContent>{previewContent}</MarkdownContent>
               </div>
             </div>
           )}

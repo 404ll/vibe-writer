@@ -34,7 +34,7 @@ export function HistoryPanel({ currentJob }: Props) {
   const router = useRouter()
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const hasCompletedJob = currentJob?.stage === 'done'
+  const completedJobId = currentJob?.stage === 'done' ? currentJob.jobId : null
 
   useEffect(() => {
     let cancelled = false
@@ -53,7 +53,7 @@ export function HistoryPanel({ currentJob }: Props) {
     return () => {
       cancelled = true
     }
-  }, [hasCompletedJob])
+  }, [completedJobId])
 
   return (
     <div className="card history-panel">

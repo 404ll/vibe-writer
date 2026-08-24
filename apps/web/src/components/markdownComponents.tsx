@@ -1,4 +1,7 @@
 import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { slugifyHeading } from './markdownUtils'
 
 type MermaidApi = typeof import('mermaid')['default']
 
@@ -77,41 +80,51 @@ function mermaidCodeFromPre(children: ReactNode): string | null {
   return null
 }
 
-export function slugifyHeading(text: string) {
-  return text.toLowerCase().replace(/[^\w\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '')
+const markdownComponents = {
+  pre({ children, ...props }: { children?: ReactNode }) {
+    const mermaidCode = mermaidCodeFromPre(children)
+    if (mermaidCode) return <MermaidBlock code={mermaidCode} />
+    return <pre {...props}>{children}</pre>
+  },
+  code({ className, children, ...props }: { className?: string; children?: ReactNode }) {
+    const lang = /language-(\w+)/.exec(className || '')?.[1]
+    if (lang === 'mermaid') {
+      return <MermaidBlock code={String(children).replace(/\n$/, '').trim()} />
+    }
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    )
+  },
 }
 
-/** react-markdown 组件映射：正确处理 ```mermaid 围栏块 */
-export function buildMarkdownComponents(withHeadingIds = false) {
-  return {
-    ...(withHeadingIds
-      ? {
-          h1: ({ children }: { children?: ReactNode }) => (
-            <h1 id={slugifyHeading(String(children))}>{children}</h1>
-          ),
-          h2: ({ children }: { children?: ReactNode }) => (
-            <h2 id={slugifyHeading(String(children))}>{children}</h2>
-          ),
-          h3: ({ children }: { children?: ReactNode }) => (
-            <h3 id={slugifyHeading(String(children))}>{children}</h3>
-          ),
-        }
-      : {}),
-    pre({ children, ...props }: { children?: ReactNode }) {
-      const mermaidCode = mermaidCodeFromPre(children)
-      if (mermaidCode) return <MermaidBlock code={mermaidCode} />
-      return <pre {...props}>{children}</pre>
-    },
-    code({ className, children, ...props }: { className?: string; children?: ReactNode }) {
-      const lang = /language-(\w+)/.exec(className || '')?.[1]
-      if (lang === 'mermaid') {
-        return <MermaidBlock code={String(children).replace(/\n$/, '').trim()} />
-      }
-      return (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      )
-    },
-  }
+const markdownComponentsWithHeadings = {
+  ...markdownComponents,
+  h1: ({ children }: { children?: ReactNode }) => (
+    <h1 id={slugifyHeading(String(children))}>{children}</h1>
+  ),
+  h2: ({ children }: { children?: ReactNode }) => (
+    <h2 id={slugifyHeading(String(children))}>{children}</h2>
+  ),
+  h3: ({ children }: { children?: ReactNode }) => (
+    <h3 id={slugifyHeading(String(children))}>{children}</h3>
+  ),
+}
+
+export function MarkdownContent({
+  children,
+  withHeadingIds = false,
+}: {
+  children: string
+  withHeadingIds?: boolean
+}) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={withHeadingIds ? markdownComponentsWithHeadings : markdownComponents}
+    >
+      {children}
+    </ReactMarkdown>
+  )
 }
