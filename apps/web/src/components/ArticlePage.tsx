@@ -14,6 +14,10 @@ interface TocEntry {
   level: number
 }
 
+/**
+ * 从原始 Markdown 中提取一到三级标题生成目录。
+ * 标题锚点复用正文渲染的 slugifyHeading，保证目录 href 与实际 heading id 一致。
+ */
 function extractToc(markdown: string): TocEntry[] {
   return markdown
     .split('\n')
@@ -28,7 +32,6 @@ function extractToc(markdown: string): TocEntry[] {
     .filter(Boolean) as TocEntry[]
 }
 
-
 export function ArticlePage({
   articleId,
   initialArticle,
@@ -39,6 +42,7 @@ export function ArticlePage({
   const router = useRouter()
   const [article, setArticle] = useState<ArticleDetail | null>(initialArticle)
   const [activeSlug, setActiveSlug] = useState('')
+  // 编辑态使用独立草稿；只有保存成功后才更新当前文章。
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -76,6 +80,7 @@ export function ArticlePage({
 
   function handleEdit() {
     if (!article) return
+    // 复制当前正文，取消编辑时即可直接丢弃草稿而不污染阅读态。
     setEditContent(article.content)
     setIsEditing(true)
   }
@@ -164,6 +169,7 @@ export function ArticlePage({
         <span className="article-word-count">
           {article.word_count?.toLocaleString()} 字
         </span>
+        {/* 编辑态按钮组 */}
         {isEditing ? (
           <>
             <button
@@ -245,6 +251,7 @@ export function ArticlePage({
               <div className="article-preview-pane">
                 <p className="article-editor-label">预览</p>
                 <div className="prose">
+                  {/* MarkdownContent 统一解析 GFM，并接管 Mermaid 代码块。 */}
                   <MarkdownContent>{editContent}</MarkdownContent>
                 </div>
               </div>
@@ -261,6 +268,7 @@ export function ArticlePage({
           ) : (
             /* 阅读态：原有渲染 */
             <div className="prose article-paper">
+              {/* 阅读态生成标题 id，使目录链接和滚动观察指向同一批 heading。 */}
               <MarkdownContent withHeadingIds>{article.content}</MarkdownContent>
             </div>
           )}
@@ -318,6 +326,7 @@ export function ArticlePage({
                 </button>
               </div>
               <div className="prose version-preview-prose">
+                {/* 历史版本复用同一渲染链路，但不生成正文目录锚点。 */}
                 <MarkdownContent>{previewContent}</MarkdownContent>
               </div>
             </div>
