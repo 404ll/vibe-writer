@@ -1,3 +1,9 @@
+/**
+ * 章节覆盖点规划。
+ *
+ * 每个要点必须配对一条搜索词。解析失败返回 `inconclusive` 而不是抛错，
+ * 好让工作流策略决定重试或失败，而不是把残缺要点交给 Writer 当事实骨架。
+ */
 import { parseJsonObject, type TextModel } from '@vibe-writer/model-runtime'
 import { z } from 'zod'
 import { buildCoverageUserPrompt, COVERAGE_SYSTEM } from './prompts'
@@ -8,6 +14,7 @@ const CoverageOutputSchema = z
     opinions: z.array(z.string().trim().min(1)).min(1).max(3),
     search_queries: z.array(z.string().trim().min(1)).min(1).max(3),
   })
+  // 要点与搜索词按下标一一对应；数量不一致时整次规划作废，避免 Writer 搜错主题。
   .refine((output) => output.opinions.length === output.search_queries.length, {
     message: 'Every coverage point must have exactly one search query',
   })
@@ -21,6 +28,7 @@ export type CoveragePlanResult =
   | { status: 'ready'; points: CoveragePoint[] }
   | { status: 'inconclusive'; points: []; reason: 'invalid_model_output' }
 
+/** 非法 JSON 或 schema 不匹配一律 inconclusive，调用方不得把原文当覆盖点使用。 */
 export function parseCoveragePlan(raw: string): CoveragePlanResult {
   const parsed = CoverageOutputSchema.safeParse(parseJsonObject(raw))
   if (!parsed.success) {

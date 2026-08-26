@@ -1,3 +1,10 @@
+/**
+ * 大纲规划器。
+ *
+ * 模型只负责生成编号章节标题；字数预算裁剪和解析失败都在本文件用确定性规则处理，
+ * 避免把模型闲聊或超长大纲直接送进后续写作节点。本层不持有 interrupt：人工确认大纲
+ * 是工作流节点的职责。
+ */
 import type { TextModel } from '@vibe-writer/model-runtime'
 import {
   buildOutlineRevisionUserPrompt,
@@ -7,6 +14,7 @@ import {
 } from './prompts'
 import { PROMPT_VERSIONS } from './versions'
 
+/** 只接受「数字编号 + 标题」行，丢掉解释性前后文，防止模型寒暄变成章节。 */
 export function parseOutline(raw: string): string[] {
   const chapters: string[] = []
   for (const rawLine of raw.trim().split('\n')) {
@@ -22,6 +30,7 @@ export function parseOutline(raw: string): string[] {
   return chapters
 }
 
+/** 章节数是全文预算的第一道硬闸；后续 Writer/Reviewer 再按字数收口。 */
 export function trimOutlineForBudget(chapters: string[], targetWords?: number): string[] {
   if (!targetWords || chapters.length === 0) return chapters
   const maxChapters =
@@ -32,6 +41,7 @@ export function trimOutlineForBudget(chapters: string[], targetWords?: number): 
 export class PlannerService {
   constructor(private readonly model: TextModel) {}
 
+  /** 首次规划。`effectScope` 只传给模型 metadata，供外层 fenced 账本关联，不改变大纲语义。 */
   async plan(input: { topic: string; targetWords?: number; signal?: AbortSignal; effectScope?: string }) {
     const response = await this.model.generate({
       operation: 'planner.plan',
@@ -46,6 +56,7 @@ export class PlannerService {
     return trimOutlineForBudget(parseOutline(response.text), input.targetWords)
   }
 
+  /** 按用户反馈改大纲；输出仍是完整大纲，不是 diff。 */
   async revise(input: {
     topic: string
     outline: string[]

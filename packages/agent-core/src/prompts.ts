@@ -1,3 +1,10 @@
+/**
+ * 版本化提示词与用户消息拼装。
+ *
+ * 这里的字符串会进入模型调用，也是评测基线的一部分。改约束或输出格式必须同步
+ * bump `PROMPT_VERSIONS`；只改文案不改版本会导致旧 checkpoint 在新规则下静默续跑。
+ * `pythonRound` 对齐旧 Python 的银行家舍入，供字数硬闸与提示词上限共用。
+ */
 export const GLOBAL_WRITING_RULES = `【最高优先级约束，必须严格遵守】
 1. 文章主题与用户给定的 topic 一致，不得偏题。
 2. 若用户指定了全文字数上限，全篇总字数不得超过该上限；各章按分配字数写作，不得用「多写几章」规避限制。
@@ -67,6 +74,7 @@ export const STYLE_PROMPTS = {
   教程: '写作风格：手把手教学，步骤清晰，每步有预期结果，适合初学者跟随操作。',
 } as const
 
+/** 蒸馏提示带 as-of 日期，避免模型把旧闻写成「当前」。 */
 export function buildResearchSystemPrompt(asOfDate: string): string {
   return `你是一位研究助手。用户给你一组网络搜索摘要（含发布时间与来源 URL），请提炼对技术写作有价值的信息。
 当前日期：${asOfDate}
@@ -164,6 +172,10 @@ export function writerStyleInstruction(style?: string): string {
   return STYLE_PROMPTS[style as keyof typeof STYLE_PROMPTS] ?? style
 }
 
+/**
+ * 章节 system/user 必须把字数、风格和是否开放 search 写进提示，
+ * 否则模型会按「无上限、无工具」生成，后续审稿只能被动失败。
+ */
 export function buildChapterPrompts(input: {
   topic: string
   outline: string
@@ -256,6 +268,7 @@ ${input.fullText}
 }
 
 export function pythonRound(value: number): number {
+  // 与 Python round() 在 .5 时向偶数取整一致；Math.round 会破坏字数闸门对账。
   const floor = Math.floor(value)
   const fraction = value - floor
   if (fraction !== 0.5) return Math.round(value)

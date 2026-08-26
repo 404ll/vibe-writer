@@ -1,3 +1,11 @@
+/**
+ * 有界工具循环。
+ *
+ * 每个 assistant tool_call 必须在下一条 user 消息里收到同 id 的 tool_result，
+ * 否则供应商协议会断裂。未知工具、非法输入、handler 错误和预算耗尽都要回
+ * isError result，而不是跳过执行。空白正文、max_tokens、refusal、pause_turn
+ * 或轮次耗尽都不能当作成功正文。transcript 默认不由本层持久化。
+ */
 import {
   textFromToolBlocks,
   type JsonObject,
@@ -53,6 +61,7 @@ export type ToolExecutionContext = {
   effectScope?: string
 }
 
+/** 单次 handler 结果。content 会进模型上下文；metadata 只给执行记录，不回给模型。 */
 export type ToolExecutionOutput = {
   content: string
   isError?: boolean
@@ -70,6 +79,7 @@ export type RegisteredTool = {
   ): Promise<ToolExecutionOutput>
 }
 
+/** 把 Zod schema 转成供应商 JSON Schema；运行时校验和模型 tool 定义必须同源。 */
 export function definitionForTool(
   tool: Pick<RegisteredTool, 'name' | 'description' | 'inputSchema'>,
 ): ToolDefinition {
@@ -85,6 +95,7 @@ export type ToolBudgetUsage = {
   callsByTool: Record<string, number>
 }
 
+/** 只记录 provider/model/stop/usage/request id，不携带工具正文或 transcript。 */
 export type ToolModelCallRecord = {
   provider: string
   model: string
@@ -126,7 +137,9 @@ export type ToolLoopRunInput = {
   user: string
   maxTokens: number
   tools: RegisteredTool[]
+  /** 模型发起 tool_use 的轮数上限；与 maxTotalCalls 独立，防止空转。 */
   maxToolRounds?: number
+  /** 实际 dispatch 次数上限（含失败尝试）；超限仍回 error result。 */
   maxTotalCalls?: number
   budgetUsage?: ToolBudgetUsage
   signal?: AbortSignal
@@ -209,7 +222,7 @@ export class ToolLoopRunner {
       try {
         await input.onEvent?.(event)
       } catch {
-        // Observability is best-effort here. Durable business events belong in the graph/worker.
+        // 进度回调失败不得中断写作；可持久化业务事件由 Graph/Worker 写入 PostgreSQL。
       }
     }
 
@@ -253,6 +266,7 @@ export class ToolLoopRunner {
       const toolCalls = responseBlocks.filter((block) => block.type === 'tool_call')
       const responseText = textFromToolBlocks(responseBlocks)
 
+      // 只有 end_turn 且无 tool_call 才可能是完成；夹带 tool_call 或其它 stopReason 一律 inconclusive。
       if (response.stopReason !== 'tool_use') {
         if (toolCalls.length > 0 || response.stopReason !== 'end_turn') {
           return {
@@ -289,6 +303,7 @@ export class ToolLoopRunner {
           return !call.id || duplicate
         })
       ) {
+        // 空 id 或跨轮重复 id 无法配对 tool_result，继续执行会污染后续协议。
         return {
           ...resultBase(),
           status: 'inconclusive',
@@ -323,6 +338,7 @@ export class ToolLoopRunner {
         let execution: ToolExecutionRecord
         const registered = registry.get(call.name)
         if (callIndex > maxTotalCalls) {
+          // 超限仍写入 tool_result，让模型收到预算耗尽而不是协议悬挂。
           execution = {
             toolCallId: call.id,
             name: call.name,
@@ -397,6 +413,7 @@ export class ToolLoopRunner {
                 }
               } catch (error) {
                 if (isCancellation(error, input.signal)) throw error
+                // handler 异常对模型只暴露安全文案；retryable 等细节留在 metadata。
                 execution = {
                   toolCallId: call.id,
                   name: call.name,
@@ -432,6 +449,7 @@ export class ToolLoopRunner {
           },
         })
       }
+      // 本轮全部 tool_result 一次性回给模型，禁止只执行部分 call。
       transcript.push({ role: 'user', content: toolResults })
     }
 

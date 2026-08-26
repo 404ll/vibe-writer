@@ -1,3 +1,10 @@
+/**
+ * 章节写作：有界工具循环 + 结构化检索结果。
+ *
+ * 搜索次数和总 dispatch 上限必须跨 attempt 累计（`budgetUsage` 来自 checkpoint），
+ * 否则重写章节会把 3 次 search / 8 次调用上限重置。unavailable/failed 必须标 isError，
+ * 模型不得把服务故障提示当研究证据。
+ */
 import type {
   JsonObject,
   ToolModel,
@@ -91,12 +98,14 @@ export type WriterInput = {
   reviewFeedback?: string
   chapterWords?: number
   targetWords?: number
+  /** 整章累计用量，必须从 graph state/checkpoint 传回，不能每次 write 从零开始。 */
   budgetUsage: ToolBudgetUsage
   signal?: AbortSignal
   onToolEvent?: (event: ToolLoopEvent) => void | Promise<void>
   effectScope?: string
 }
 
+/** 按章节字数给模型输出留余量；过小会 max_tokens 截断，过大浪费预算。 */
 export function maxTokensForChapter(chapterWords?: number): number {
   if (!chapterWords) return 4096
   return Math.min(8192, Math.max(512, Math.trunc(chapterWords * 2.2)))
@@ -111,6 +120,7 @@ function sourceMetadata(result: ResearchResult): JsonObject[] {
   }))
 }
 
+/** 给模型看 compact 摘要和 URL；执行记录里才保留 provider/request id 与来源元数据。 */
 export function renderResearchToolResult(result: ResearchResult): {
   content: string
   isError: boolean
@@ -135,6 +145,7 @@ export function renderResearchToolResult(result: ResearchResult): {
     }
   }
   if (result.status === 'empty') {
+    // empty 不是故障：模型可以换词再搜，但不能把「没找到」写成已引用资料。
     return {
       content: '未找到可用来源，请调整查询或基于已有信息继续。',
       isError: false,
@@ -151,7 +162,7 @@ export function renderResearchToolResult(result: ResearchResult): {
       result.status === 'unavailable'
         ? '搜索服务当前不可用，请基于已有信息继续，且不要把此提示当作资料。'
         : '搜索或资料提炼失败，请调整查询或基于已有信息继续，且不要编造来源。',
-    isError: true,
+    isError: true, // 故障提示绝不能进入「可引用来源」语义。
     metadata: {
       status: result.status,
       stage: result.stage,
@@ -169,6 +180,7 @@ function diagramTool(): RegisteredTool {
   return {
     ...DIAGRAM_TOOL,
     async execute(input) {
+      // 图表在本地组装 Markdown，不调用外部服务；失败不得冒充已检索事实。
       const parsed = DiagramToolInputSchema.parse(input)
       return {
         content: `\`\`\`mermaid\n${parsed.mermaid_code}\n\`\`\`\n\n（图表已生成，请将以上代码块插入章节正文的合适位置）`,
@@ -181,7 +193,7 @@ function diagramTool(): RegisteredTool {
 function searchTool(research: ResearchFn): RegisteredTool {
   return {
     ...SEARCH_TOOL,
-    maxCalls: 3,
+    maxCalls: 3, // 单章搜索上限；超限仍回 error result，不跳过 tool_use 协议。
     async execute(input, context) {
       const parsed = SearchToolInputSchema.parse(input)
       return renderResearchToolResult(
@@ -216,6 +228,7 @@ export class WriterService {
       searchEnabled: Boolean(this.options.research),
     })
     const tools = [diagramTool()]
+    // 未注入 research 时不注册 search，避免模型发出无法落地的 tool_call。
     if (this.options.research) tools.unshift(searchTool(this.options.research))
 
     const result = await this.loop.run({
@@ -238,6 +251,7 @@ export class WriterService {
       onEvent: input.onToolEvent,
     })
 
+    // 空白正文、max_tokens、refusal、轮次耗尽都不是成功章节，交给工作流策略重试或失败。
     if (result.status === 'completed') {
       return {
         status: 'ready',

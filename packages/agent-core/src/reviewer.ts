@@ -1,3 +1,10 @@
+/**
+ * 审稿：先做确定性字数闸门，再问模型质量判断。
+ *
+ * 字数超限直接 failed，不消耗审稿模型。模型 JSON 无法解析时是 inconclusive，
+ * 与「质量不通过」分开，避免把协议失败当成文章写坏。计数规则对齐 Python 基线
+ * （去空白后的码点长度 + 银行家舍入），否则评测会因 0.5 字差漂移。
+ */
 import { parseJsonObject, type TextModel } from '@vibe-writer/model-runtime'
 import { z } from 'zod'
 import {
@@ -33,6 +40,7 @@ export type ReviewChapter = {
   content: string
 }
 
+/** 与旧 Python 计数对齐：去掉空格和换行后按 Unicode 码点计「字」。 */
 export function countArticleChars(text: string): number {
   return Array.from(text.replaceAll(' ', '').replaceAll('\n', '')).length
 }
@@ -67,6 +75,7 @@ export class ReviewerService {
   }): Promise<ReviewResult> {
     if (input.chapterWords) {
       const actual = countArticleChars(input.content)
+      // 单章允许超过分配字数 15%；再宽会让全文预算形同虚设。
       const hardMax = pythonRound(input.chapterWords * 1.15)
       if (actual > hardMax) {
         return {
@@ -104,6 +113,7 @@ export class ReviewerService {
 
     if (input.targetWords) {
       const total = countArticleChars(fullText)
+      // 全文只放宽 10%，比单章更严，防止各章都顶到 115% 后总和失控。
       const hardMax = pythonRound(input.targetWords * 1.1)
       if (total > hardMax) {
         return input.chapters.map(() => ({
@@ -131,6 +141,7 @@ export class ReviewerService {
     const parsed = FullReviewResponseSchema.safeParse(parseJsonObject(response.text))
     if (!parsed.success) return input.chapters.map(() => inconclusive('invalid_model_output'))
 
+    // results 必须与章节一一对应；缺项按 inconclusive，不能默认 passed。
     return input.chapters.map((_, index) => {
       const result = parsed.data.results[index]
       return result ? fromModelResult(result) : inconclusive('missing_model_result')
