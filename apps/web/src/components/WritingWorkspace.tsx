@@ -31,7 +31,11 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
   const job = jobState ?? (persistedJobId ? makeEmptyJob(persistedJobId) : null)
   // 这些状态只服务当前页面展示；后端仍是任务进度和文章内容的事实来源
   const [awaitingReview, setAwaitingReview] = useState(false)
-  const [completedChapters, setCompletedChapters] = useState(0)
+  // 全文审核可能让同一章节进入重写并再次发出 chapter_done；用标题集合去重，
+  // 避免断线重放或重写轮次把“已完成章节数”累加到大纲总数以上。
+  const [completedChapterTitles, setCompletedChapterTitles] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
   const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>>({})
   // 滑动窗口写作预览：记录最新活跃章节和累积 token
@@ -110,7 +114,7 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
         const title = data.title as string
         const token = data.token as string | undefined
         if (token !== undefined) {
-          // 后端按 token 流式推送章节内容；这里累积成预览区的滑动文本
+          // 后端推送正文增量块（当前是一章一个完整块）；这里统一累积成预览文本。
           setWritingState((prev) =>
             prev?.title === title
               ? { title, buffer: prev.buffer + token }
@@ -127,8 +131,9 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
         break
       case 'chapter_done': {
         const review = data.review as ReviewResult | undefined
-        setCompletedChapters((n) => n + 1)
-        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'done' }))
+        const title = data.title as string
+        setCompletedChapterTitles((prev) => new Set(prev).add(title))
+        setChapterStatus((prev) => ({ ...prev, [title]: 'done' }))
         if (review && !review.passed) {
           addActivity('failed', `轻审未通过：${data.title as string} → 已重写`)
         } else {
@@ -184,7 +189,7 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
     const { job_id } = await res.json()
     writeActiveJobId(job_id)
     setJob(makeEmptyJob(job_id))
-    setCompletedChapters(0)
+    setCompletedChapterTitles(new Set())
     setAwaitingReview(false)
     setActivityLog([])
     setWritingState(null)
@@ -206,7 +211,7 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
     clearActiveJobId()
     setJob(null)
     setAwaitingReview(false)
-    setCompletedChapters(0)
+    setCompletedChapterTitles(new Set())
     setActivityLog([])
     setWritingState(null)
     setChapterStatus({})
@@ -290,7 +295,7 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
                   {isScrollable && job && (
                     <StagePanel
                       currentStage={job.stage}
-                      completedChapters={completedChapters}
+                      completedChapters={completedChapterTitles.size}
                       totalChapters={job.outline?.length ?? 0}
                       chapterStatus={chapterStatus}
                       outline={job.outline ?? []}
