@@ -20,6 +20,8 @@ import type { WorkerRunResult } from './runner'
 
 export const DEFAULT_WRITE_QUEUE_NAME = 'vibe-writer-write'
 
+// 这里只负责队列消息的传输重试；消息被再次消费后是否可以执行业务，仍由
+// PostgreSQL Job 状态、租约、幂等键和 Checkpoint 共同判断。
 export const DEFAULT_WRITE_JOB_OPTIONS = {
   attempts: 8,
   backoff: { type: 'exponential', delay: 1_000, jitter: 0.2 },

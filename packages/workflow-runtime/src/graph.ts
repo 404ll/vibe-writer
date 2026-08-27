@@ -3,15 +3,10 @@ import {
   START,
   Command,
   StateGraph,
-  StateSchema,
   interrupt,
   type BaseCheckpointSaver,
 } from '@langchain/langgraph'
-import type {
-  CoveragePlanResult,
-  ReviewResult,
-  WriterResult,
-} from '@vibe-writer/agent-core'
+import type { ReviewResult } from '@vibe-writer/agent-core'
 import { ReplyRequestSchema } from '@vibe-writer/contracts/jobs'
 import { z } from 'zod'
 import {
@@ -22,137 +17,38 @@ import {
   writerInconclusiveDecision,
 } from './policy'
 import {
+  CoverageResultSchema,
+  OutlineCommandSchema,
+  OutlineSchema,
+  ReviewResultSchema,
+  WorkflowGraphState,
+  WriterResultSchema,
+} from './schemas'
+import {
   createChapterState,
-  CoveragePointSchema,
   ExportIntentSchema,
   renderMarkdown,
-  ToolBudgetUsageSchema,
-  WorkflowStateSchema,
   type ChapterWorkflowState,
   type WorkflowState,
 } from './state'
+import type {
+  WorkflowNodeName,
+  WorkflowProgressEvent,
+  WorkflowProgressSink,
+  WorkflowServices,
+} from './types'
 
-export const WorkflowGraphState = new StateSchema(WorkflowStateSchema.shape)
+// 本文件只保留真正推进工作流的运行逻辑：辅助函数、节点实现、条件边、
+// Graph 编译和人工恢复入口。编译期类型在 types.ts，运行时校验在 schemas.ts。
+// 这里刻意使用显式状态图而不是自治协商，使重试、中断和终态路径可单独验证。
 
-// 这里刻意使用显式状态图，而不是让多个自治智能体自由协商：每个节点的输入、
-// 重试、中断和终态路径都可被检查点、固定样例与评测单独验证。
-
-type WorkflowNodeName =
-  | '__start__'
-  | 'plan'
-  | 'outline_review'
-  | 'revise_outline'
-  | 'initialize_chapters'
-  | 'coverage'
-  | 'write'
-  | 'light_review'
-  | 'next_chapter'
-  | 'full_review'
-  | 'export'
-
-const OutlineSchema = z.array(z.string().trim().min(1)).min(1).max(6)
-
-const OutlineCommandSchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('confirm'),
-    outline: OutlineSchema.optional(),
-  }),
-  z.object({
-    action: z.literal('revise'),
-    message: z.string().trim().min(1),
-    outline: OutlineSchema.optional(),
-  }),
-])
-
-const CoverageResultSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('ready'), points: z.array(CoveragePointSchema).min(1) }),
-  z.object({
-    status: z.literal('inconclusive'),
-    points: z.tuple([]),
-    reason: z.literal('invalid_model_output'),
-  }),
-])
-
-const ReviewResultSchema = z.object({
-  verdict: z.enum(['passed', 'failed', 'inconclusive']),
-  feedback: z.string(),
-  source: z.enum(['deterministic', 'model']),
-  reason: z
-    .enum(['word_budget_exceeded', 'invalid_model_output', 'missing_model_result'])
-    .optional(),
-})
-
-const WriterResultSchema = z.discriminatedUnion('status', [
-  z.object({
-    status: z.literal('ready'),
-    content: z.string().trim().min(1),
-    budgetUsage: ToolBudgetUsageSchema,
-  }),
-  z.object({
-    status: z.literal('inconclusive'),
-    reason: z.enum([
-      'max_tool_rounds',
-      'invalid_model_response',
-      'empty_final_text',
-      'max_tokens',
-      'refusal',
-      'pause_turn',
-    ]),
-    budgetUsage: ToolBudgetUsageSchema,
-  }),
-])
-
-export type WorkflowServices = {
-  plan(input: { topic: string; targetWords?: number; signal?: AbortSignal; effectScope?: string }): Promise<string[]>
-  reviseOutline(input: {
-    topic: string
-    outline: string[]
-    feedback: string
-    targetWords?: number
-    signal?: AbortSignal
-    effectScope?: string
-  }): Promise<string[]>
-  planCoverage(input: {
-    topic: string
-    outline: string
-    chapterTitle: string
-    signal?: AbortSignal
-    effectScope?: string
-  }): Promise<CoveragePlanResult>
-  writeChapter(input: {
-    topic: string
-    outline: string
-    chapterTitle: string
-    coveragePoints: ChapterWorkflowState['coveragePoints']
-    reviewFeedback: string
-    chapterWords?: number
-    targetWords?: number
-    budgetUsage: ChapterWorkflowState['toolBudgetUsage']
-    style?: string
-    signal?: AbortSignal
-    effectScope?: string
-  }): Promise<WriterResult>
-  reviewChapter(input: {
-    chapterTitle: string
-    content: string
-    outline: string
-    chapterWords?: number
-    signal?: AbortSignal
-    effectScope?: string
-  }): Promise<ReviewResult>
-  reviewFull(input: {
-    topic: string
-    chapters: Array<{ title: string; content: string }>
-    targetWords?: number
-    signal?: AbortSignal
-    effectScope?: string
-  }): Promise<ReviewResult[]>
-}
-
+// 将数组形式的大纲转换成适合传给模型的编号文本；不修改原 State。
 function outlineText(state: WorkflowState): string {
   return state.outline.map((title, index) => `${index + 1}. ${title}`).join('\n')
 }
 
+// LangGraph 节点返回的是 State 的部分更新。这里用不可变方式只替换指定章节，
+// 避免原地修改 state.chapters 导致 Checkpoint 前后引用混乱。
 function replaceChapter(
   state: WorkflowState,
   index: number,
@@ -163,19 +59,24 @@ function replaceChapter(
   )
 }
 
+// 所有逐章节点都通过 currentChapterIndex 获取当前处理对象。
 function currentChapter(state: WorkflowState): ChapterWorkflowState | undefined {
   return state.chapters[state.currentChapterIndex]
 }
 
+// 隔离服务返回值与 Workflow State 的引用，防止适配器后续修改对象时污染已提交状态。
 function cloneValue<T>(value: T): T {
   return structuredClone(value)
 }
 
+// 用户取消和租约丢失最终都会表现为 AbortError，必须继续抛给 Worker Runner；
+// 其他领域服务异常才收敛成可进入工作流失败策略的统一错误码。
 function serviceErrorCode(error: unknown): string {
   if (error instanceof Error && error.name === 'AbortError') throw error
   return 'service_exception'
 }
 
+// 把任意节点错误统一投影成合法的 failed State，并在逐章阶段记录出错章节。
 function failedUpdate(
   state: WorkflowState,
   stage: Parameters<typeof terminalFailure>[0]['stage'],
@@ -193,12 +94,34 @@ function failedUpdate(
   }
 }
 
+/**
+ * 组装完整写作状态图。
+ *
+ * `services` 提供节点需要的领域能力；`checkpointer` 持久化节点进度；
+ * `signal` 把 Worker 的取消或租约丢失传递到模型、搜索和 Graph 节点。
+ */
 export function buildWorkflowGraph(
   services: WorkflowServices,
-  options: { checkpointer?: BaseCheckpointSaver; signal?: AbortSignal } = {},
+  options: {
+    checkpointer?: BaseCheckpointSaver
+    signal?: AbortSignal
+    progress?: WorkflowProgressSink
+  } = {},
 ) {
+  // Graph 只负责“当前节点做什么、下一步去哪里”；模型、搜索等具体能力由
+  // services 注入。这样节点可独立测试，Graph State 也保持可持久化。
+  const emitProgress = async (progress: WorkflowProgressEvent) => {
+    await options.progress?.(progress)
+  }
+
+  // 节点 plan：生成初始大纲。
+  // 成功后进入人工确认或章节初始化；无效结果按策略再试一次，耗尽预算则 failed。
   const plan: typeof WorkflowGraphState.Node = async (state) => {
     const attempts = state.outlineAttempts + 1
+    await emitProgress({
+      idempotencyKey: 'workflow:stage:plan',
+      event: { event: 'stage_update', data: { stage: 'plan' } },
+    })
     let outline: string[]
     try {
       const rawOutline = cloneValue(
@@ -234,7 +157,11 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 节点 outline_review：工作流唯一的人工中断点。
+  // 用户确认后进入 initialize_chapters；要求修改则进入 revise_outline。
   const outlineReview: typeof WorkflowGraphState.Node = (state) => {
+    // interrupt() 不是让 Worker 进程原地等待。LangGraph 会先通过 checkpointer
+    // 保存当前 State 并结束本次执行；恢复时它才返回用户提交的 confirm/revise。
     const parsed = OutlineCommandSchema.safeParse(
       interrupt({ type: 'outline_review', outline: state.outline }),
     )
@@ -256,6 +183,8 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 节点 revise_outline：使用用户反馈生成新大纲。
+  // 成功后清空上一次 action/feedback 并回到 outline_review，再让用户确认。
   const reviseOutline: typeof WorkflowGraphState.Node = async (state) => {
     const attempts = state.outlineRevisionAttempts + 1
     let outline: string[]
@@ -310,20 +239,35 @@ export function buildWorkflowGraph(
     }
   }
 
-  const initializeChapters: typeof WorkflowGraphState.Node = (state) => ({
-    phase: 'write',
-    chapters: state.outline.map(createChapterState),
-    currentChapterIndex: 0,
-    outlineAction: 'none',
-    outlineFeedback: '',
-  })
+  // 节点 initialize_chapters：把大纲标题变成带重试、审核和工具预算字段的章节状态。
+  // 这里只初始化数据，不调用模型；下一节点固定为 coverage。
+  const initializeChapters: typeof WorkflowGraphState.Node = async (state) => {
+    await emitProgress({
+      idempotencyKey: 'workflow:stage:write:round:0',
+      event: { event: 'stage_update', data: { stage: 'write' } },
+    })
+    return {
+      phase: 'write',
+      chapters: state.outline.map(createChapterState),
+      currentChapterIndex: 0,
+      outlineAction: 'none',
+      outlineFeedback: '',
+    }
+  }
 
+  // 节点 coverage：为当前章节准备写作覆盖点。
+  // 已审核通过或已有覆盖点的章节会直接跳过；否则生成覆盖点后进入 write。
   const coverage: typeof WorkflowGraphState.Node = async (state) => {
     const chapter = currentChapter(state)
     if (!chapter || chapter.reviewStatus === 'passed' || chapter.coveragePoints.length > 0) {
       return { phase: 'write' }
     }
     const attempts = chapter.coverageAttempts + 1
+    const scope = `workflow:chapter:${state.currentChapterIndex}:coverage:attempt:${attempts}`
+    await emitProgress({
+      idempotencyKey: `${scope}:generating-opinions`,
+      event: { event: 'generating_opinions', data: { title: chapter.title } },
+    })
     let result: z.infer<typeof CoverageResultSchema>
     try {
       result = CoverageResultSchema.parse(
@@ -373,6 +317,10 @@ export function buildWorkflowGraph(
         }),
       }
     }
+    await emitProgress({
+      idempotencyKey: `${scope}:opinions-ready`,
+      event: { event: 'opinions_ready', data: { title: chapter.title } },
+    })
     return {
       chapters: replaceChapter(state, state.currentChapterIndex, {
         coverageAttempts: attempts,
@@ -381,10 +329,18 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 节点 write：生成当前章节正文，也承接轻审和全文审核后的重写。
+  // reviewFeedback 告诉 Writer 为什么重写；成功后重置本轮计数并进入 light_review。
   const write: typeof WorkflowGraphState.Node = async (state) => {
     const chapter = currentChapter(state)
     if (!chapter) return failedUpdate(state, 'write', 'missing_chapter', 'Chapter index is invalid.')
     const attemptInPass = chapter.writeAttemptInPass + 1
+    const writeAttempt = chapter.writeAttempts + 1
+    const scope = `workflow:chapter:${state.currentChapterIndex}:write:attempt:${writeAttempt}`
+    await emitProgress({
+      idempotencyKey: `${scope}:started`,
+      event: { event: 'writing_chapter', data: { title: chapter.title, token: '' } },
+    })
     let result: z.infer<typeof WriterResultSchema>
     try {
       result = WriterResultSchema.parse(
@@ -400,7 +356,36 @@ export function buildWorkflowGraph(
             budgetUsage: cloneValue(chapter.toolBudgetUsage),
             style: state.style,
             signal: options.signal,
-            effectScope: `chapter:${state.currentChapterIndex}:write:attempt:${chapter.writeAttempts + 1}`,
+            effectScope: `chapter:${state.currentChapterIndex}:write:attempt:${writeAttempt}`,
+            onSearchProgress: async (progress) => {
+              const searchScope = `${scope}:search:${progress.index}`
+              await emitProgress(
+                progress.phase === 'started'
+                  ? {
+                      idempotencyKey: `${searchScope}:started`,
+                      event: {
+                        event: 'searching',
+                        data: {
+                          title: chapter.title,
+                          query: progress.query,
+                          index: progress.index,
+                        },
+                      },
+                    }
+                  : {
+                      idempotencyKey: `${searchScope}:finished`,
+                      event: {
+                        event: 'search_done',
+                        data: {
+                          title: chapter.title,
+                          query: progress.query,
+                          preview: progress.preview,
+                          chars: progress.chars,
+                        },
+                      },
+                    },
+              )
+            },
           }),
         ),
       )
@@ -441,6 +426,15 @@ export function buildWorkflowGraph(
         chapters,
       }
     }
+    // 当前模型接口返回完整章节而非 token stream，因此这里只持久化一个正文块。
+    // 前端仍复用 writing_chapter 的累积逻辑，但不能将其描述为逐 token 输出。
+    await emitProgress({
+      idempotencyKey: `${scope}:content`,
+      event: {
+        event: 'writing_chapter',
+        data: { title: chapter.title, token: result.content },
+      },
+    })
     return {
       chapters: replaceChapter(state, state.currentChapterIndex, {
         ...common,
@@ -453,12 +447,20 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 节点 light_review：逐章快速审核。
+  // 第一次失败会设置 needsRewrite 回到 write；再次失败则记录 warning 并继续下一章，
+  // 防止单章质量问题让整条 Graph 无限循环。
   const lightReview: typeof WorkflowGraphState.Node = async (state) => {
     const chapter = currentChapter(state)
     if (!chapter) {
       return failedUpdate(state, 'review', 'missing_chapter', 'Chapter index is invalid.')
     }
     const attempts = chapter.lightReviewAttempts + 1
+    const scope = `workflow:chapter:${state.currentChapterIndex}:review:write:${chapter.writeAttempts}:attempt:${attempts}`
+    await emitProgress({
+      idempotencyKey: `${scope}:started`,
+      event: { event: 'reviewing_chapter', data: { title: chapter.title } },
+    })
     let result: z.infer<typeof ReviewResultSchema>
     try {
       result = ReviewResultSchema.parse(
@@ -521,6 +523,19 @@ export function buildWorkflowGraph(
         }),
       }
     }
+    await emitProgress({
+      idempotencyKey: `${scope}:finished`,
+      event: {
+        event: 'chapter_done',
+        data: {
+          title: chapter.title,
+          review: {
+            passed: result.verdict === 'passed',
+            feedback: result.feedback,
+          },
+        },
+      },
+    })
     return {
       chapters: replaceChapter(state, state.currentChapterIndex, {
         lightReviewAttempts: attempts,
@@ -535,12 +550,26 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 节点 next_chapter：只移动章节游标。
+  // 还有章节时回到 coverage；全部完成后进入 full_review。
   const nextChapter: typeof WorkflowGraphState.Node = (state) => ({
     currentChapterIndex: state.currentChapterIndex + 1,
   })
 
+  // 节点 full_review：一次审核所有章节并将结果写回对应章节。
+  // 全部通过则 export；首轮仍有失败章节则重写；第二轮仍失败则带 warning 导出。
   const fullReview: typeof WorkflowGraphState.Node = async (state) => {
     const attempts = state.fullReviewAttempts + 1
+    const reviewRound = state.fullReviewRound + 1
+    const scope = `workflow:full-review:round:${reviewRound}:attempt:${attempts}`
+    await emitProgress({
+      idempotencyKey: `workflow:stage:review:round:${reviewRound}`,
+      event: { event: 'stage_update', data: { stage: 'review' } },
+    })
+    await emitProgress({
+      idempotencyKey: `${scope}:started`,
+      event: { event: 'reviewing_full', data: {} },
+    })
     let results: Array<z.infer<typeof ReviewResultSchema>>
     try {
       const rawResults = cloneValue(
@@ -595,6 +624,20 @@ export function buildWorkflowGraph(
       }
     }
 
+    await emitProgress({
+      idempotencyKey: `${scope}:finished`,
+      event: {
+        event: 'review_done',
+        data: {
+          results: normalized.map((result, index) => ({
+            title: state.chapters[index]!.title,
+            passed: result.verdict === 'passed',
+            feedback: result.feedback,
+          })),
+        },
+      },
+    })
+
     const round = state.fullReviewRound + 1
     const chapters = state.chapters.map((chapter, index) => {
       const result = normalized[index] as ReviewResult
@@ -628,6 +671,10 @@ export function buildWorkflowGraph(
         ],
       }
     }
+    await emitProgress({
+      idempotencyKey: `workflow:stage:write:round:${round}`,
+      event: { event: 'stage_update', data: { stage: 'write' } },
+    })
     return {
       phase: 'write',
       chapters: chapters.map((chapter) =>
@@ -648,7 +695,13 @@ export function buildWorkflowGraph(
     }
   }
 
-  const exportArticle: typeof WorkflowGraphState.Node = (state) => {
+  // 节点 export：纯计算地拼接最终 Markdown，并生成稳定的导出幂等键。
+  // 它不直接写 articles 表；真正的文章、done 事件和终态由 Runner 事务提交。
+  const exportArticle: typeof WorkflowGraphState.Node = async (state) => {
+    await emitProgress({
+      idempotencyKey: `workflow:stage:export:round:${state.fullReviewRound}`,
+      event: { event: 'stage_update', data: { stage: 'export' } },
+    })
     const markdown = renderMarkdown(state.topic, state.chapters)
     const exportIntent = ExportIntentSchema.parse({
       idempotencyKey: `job:${state.jobId}:article:export`,
@@ -661,6 +714,8 @@ export function buildWorkflowGraph(
     }
   }
 
+  // 把上面定义的函数注册为具名节点，再用条件边显式编码重试、人工修改和审核重写。
+  // 节点函数负责更新 State；条件边只读取更新后的 State，决定下一节点名称。
   const builder = new StateGraph(WorkflowGraphState)
     .addNode('plan', plan)
     .addNode('outline_review', outlineReview)
@@ -718,13 +773,18 @@ export function buildWorkflowGraph(
     })
     .addEdge('export', END)
 
+  // 注入 checkpointer 后，每个已提交节点都能形成可恢复点；没有 checkpointer
+  // 时只允许不含人工中断的临时执行。
   const compiled = builder.compile({ checkpointer: options.checkpointer })
+
+  // 条件边包含有限循环，recursionLimit 是最后一道保险，防止未来改动意外形成死循环。
   const withRecursionLimit = <T extends { recursionLimit?: number } | undefined>(config: T) => ({
     ...config,
     recursionLimit: config?.recursionLimit ?? 100,
   })
 
   return {
+    // 新任务入口：传入 createWorkflowState() 的结果，从 START → plan 开始。
     invoke: async (
       input: Parameters<typeof compiled.invoke>[0],
       config?: Parameters<typeof compiled.invoke>[1],
@@ -740,12 +800,15 @@ export function buildWorkflowGraph(
       }
       return compiled.invoke(input, withRecursionLimit(config))
     },
+    // 恢复入口：不创建新 State，直接让 LangGraph 从当前 thread 的 Checkpoint 继续。
     replay: (config: Parameters<typeof compiled.getState>[0]) =>
       compiled.invoke(null, withRecursionLimit(config)),
+    // 读取当前 thread 的最新状态，主要用于诊断和测试，不推进 Graph。
     getState: (
       config: Parameters<typeof compiled.getState>[0],
       options?: Parameters<typeof compiled.getState>[1],
     ) => compiled.getState(config, options),
+    // 读取该 thread 的 Checkpoint 历史，主要用于恢复验证和问题排查。
     getStateHistory: (
       config: Parameters<typeof compiled.getStateHistory>[0],
       options?: Parameters<typeof compiled.getStateHistory>[1],
@@ -753,6 +816,12 @@ export function buildWorkflowGraph(
   }
 }
 
+/**
+ * 将人工回复转换成 LangGraph 恢复命令。
+ *
+ * 既接受 Graph 内部的显式 confirm/revise，也接受 Route Handler 的 ReplyRequest；
+ * outline_review 节点恢复执行时，interrupt() 会收到这里写入的 resume 值。
+ */
 export function resumeOutline(
   reply:
     | z.input<typeof OutlineCommandSchema>

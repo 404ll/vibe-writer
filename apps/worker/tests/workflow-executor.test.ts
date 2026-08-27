@@ -96,6 +96,51 @@ describe('DurableWorkflowExecutor', () => {
     })
   })
 
+  it('persists workflow progress with the active lease identity', async () => {
+    const appendRunEvent = vi.fn(async (input) => ({
+      status: 'appended' as const,
+      event: input.event,
+    }))
+    const result = await new DurableWorkflowExecutor(
+      services(),
+      memoryFactory(new MemorySaver()),
+      undefined,
+      { appendRunEvent },
+    ).execute(context())
+
+    expect(result.status).toBe('completed')
+    expect(appendRunEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: context().jobId,
+        runId: context().runId,
+        leaseToken: context().leaseToken,
+        idempotencyKey: 'workflow:stage:plan',
+        event: { event: 'stage_update', data: { stage: 'plan' } },
+      }),
+    )
+    expect(appendRunEvent.mock.calls.map(([input]) => input.event.event)).toContain(
+      'chapter_done',
+    )
+  })
+
+  it('stops before provider work when progress persistence loses the lease', async () => {
+    const workflowServices = services()
+    const executor = new DurableWorkflowExecutor(
+      workflowServices,
+      memoryFactory(new MemorySaver()),
+      undefined,
+      {
+        appendRunEvent: vi.fn(async () => ({ status: 'lease_lost' as const })),
+      },
+    )
+
+    await expect(executor.execute(context())).rejects.toMatchObject({
+      name: 'AbortError',
+      code: 'cancelled',
+    })
+    expect(workflowServices.plan).not.toHaveBeenCalled()
+  })
+
   it('maps an outline interrupt to awaiting_input', async () => {
     const result = await new DurableWorkflowExecutor(
       services(),

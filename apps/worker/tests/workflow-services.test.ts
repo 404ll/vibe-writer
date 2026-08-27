@@ -4,6 +4,7 @@ import type {
   ToolModelRequest,
   ToolModelResponse,
 } from '@vibe-writer/model-runtime'
+import type { WorkflowSearchProgress } from '@vibe-writer/workflow-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { createWorkflowServices } from '../src/workflow-services'
 
@@ -38,5 +39,74 @@ describe('production workflow service composition', () => {
     expect(model.tool).toHaveBeenCalledWith(expect.objectContaining({
       signal, system: expect.stringContaining('手把手教学'),
     }))
+  })
+
+  it('reports the real Writer search query and durable completion preview', async () => {
+    const model = new Model()
+    model.tool
+      .mockResolvedValueOnce({
+        blocks: [
+          {
+            type: 'tool_call',
+            id: 'search-1',
+            name: 'search',
+            input: { query: '可靠事件流' },
+          },
+        ],
+        stopReason: 'tool_use',
+        provider: 'scripted',
+        model: 'scripted',
+      })
+      .mockResolvedValueOnce({
+        blocks: [{ type: 'text', text: '带资料的正文' }],
+        stopReason: 'end_turn',
+        provider: 'scripted',
+        model: 'scripted',
+      })
+    model.text.mockResolvedValueOnce({
+      text: '这是检索摘要',
+      provider: 'scripted',
+      model: 'scripted',
+      finishReason: 'stop',
+    })
+    const search = {
+      search: vi.fn(async () => ({
+        provider: 'scripted',
+        documents: [
+          {
+            title: '资料',
+            url: 'https://example.com/source',
+            content: '可验证内容',
+          },
+        ],
+      })),
+    }
+    const searchProgress: WorkflowSearchProgress[] = []
+    const onSearchProgress = async (progress: WorkflowSearchProgress) => {
+      searchProgress.push(progress)
+    }
+
+    const result = await createWorkflowServices(model, search).writeChapter({
+      topic: '主题',
+      outline: '1. 初始章',
+      chapterTitle: '初始章',
+      coveragePoints: [],
+      reviewFeedback: '',
+      budgetUsage: { totalCalls: 0, callsByTool: {} },
+      effectScope: 'chapter:0:write:attempt:1',
+      onSearchProgress,
+    })
+
+    expect(result).toMatchObject({ status: 'ready', content: '带资料的正文' })
+    expect(searchProgress).toEqual([
+      { phase: 'started', query: '可靠事件流', index: 1 },
+      {
+        phase: 'finished',
+        query: '可靠事件流',
+        index: 1,
+        preview: '这是检索摘要',
+        chars: 6,
+      },
+    ])
   })
 })

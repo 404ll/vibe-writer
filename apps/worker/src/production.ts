@@ -112,6 +112,7 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
           createCheckpointRepository(consumerDatabase!.db),
         ),
         createCommandRepository(consumerDatabase!.db),
+        jobs,
       ),
       {
         workerId: config.workerId,

@@ -35,7 +35,8 @@ export const JobEventSchema = z.discriminatedUnion('event', [
     data: sequenced({ outline: z.array(z.string()) }),
   }),
 
-  // 章节阶段：观点生成、检索、正文流式 token 和单章审查结果。
+  // 章节阶段：观点生成、检索、正文增量块和单章审查结果。
+  // `token` 是兼容字段名；生产方既可以发送 provider token，也可以发送有界文本块。
   z.object({ event: z.literal('generating_opinions'), data: sequenced(title) }),
   z.object({ event: z.literal('opinions_ready'), data: sequenced(title) }),
   z.object({

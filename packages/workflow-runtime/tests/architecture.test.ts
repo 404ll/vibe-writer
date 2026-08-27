@@ -33,4 +33,16 @@ describe('workflow runtime boundaries', () => {
       )
     }
   })
+
+  it('keeps compile-time types separate from runtime graph and schemas', () => {
+    const types = readFileSync(join(sourceRoot, 'types.ts'), 'utf8')
+    const schemas = readFileSync(join(sourceRoot, 'schemas.ts'), 'utf8')
+    const graph = readFileSync(join(sourceRoot, 'graph.ts'), 'utf8')
+
+    expect(types).not.toContain("from 'zod'")
+    expect(types).not.toContain("from '@langchain/langgraph'")
+    expect(schemas).toContain('new StateSchema')
+    expect(graph).not.toContain('export type WorkflowServices')
+    expect(graph).not.toMatch(/type WorkflowNodeName\s*=/)
+  })
 })

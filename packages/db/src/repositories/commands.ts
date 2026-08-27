@@ -63,6 +63,8 @@ export class CommandRepository<TQueryResult extends PgQueryResultHKT> {
     const reply = normalizeReply(input.reply)
     const payloadFingerprint = fingerprintReply(reply)
 
+    // 回复、interrupt 状态、Job 重新排队和 resume Outbox 必须同事务提交。
+    // API 返回成功后即使进程崩溃，调度器仍能根据 Outbox 再次投递恢复任务。
     return this.db.transaction(async (tx) => {
       const [job] = await tx
         .select()
@@ -98,6 +100,8 @@ export class CommandRepository<TQueryResult extends PgQueryResultHKT> {
           .orderBy(desc(jobCommands.createdAt))
           .limit(1)
         if (existing) {
+          // 相同回复属于幂等重放；同一个 interrupt 下出现不同 payload 则是
+          // 幂等键碰撞，必须拒绝，不能静默覆盖已经提交的人工决定。
           if (
             existing.command.payloadFingerprint !== payloadFingerprint ||
             JSON.stringify(existing.command.payload) !== JSON.stringify(reply)
@@ -160,6 +164,8 @@ export class CommandRepository<TQueryResult extends PgQueryResultHKT> {
       if (!queued) throw new Error(`Awaiting job changed for ${input.jobId}`)
 
       await tx.insert(outboxEvents).values({
+        // resume 使用稳定身份；Outbox/BullMQ 可以重复投递，Worker 仍会通过
+        // Job 状态、租约和 Checkpoint 判断是否真的拥有执行权。
         idempotencyKey: `job:${input.jobId}:resume:${interrupt.externalId}:v1`,
         aggregateType: 'job',
         aggregateId: input.jobId,

@@ -16,6 +16,8 @@ import {
   resumeOutline,
   WorkflowStateSchema,
   writerInconclusiveDecision,
+  type WorkflowProgressEvent,
+  type WorkflowProgressSink,
   type WorkflowServices,
 } from '../src'
 
@@ -198,6 +200,47 @@ describe('LangGraph workflow adapter', () => {
     expect(
       WorkflowStateSchema.parse(JSON.parse(JSON.stringify(result))),
     ).toEqual(result)
+  })
+
+  it('projects durable stage and chapter progress in workflow order', async () => {
+    const projected: WorkflowProgressEvent[] = []
+    const progress: WorkflowProgressSink = async (entry) => {
+      projected.push(entry)
+    }
+    const result = await buildWorkflowGraph(scriptedServices(), { progress }).invoke(
+      createWorkflowState({
+        jobId: 'job-progress',
+        topic: '事件投影',
+        interventionOnOutline: false,
+      }),
+    )
+
+    expect(result.phase).toBe('completed')
+    expect(projected.map((entry) => entry.event.event)).toEqual([
+      'stage_update',
+      'stage_update',
+      'generating_opinions',
+      'opinions_ready',
+      'writing_chapter',
+      'writing_chapter',
+      'reviewing_chapter',
+      'chapter_done',
+      'stage_update',
+      'reviewing_full',
+      'review_done',
+      'stage_update',
+    ])
+    expect(projected).toContainEqual(
+      expect.objectContaining({
+        idempotencyKey: 'workflow:chapter:0:write:attempt:1:content',
+        event: {
+          event: 'writing_chapter',
+          data: { title: '第一章', token: '第一章正文' },
+        },
+      }),
+    )
+    const keys = projected.map((entry) => entry.idempotencyKey)
+    expect(new Set(keys).size).toBe(keys.length)
   })
 
   it('completes the maximum six-chapter outline without caller recursion tuning', async () => {

@@ -61,6 +61,9 @@ function resultMetadata(response: {
   }
 }
 
+// Checkpoint 只能恢复内部 State，不能撤销已经发给模型或搜索供应商的请求。
+// Effect Journal 在外部调用前预留稳定 effectKey、调用后记录结果；遇到重复或
+// 结果不确定时 fail closed。它降低重复计费风险，但不宣称提供 Exactly Once。
 abstract class EffectJournalBase {
   constructor(
     protected readonly journal: EffectJournalControl,

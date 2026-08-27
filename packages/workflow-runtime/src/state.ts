@@ -1,8 +1,11 @@
 import type { CoveragePoint, ToolBudgetUsage } from '@vibe-writer/agent-core'
 import { z } from 'zod'
 
+// Checkpoint 会长期保存工作流状态，因此恢复时必须知道它对应哪一版 Graph。
+// 版本不匹配时不能直接拿旧状态驱动新流程，否则节点或字段语义可能已经变化。
 export const WORKFLOW_VERSION = 'writer-graph-v1-target-2026-08-07'
 
+//运行配置记录
 export const ExecutionConfigSchema = z.object({
   id: z.string().min(1),
   graphVersion: z.string().min(1),
@@ -12,6 +15,7 @@ export const ExecutionConfigSchema = z.object({
   codeRevision: z.string().min(1).nullable(),
 })
 
+// 工具调用使用情况
 export const ToolBudgetUsageSchema = z
   .object({
     totalCalls: z.number().int().nonnegative(),
@@ -31,11 +35,13 @@ export const ToolBudgetUsageSchema = z
     }
   })
 
+// 覆盖点
 export const CoveragePointSchema = z.object({
   text: z.string().trim().min(1),
   searchQuery: z.string().trim().min(1),
 })
 
+// 工作流失败信息
 export const WorkflowFailureSchema = z.object({
   stage: z.enum(['plan', 'outline_review', 'coverage', 'write', 'review', 'export']),
   code: z.string().min(1),
@@ -44,6 +50,7 @@ export const WorkflowFailureSchema = z.object({
   chapterIndex: z.number().int().nonnegative().optional(),
 })
 
+// 单章工作流状态
 export const ChapterWorkflowStateSchema = z.object({
   title: z.string().trim().min(1),
   content: z.string(),
@@ -66,6 +73,8 @@ export const ExportIntentSchema = z.object({
   markdown: z.string().min(1),
 })
 
+// 这是 LangGraph 节点之间唯一共享的持久化状态。只放可序列化的业务数据，
+// 不把数据库连接、模型客户端或 SDK 对象写进 Checkpoint。
 export const WorkflowStateSchema = z.object({
   workflowVersion: z.string().min(1),
   executionConfig: ExecutionConfigSchema,
@@ -98,6 +107,7 @@ export const WorkflowStateSchema = z.object({
   failure: WorkflowFailureSchema.nullable(),
   finalContent: z.string(),
   exportIntent: ExportIntentSchema.nullable(),
+  //自定义联合校验
 }).superRefine((state, context) => {
   if (state.executionConfig.graphVersion !== state.workflowVersion) {
     context.addIssue({
@@ -182,6 +192,8 @@ export function createWorkflowState(input: {
   interventionOnOutline?: boolean
   executionConfig?: z.input<typeof ExecutionConfigSchema>
 }): WorkflowState {
+  // 只有全新任务会创建初始 State；接管、队列重投和人工回复都应读取已提交的
+  // Checkpoint，避免从 plan 开始重复调用模型。
   return WorkflowStateSchema.parse({
     workflowVersion: WORKFLOW_VERSION,
     executionConfig: input.executionConfig ?? {

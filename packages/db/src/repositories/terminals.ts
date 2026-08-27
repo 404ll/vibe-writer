@@ -128,6 +128,8 @@ export class TerminalRepository<TQueryResult extends PgQueryResultHKT> {
     const fingerprint = contentFingerprint(input.markdown)
     const terminalIdempotencyKey = `job:${input.jobId}:terminal:done:v1`
 
+    // 文章、done 事件、Job 终态和 Run 终态共用一个事务。任何一步失败都会
+    // 整体回滚，前端不会看到互相矛盾的“文章已存在 / 任务仍运行”状态。
     return this.db.transaction(async (tx) => {
       const [job] = await tx
         .select()
@@ -545,6 +547,8 @@ export class TerminalRepository<TQueryResult extends PgQueryResultHKT> {
     const idempotencyKey = `job:${input.jobId}:awaiting:outline:v1`
     const eventData = { outline }
 
+    // LangGraph Checkpoint 保存“从哪里继续”；本事务保存用户可见的业务事实：
+    // 当前待确认的大纲、outline_ready 事件、awaiting_input 状态和租约释放。
     return this.db.transaction(async (tx) => {
       const [job] = await tx
         .select()

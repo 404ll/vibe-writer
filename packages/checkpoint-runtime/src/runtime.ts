@@ -120,6 +120,8 @@ function namespace(config: RunnableConfig): string {
   return value
 }
 
+// PostgresSaver 负责实际序列化和存储；这一层负责业务授权与进度单调性。
+// 两者分开后，即使旧 Worker 从网络阻塞中恢复，也不能继续写有效 Checkpoint。
 export class FencedCheckpointSaver extends BaseCheckpointSaver {
   private readonly limits: CheckpointPayloadLimits
 
@@ -172,6 +174,8 @@ export class FencedCheckpointSaver extends BaseCheckpointSaver {
     metadata: CheckpointMetadata,
     newVersions: ChannelVersions,
   ): Promise<RunnableConfig> {
+    // 写入前后都检查租约：前一次阻止无权写入，后一次覆盖“写数据库期间
+    // 恰好失去租约”的窗口。随后再推进业务表中的稳定 Checkpoint 指针。
     validateCheckpointPayload(checkpoint, this.limits)
     await this.assertAuthorized()
     const scopedConfig = this.scoped(config)
@@ -343,6 +347,8 @@ export async function initializeCheckpointAttempt(
   identity: LeaseIdentity,
   limits?: Partial<CheckpointPayloadLimits>,
 ): Promise<FencedCheckpointSaver> {
+  // 新 attempt 可以从上一次已确认的稳定 Checkpoint 分叉；复制完成并激活后，
+  // Executor 才会 replay。这样接管不会直接在旧 attempt 的命名空间里继续写。
   const prepared = await control.prepareCheckpointAttempt(identity)
   if (prepared.status === 'incompatible_graph') {
     throw new CheckpointProtocolError(

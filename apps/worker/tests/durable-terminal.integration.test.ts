@@ -180,6 +180,8 @@ describe('durable workflow terminal crash window', () => {
       const executor = new DurableWorkflowExecutor(
         workflowServices,
         createFencedWorkflowCheckpointFactory(saver, checkpoints),
+        undefined,
+        jobs,
       )
       const firstResult = await executor.execute({
         jobId: job.id,
@@ -215,12 +217,27 @@ describe('durable workflow terminal crash window', () => {
         .select({ value: count() })
         .from(schema.articles)
         .where(eq(schema.articles.jobId, job.id))
-      const [doneCount] = await db
+      const [eventCount] = await db
         .select({ value: count() })
         .from(schema.jobEvents)
         .where(eq(schema.jobEvents.jobId, job.id))
       expect(articleCount?.value).toBe(1)
-      expect(doneCount?.value).toBe(1)
+      expect(eventCount?.value).toBe(13)
+      expect((await jobs.listEventsAfter(job.id)).map((event) => event.event)).toEqual([
+        'stage_update',
+        'stage_update',
+        'generating_opinions',
+        'opinions_ready',
+        'writing_chapter',
+        'writing_chapter',
+        'reviewing_chapter',
+        'chapter_done',
+        'stage_update',
+        'reviewing_full',
+        'review_done',
+        'stage_update',
+        'done',
+      ])
       expect(await jobs.getJob(job.id)).toMatchObject({ status: 'completed' })
       const runRows = await db
         .select()
@@ -254,6 +271,7 @@ describe('durable workflow terminal crash window', () => {
         workflowServices,
         createFencedWorkflowCheckpointFactory(new MemorySaver(), checkpoints),
         commands,
+        jobs,
       )
       const control = createWorkerLeaseControl(jobs, terminals)
       const firstRunner = new WorkerJobRunner(control, executor, {
@@ -298,7 +316,19 @@ describe('durable workflow terminal crash window', () => {
         .where(eq(schema.articles.jobId, job.id))
       expect(articleCount?.value).toBe(1)
       expect((await jobs.listEventsAfter(job.id)).map((event) => event.event)).toEqual([
+        'stage_update',
         'outline_ready',
+        'stage_update',
+        'generating_opinions',
+        'opinions_ready',
+        'writing_chapter',
+        'writing_chapter',
+        'reviewing_chapter',
+        'chapter_done',
+        'stage_update',
+        'reviewing_full',
+        'review_done',
+        'stage_update',
         'done',
       ])
     } finally {

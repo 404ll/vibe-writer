@@ -721,6 +721,8 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     jobId: string,
     workspaceId?: string,
   ): Promise<CancellationRequestResult> {
+    // 未执行或已暂停的任务没有活跃 Worker，可直接提交 cancelled 终态；
+    // running 任务只能先记录 cancelRequestedAt，由 Worker 心跳转成 AbortSignal 后收敛。
     return this.db.transaction(async (tx) => {
       const [current] = await tx
         .select()

@@ -214,6 +214,8 @@ export class WorkerJobRunner {
       )
     }
     if (executionResult.status === 'awaiting_input') {
+      // Graph 已把中断写入 Checkpoint；这里再把它原子投影为业务状态：
+      // job_interrupts + outline_ready event + jobs.awaiting_input，并释放 Worker 租约。
       const paused = await this.control.pauseClaim({
         ...identity,
         interruptId: executionResult.interruptId,
@@ -225,6 +227,8 @@ export class WorkerJobRunner {
         : { status: 'lease_lost', runId: identity.runId }
     }
 
+    // Graph 只返回导出意图。文章、done 事件以及 Job/Run 终态必须由数据库
+    // 在一个事务里提交，避免“已有文章但任务仍显示 running”。
     const completed = await this.control.completeClaim({
       ...identity,
       exportIdempotencyKey: executionResult.exportIntent.idempotencyKey,
