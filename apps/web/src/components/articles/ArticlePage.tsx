@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { patchArticle, getVersions, getVersion, restoreVersion } from '@/api/articles'
-import type { ArticleDetail, ArticleVersionSummary } from '@/api/articles'
+import { patchArticle, getVersions, getVersion, restoreVersion } from '@/lib/api/articles'
+import type { ArticleDetail, ArticleVersionSummary } from '@/lib/api/articles'
 import { MarkdownContent } from '@/components/ui/markdown/markdownComponents'
 import { slugifyHeading } from '@/components/ui/markdown/markdownUtils'
 import { HOME_ROUTE } from '@/lib/routes'

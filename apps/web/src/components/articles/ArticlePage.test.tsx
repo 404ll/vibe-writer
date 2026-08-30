@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push }),
 }))
 
-vi.mock('@/api/articles', () => ({
+vi.mock('@/lib/api/articles', () => ({
   patchArticle: mocks.patchArticle,
   getVersions: mocks.getVersions,
   getVersion: mocks.getVersion,
