@@ -14,6 +14,7 @@ import { useActiveJobId, clearActiveJobId, writeActiveJobId } from '@/lib/storag
 import { articleRoute } from '@/lib/routes'
 import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from '@/types'
 import { API_BASE } from '@/lib/config'
+import { createJob } from '@/lib/api/jobs'
 
 function makeEmptyJob(jobId: string): JobState {
   return { jobId, stage: 'plan', outline: null, chapters: [], error: null }
@@ -179,14 +180,14 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
 
   useJobStream(job?.jobId ?? null, handleEvent)
 
-  // 创建任务后只保存 jobId；具体进度随后由 SSE 回放和增量事件填充
+  // 创建任务走共享 client：同一提交复用 Idempotency-Key，避免重试再开一份 Job。
   async function handleSubmit(topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) {
-    const res = await fetch(`${API_BASE}/jobs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, intervention, style, target_words: targetWords }),
+    const { job_id } = await createJob({
+      topic,
+      intervention,
+      style,
+      target_words: targetWords,
     })
-    const { job_id } = await res.json()
     writeActiveJobId(job_id)
     setJob(makeEmptyJob(job_id))
     setCompletedChapterTitles(new Set())
