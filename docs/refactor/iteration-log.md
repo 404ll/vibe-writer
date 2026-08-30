@@ -77,5 +77,6 @@
 | 0071 | 2026-08-24 | Done | 共享契约目录与模块职责拆分 | [记录](./iterations/0071-contract-module-boundaries.md) |
 | 0072 | 2026-08-26 | Done | Workflow Runtime 模块职责拆分 | [记录](./iterations/0072-workflow-runtime-module-boundaries.md) |
 | 0073 | 2026-08-26 | Done | Durable Workflow 进度事件接线 | [记录](./iterations/0073-durable-workflow-progress-events.md) |
+| 0074 | 2026-08-30 | Done | 整理 `apps/web/src` 模块目录 | [记录](./iterations/0074-web-src-module-layout.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。
