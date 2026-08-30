@@ -20,6 +20,7 @@ function notifyActiveJobChanged() {
   }
 }
 
+// 写入本地存储中的活跃任务 ID
 export function writeActiveJobId(jobId: string) {
   const storage = browserStorage()
   if (!storage) return
