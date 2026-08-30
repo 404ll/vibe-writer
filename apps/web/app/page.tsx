@@ -1,8 +1,8 @@
-import { WritingWorkspace } from '../src/components/WritingWorkspace'
+import { WritingWorkspace } from '@/components/writing/WritingWorkspace'
 import {
   durableApiEnabled,
   durableMemoryManagementApiEnabled,
-} from '../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 
 export const dynamic = 'force-dynamic'
 

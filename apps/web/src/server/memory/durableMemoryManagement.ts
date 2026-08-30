@@ -15,7 +15,7 @@ import {
   type MemoryRevisionRow,
   type MemoryRow,
 } from '@vibe-writer/db'
-import { conflict, forbidden, notFound, serverFailure } from './durableHttp'
+import { conflict, forbidden, notFound, serverFailure } from '@/server/http/durableHttp'
 
 export function toActiveMemory(input: {
   memory: MemoryRow

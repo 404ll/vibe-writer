@@ -17,7 +17,7 @@ const durable = vi.hoisted(() => ({
   deleteMemory: vi.fn(),
 }))
 
-vi.mock('../../../../src/server/durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   durableApiEnabled: durable.apiEnabled,
   durableMemoryManagementApiEnabled: durable.managementEnabled,
   authorizeDurableHeaders: durable.authorize,

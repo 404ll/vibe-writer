@@ -1,4 +1,4 @@
-import type { StageStatus } from '../types'
+import type { StageStatus } from '@/types'
 
 const STAGES: { key: StageStatus; label: string; icon: string }[] = [
   { key: 'plan',   label: '规划大纲', icon: '◎' },

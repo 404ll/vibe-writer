@@ -12,7 +12,7 @@
 ## 一次提交怎么走
 
 1. `app/api/durable/jobs/route.ts` 校验身份和 `CreateJobRequestSchema`。
-2. `src/server/durableDatabase.ts` 注入受工作区限制的数据仓储。
+2. `src/server/database/durableDatabase.ts` 注入受工作区限制的数据仓储。
 3. 数据仓储在同一事务写入 `jobs` 与 `outbox_events`，路由处理器立即返回 `job_id`。
 4. 外部工作进程异步执行；网页端不等待模型完成。
 5. `app/api/durable/jobs/[jobId]/stream/route.ts` 把 PostgreSQL 的 `job_events` 投影为服务端推送事件。
@@ -39,9 +39,9 @@
 | 文件 | 阅读重点 |
 |---|---|
 | `app/api/durable/jobs/route.ts` | 为什么接口只记账、不直接发布队列 |
-| `src/server/durableDatabase.ts` | 身份、工作区作用域与专用接口数据库角色 |
+| `src/server/database/durableDatabase.ts` | 身份、工作区作用域与专用接口数据库角色 |
 | `app/api/durable/jobs/[jobId]/stream/route.ts` | 服务端推送游标如何进入数据库事件查询 |
-| `src/server/durableSse.ts` | PostgreSQL 事件日志如何变成可重连的数据流 |
+| `src/server/jobs/durableSse.ts` | PostgreSQL 事件日志如何变成可重连的数据流 |
 | `src/hooks/useJobStream.ts` | 历史补播、实时读取、`_seq` 去重和终态停止 |
 | `app/articles/[id]/page.tsx` | 服务端组件如何直接读取文章事实 |
 

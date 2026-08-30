@@ -7,7 +7,7 @@ const durable = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/headers', () => ({ headers: vi.fn(async () => new Headers()) }))
-vi.mock('./durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   authorizeDurableHeaders: durable.authorize,
   getWorkspaceDurableRepositories: () => ({
     articles: { getArticle: durable.getArticle },

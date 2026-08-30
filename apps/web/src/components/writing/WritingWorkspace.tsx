@@ -9,11 +9,11 @@ import { ReviewPanel } from './ReviewPanel'
 import { ActivityPanel } from './ActivityPanel'
 import { WritingPreview } from './WritingPreview'
 import { HistoryPanel } from './HistoryPanel'
-import { useJobStream } from '../hooks/useJobStream'
-import { useActiveJobId, clearActiveJobId, writeActiveJobId } from '../jobStorage'
-import { articleRoute } from '../routes'
-import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from '../types'
-import { API_BASE } from '../config'
+import { useJobStream } from '@/hooks/useJobStream'
+import { useActiveJobId, clearActiveJobId, writeActiveJobId } from '@/lib/storage/jobStorage'
+import { articleRoute } from '@/lib/routes'
+import type { JobState, InterventionConfig, SSEEventType, ActivityEntry, ReviewResult } from '@/types'
+import { API_BASE } from '@/lib/config'
 
 function makeEmptyJob(jobId: string): JobState {
   return { jobId, stage: 'plan', outline: null, chapters: [], error: null }

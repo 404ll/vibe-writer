@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { patchArticle, getVersions, getVersion, restoreVersion } from '../api'
-import type { ArticleDetail, ArticleVersionSummary } from '../api'
-import { MarkdownContent } from './markdownComponents'
-import { slugifyHeading } from './markdownUtils'
-import { HOME_ROUTE } from '../routes'
+import { patchArticle, getVersions, getVersion, restoreVersion } from '@/api/articles'
+import type { ArticleDetail, ArticleVersionSummary } from '@/api/articles'
+import { MarkdownContent } from '@/components/ui/markdown/markdownComponents'
+import { slugifyHeading } from '@/components/ui/markdown/markdownUtils'
+import { HOME_ROUTE } from '@/lib/routes'
 
 interface TocEntry {
   title: string

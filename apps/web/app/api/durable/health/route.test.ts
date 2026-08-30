@@ -8,7 +8,7 @@ const durable = vi.hoisted(() => ({
   ready: vi.fn(),
 }))
 
-vi.mock('../../../../src/server/durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   durableApiEnabled: durable.enabled,
   durableMemorySignalApiEnabled: durable.memoryEnabled,
   durableMemoryManagementApiEnabled: durable.memoryManagementEnabled,

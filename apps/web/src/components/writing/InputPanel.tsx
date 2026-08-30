@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { InterventionConfig } from '../types'
-import { WORD_COUNT_OPTIONS } from '../types'
+import type { InterventionConfig } from '@/types'
+import { WORD_COUNT_OPTIONS } from '@/types'
 
 const PRESET_STYLES = ['技术博客', '科普', '教程', '自定义'] as const
 type PresetStyle = typeof PRESET_STYLES[number] | ''

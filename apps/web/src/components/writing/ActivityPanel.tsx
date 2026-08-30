@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { ActivityEntry } from '../types'
+import type { ActivityEntry } from '@/types'
 
 interface Props {
   entries: ActivityEntry[]

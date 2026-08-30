@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
-import type { SSEEventType } from '../types'
-import { API_BASE } from '../config'
-import { SSE_EVENT_TYPES, TERMINAL_EVENTS } from '../sseEvents'
+import type { SSEEventType } from '@/types'
+import { API_BASE } from '@/lib/config'
+import { SSE_EVENT_TYPES, TERMINAL_EVENTS } from '@/lib/sseEvents'
 
 type RawEvent = { event: string; data: Record<string, unknown> }
 type ParsedStreamEvent = { event: string; data: Record<string, unknown> }

@@ -5,13 +5,13 @@ import {
   durableMemoryManagementApiEnabled,
   durableMemorySignalApiEnabled,
   getMemoryConsentPolicy,
-} from '../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemoryPolicyConfigurationUnavailable,
   durableMemoryPolicyUnavailable,
-} from '../../../../../src/server/durableHttp'
-import { createMemoryPolicyAccess } from '../../../../../src/server/durableMemoryAccess'
+} from '@/server/http/durableHttp'
+import { createMemoryPolicyAccess } from '@/server/memory/durableMemoryAccess'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -7,15 +7,15 @@ import {
   durableApiEnabled,
   durableMemoryManagementApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemoryManagementUnavailable,
   invalidRequest,
   isUuid,
   safeJson,
-} from '../../../../../../../src/server/durableHttp'
-import { memoryManagementRepositoryFailure } from '../../../../../../../src/server/durableMemoryManagement'
+} from '@/server/http/durableHttp'
+import { memoryManagementRepositoryFailure } from '@/server/memory/durableMemoryManagement'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

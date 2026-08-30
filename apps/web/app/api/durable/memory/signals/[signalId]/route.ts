@@ -8,7 +8,7 @@ import {
   durableMemorySignalApiEnabled,
   getMemoryConsentPolicyVersion,
   getWorkspaceDurableRepositories,
-} from '../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemorySignalConfigurationUnavailable,
@@ -16,8 +16,8 @@ import {
   invalidRequest,
   isUuid,
   safeJson,
-} from '../../../../../../src/server/durableHttp'
-import { memorySignalRepositoryFailure } from '../../../../../../src/server/durableMemorySignals'
+} from '@/server/http/durableHttp'
+import { memorySignalRepositoryFailure } from '@/server/memory/durableMemorySignals'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

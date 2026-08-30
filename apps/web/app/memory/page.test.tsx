@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const pageData = vi.hoisted(() => ({ load: vi.fn() }))
 
 vi.mock('next/headers', () => ({ headers: vi.fn(async () => new Headers()) }))
-vi.mock('../../src/server/memoryManagementPageData', () => ({
+vi.mock('@/server/memory/memoryManagementPageData', () => ({
   loadMemoryManagementPageData: pageData.load,
 }))
-vi.mock('../../src/components/MemoryManagementWorkspace', () => ({
+vi.mock('@/components/memory/MemoryManagementWorkspace', () => ({
   MemoryManagementWorkspace: () => <h1>长期记忆管理</h1>,
 }))
 

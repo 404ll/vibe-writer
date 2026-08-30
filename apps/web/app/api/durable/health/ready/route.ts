@@ -4,7 +4,7 @@ import {
   durableMemoryManagementApiEnabled,
   durableMemorySignalApiEnabled,
   getMemoryConsentPolicyVersion,
-} from '../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

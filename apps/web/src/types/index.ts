@@ -1,4 +1,4 @@
-import type { SSEEventType } from './sseEvents'
+import type { SSEEventType } from '@/lib/sseEvents'
 import type { StageStatus } from '@vibe-writer/contracts/jobs'
 
 export type {
@@ -7,7 +7,7 @@ export type {
   PlanningEvent,
   ReviewEvent,
   SSEEventType,
-} from './sseEvents'
+} from '@/lib/sseEvents'
 export type { InterventionConfig, ReviewResult, StageStatus } from '@vibe-writer/contracts/jobs'
 
 export const WORD_COUNT_OPTIONS = [

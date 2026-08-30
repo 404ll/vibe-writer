@@ -4,12 +4,12 @@ import HomePage from './page'
 
 const durable = vi.hoisted(() => ({ api: vi.fn(), memory: vi.fn() }))
 
-vi.mock('../src/server/durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   durableApiEnabled: durable.api,
   durableMemoryManagementApiEnabled: durable.memory,
 }))
 
-vi.mock('../src/components/WritingWorkspace', () => ({
+vi.mock('@/components/writing/WritingWorkspace', () => ({
   WritingWorkspace: ({ memoryManagementEnabled }: { memoryManagementEnabled: boolean }) => (
     <div>
       <h1>写作工作台</h1>

@@ -5,20 +5,20 @@ import {
   durableApiEnabled,
   durableMemoryManagementApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemoryManagementUnavailable,
   invalidRequest,
-} from '../../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 import {
   decodeDurableUuidCursor,
   encodeDurableUuidCursor,
-} from '../../../../../src/server/durableCursor'
+} from '@/server/http/durableCursor'
 import {
   memoryManagementRepositoryFailure,
   toMemoryCandidate,
-} from '../../../../../src/server/durableMemoryManagement'
+} from '@/server/memory/durableMemoryManagement'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

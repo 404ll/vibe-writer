@@ -1,17 +1,17 @@
 import { ArticleVersionDetailSchema } from '@vibe-writer/contracts/articles'
-import { toVersionDetail } from '../../../../../../../src/server/durableArticles'
+import { toVersionDetail } from '@/server/articles/durableArticles'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableUnavailable,
   isUuid,
   notFound,
   serverFailure,
-} from '../../../../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

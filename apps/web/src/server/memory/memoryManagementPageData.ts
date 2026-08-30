@@ -11,8 +11,8 @@ import {
   durableMemorySignalApiEnabled,
   getMemoryConsentPolicy,
   getWorkspaceDurableRepositories,
-} from './durableDatabase'
-import { encodeDurableUuidCursor } from './durableCursor'
+} from '@/server/database/durableDatabase'
+import { encodeDurableUuidCursor } from '@/server/http/durableCursor'
 import { createMemoryPolicyAccess } from './durableMemoryAccess'
 import { toActiveMemory, toMemoryCandidate } from './durableMemoryManagement'
 import { toMemorySignal } from './durableMemorySignals'

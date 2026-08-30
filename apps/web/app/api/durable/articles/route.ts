@@ -1,15 +1,15 @@
 import { ArticleListResponseSchema } from '@vibe-writer/contracts/articles'
-import { toArticleSummary } from '../../../../src/server/durableArticles'
+import { toArticleSummary } from '@/server/articles/durableArticles'
 import {
   authorizeDurableHeaders,
   durableApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableUnavailable,
   serverFailure,
-} from '../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

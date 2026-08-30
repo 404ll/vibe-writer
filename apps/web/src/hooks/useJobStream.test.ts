@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useJobStream } from './useJobStream'
-import { SSE_EVENT_GROUPS, SSE_EVENT_TYPES, TERMINAL_EVENTS } from '../sseEvents'
+import { SSE_EVENT_GROUPS, SSE_EVENT_TYPES, TERMINAL_EVENTS } from '@/lib/sseEvents'
 
 describe('useJobStream', () => {
   beforeEach(() => {

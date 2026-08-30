@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { JobState } from '../types'
-import { getArticles } from '../api'
-import type { ArticleSummary } from '../api'
-import { articleRoute } from '../routes'
+import type { JobState } from '@/types'
+import { getArticles } from '@/api/articles'
+import type { ArticleSummary } from '@/api/articles'
+import { articleRoute } from '@/lib/routes'
 
 interface Props {
   currentJob: JobState | null

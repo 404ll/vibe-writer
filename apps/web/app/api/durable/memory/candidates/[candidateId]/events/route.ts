@@ -4,17 +4,17 @@ import {
   durableApiEnabled,
   durableMemoryManagementApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemoryManagementUnavailable,
   invalidRequest,
   isUuid,
-} from '../../../../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 import {
   memoryManagementRepositoryFailure,
   toMemoryCandidateEvent,
-} from '../../../../../../../src/server/durableMemoryManagement'
+} from '@/server/memory/durableMemoryManagement'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

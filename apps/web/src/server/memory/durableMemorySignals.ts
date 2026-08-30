@@ -12,7 +12,7 @@ import {
   forbidden,
   notFound,
   serverFailure,
-} from './durableHttp'
+} from '@/server/http/durableHttp'
 
 export function toMemorySignal(row: MemorySourceSignalRow): MemorySignal {
   return {

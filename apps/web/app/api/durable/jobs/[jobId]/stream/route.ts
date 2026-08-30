@@ -2,14 +2,14 @@ import {
   authorizeDurableHeaders,
   durableApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableUnavailable,
   notFound,
   serverFailure,
-} from '../../../../../../src/server/durableHttp'
-import { createDurableEventStream } from '../../../../../../src/server/durableSse'
+} from '@/server/http/durableHttp'
+import { createDurableEventStream } from '@/server/jobs/durableSse'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

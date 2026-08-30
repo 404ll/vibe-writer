@@ -6,7 +6,7 @@ import {
   authorizeDurableHeaders,
   durableApiEnabled,
   getWorkspaceDurableRepositories,
-} from '../../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   conflict,
   durableAuthorizationFailure,
@@ -16,7 +16,7 @@ import {
   notFound,
   safeJson,
   serverFailure,
-} from '../../../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

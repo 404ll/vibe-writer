@@ -10,8 +10,8 @@ import {
   type AuthorizedWorkspaceScope,
 } from '@vibe-writer/db'
 import type { MemoryConsentPolicyDocument } from '@vibe-writer/contracts/memory-policy'
-import { getRegisteredMemoryConsentPolicy } from './memoryConsentPolicies'
-import { parseRequestIdentity } from './requestIdentity'
+import { getRegisteredMemoryConsentPolicy } from '@/server/memory/memoryConsentPolicies'
+import { parseRequestIdentity } from '@/server/identity/requestIdentity'
 
 type DurableDatabase = ReturnType<typeof createPostgresDatabase>
 

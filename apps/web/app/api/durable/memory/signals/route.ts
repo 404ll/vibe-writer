@@ -11,7 +11,7 @@ import {
   durableMemorySignalApiEnabled,
   getMemoryConsentPolicyVersion,
   getWorkspaceDurableRepositories,
-} from '../../../../../src/server/durableDatabase'
+} from '@/server/database/durableDatabase'
 import {
   durableAuthorizationFailure,
   durableMemorySignalConfigurationUnavailable,
@@ -20,15 +20,15 @@ import {
   invalidRequest,
   memoryConsentPolicyConflict,
   safeJson,
-} from '../../../../../src/server/durableHttp'
+} from '@/server/http/durableHttp'
 import {
   decodeDurableUuidCursor,
   encodeDurableUuidCursor,
-} from '../../../../../src/server/durableCursor'
+} from '@/server/http/durableCursor'
 import {
   memorySignalRepositoryFailure,
   toMemorySignal,
-} from '../../../../../src/server/durableMemorySignals'
+} from '@/server/memory/durableMemorySignals'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

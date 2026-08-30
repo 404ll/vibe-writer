@@ -11,7 +11,7 @@ const durable = vi.hoisted(() => ({
   listCandidates: vi.fn(),
 }))
 
-vi.mock('./durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   durableApiEnabled: durable.apiEnabled,
   durableMemoryManagementApiEnabled: durable.managementEnabled,
   durableMemorySignalApiEnabled: durable.signalsEnabled,
@@ -33,7 +33,7 @@ vi.mock('./durableMemoryManagement', () => ({
 vi.mock('./durableMemorySignals', () => ({
   toMemorySignal: (value: unknown) => value,
 }))
-vi.mock('./durableCursor', () => ({
+vi.mock('@/server/http/durableCursor', () => ({
   encodeDurableUuidCursor: ({ id }: { id: string }) => `cursor:${id}`,
 }))
 

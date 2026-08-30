@@ -6,7 +6,7 @@ const durable = vi.hoisted(() => ({
   createJob: vi.fn(),
 }))
 
-vi.mock('../../../../src/server/durableDatabase', () => ({
+vi.mock('@/server/database/durableDatabase', () => ({
   durableApiEnabled: durable.enabled,
   authorizeDurableHeaders: durable.authorize,
   getWorkspaceDurableRepositories: () => ({
