@@ -26,6 +26,7 @@ import type {
   WorkerExecutor,
 } from './runner'
 
+// Worker 领到任务后，用这一份会话把 Graph 接到当前 attempt 的 Checkpoint 上。
 export type WorkflowCheckpointSession = {
   checkpointer: BaseCheckpointSaver
   config: RunnableConfig
@@ -36,10 +37,12 @@ export type WorkflowCheckpointFactory = (
   context: WorkerExecutionContext,
 ) => Promise<WorkflowCheckpointSession>
 
+/** 大纲暂停后，按 interruptId 读取用户已提交的回复。 */
 export type WorkflowCommandSource = {
   getOutlineReply(jobId: string, interruptId: string): Promise<ReplyRequest | null>
 }
 
+/** 把 Graph 进度写成 job_events；必须带当前租约，否则旧 Worker 写不进去。 */
 export type WorkflowEventControl = {
   appendRunEvent(input: AppendRunEventInput): Promise<AppendRunEventResult>
 }
@@ -48,6 +51,7 @@ export type WorkflowServicesFactory = (
   context: WorkerExecutionContext,
 ) => WorkflowServices
 
+// 进度落库失败或租约丢失时伪装成 AbortError，让 Runner 按取消/失主处理，而不是当成模型异常重试。
 class WorkflowProgressProjectionError extends Error {
   readonly name = 'AbortError'
   readonly code = 'cancelled'
@@ -69,6 +73,7 @@ export function createFencedWorkflowCheckpointFactory(
   }
 }
 
+/** 把本次 run 绑定的工具版本收成稳定字符串，写入初始 Graph State，便于日后对照「当时用了哪套工具」。 */
 function toolsetVersion(toolVersions: Record<string, string>): string {
   const version = Object.entries(toolVersions)
     .sort(([left], [right]) => left.localeCompare(right))
@@ -78,6 +83,7 @@ function toolsetVersion(toolVersions: Record<string, string>): string {
   return version
 }
 
+/** 只认大纲审核这一种 interrupt；形状不对就当无效，避免把未知暂停点当成人工确认。 */
 function interruptOutline(
   interrupt: { id?: string; value?: unknown } | undefined,
 ): { interruptId: string; outline: string[] } | null {
@@ -94,6 +100,11 @@ function interruptOutline(
     : null
 }
 
+/**
+ * Worker 侧的写作执行器：跑 LangGraph，把进度写入 job_events，
+ * 把终态（完成 / 等大纲 / 失败）交给 Runner 去做数据库事务。
+ * 本类不写 articles，也不改 Job 状态。
+ */
 export class DurableWorkflowExecutor implements WorkerExecutor {
   constructor(
     private readonly services: WorkflowServices | WorkflowServicesFactory,
@@ -109,6 +120,8 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
       typeof this.services === 'function'
         ? this.services(context)
         : this.services
+
+    // Graph 只 emit 进度意图；这里带上 lease 写入 job_events，前端 SSE 才能看到阶段变化。
     const persistProgress = this.events
       ? async (progress: WorkflowProgressEvent) => {
           let result: AppendRunEventResult
@@ -217,6 +230,7 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
         errorMessage: 'Workflow stopped without a durable outcome.',
       }
     }
+    // 文章正文和 done 事件由 Runner 的终态事务提交，这里只交回导出意图。
     return {
       status: 'completed',
       exportIntent: parsed.data.exportIntent,
