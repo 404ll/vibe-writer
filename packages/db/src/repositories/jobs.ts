@@ -155,6 +155,8 @@ function requireBoundedIdentifier(value: string, name: string, maxLength: number
   return normalized
 }
 
+// 把对象编成“键排序后的稳定字符串”。fingerprint 依赖它：{a:1,b:2} 与 {b:2,a:1}
+// 必须得到同一哈希，否则同一次请求重试会被误判成 collision。
 function stableJson(value: unknown, ancestors = new Set<object>()): string {
   if (value === null) return 'null'
   if (typeof value === 'string' || typeof value === 'boolean') {
@@ -215,10 +217,13 @@ function stableJson(value: unknown, ancestors = new Set<object>()): string {
   }
 }
 
+// 外部调用（模型/搜索）的“内容身份”：同一 effectKey 再次出现时，用这个哈希判断
+// 是原请求重放，还是有人拿旧键塞了不同 payload。
 export function fingerprintEffectRequest(value: CanonicalJsonValue): string {
   return `sha256:${createHash('sha256').update(stableJson(value)).digest('hex')}`
 }
 
+// 进度事件的内容身份。_seq 在写入前被剥掉，避免“同内容、不同序号”被当成新事件。
 function eventFingerprint(eventType: string, eventData: unknown): string {
   return createHash('sha256')
     .update(`${eventType}\n${stableJson(eventData)}`)
@@ -318,6 +323,9 @@ function assertClaimInput(input: ClaimJobInput) {
 export class JobRepository<TQueryResult extends PgQueryResultHKT> {
   constructor(private readonly db: VibeDatabase<TQueryResult>) {}
 
+  // HTTP 重试入口：workspace + idempotencyKey 唯一。第一次写入 Job 和 enqueue
+  // outbox；冲突则只回放已有 Job，不再次投递。Outbox 自己再用 job:{id}:enqueue:v1
+  // 防止“任务已存在、发件箱却写了两次”。
   async createJob(input: CreateDurableJobInput) {
     const request = CreateJobRequestSchema.parse(input)
     const jobId = input.jobId ?? randomUUID()
@@ -809,6 +817,9 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     return run ?? null
   }
 
+  // Graph 进度落库。键是跨 attempt 稳定的业务身份（章节/轮次），不是 runId。
+  // 同键同 fingerprint → 原 seq 原样返回；同键不同内容 → collision。
+  // 没有有效 lease 则 lease_lost，旧 Worker 不能往新 attempt 的事件流写。
   async appendRunEvent(input: AppendRunEventInput): Promise<AppendRunEventResult> {
     const idempotencyKey = requireBoundedIdentifier(
       input.idempotencyKey,
@@ -920,6 +931,9 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     })
   }
 
+  // 供应商调用前的围栏：先占 (jobId, effectKey) 再打模型。
+  // 已成功/失败不再调用；uncertain 或换了 run 则 fail-closed。
+  // 这降低重复计费，但不等于 exactly-once。
   async reserveRunEffect(input: ReserveRunEffectInput): Promise<ReserveRunEffectResult> {
     const effectKey = requireBoundedIdentifier(
       input.effectKey,
@@ -1041,6 +1055,8 @@ export class JobRepository<TQueryResult extends PgQueryResultHKT> {
     })
   }
 
+  // 调用结束后把 reserved 收成 succeeded/failed。同一 outcome 再来是 replay；
+  // 行已被别的 run 接管则 not_owner。崩溃发生在调用后、本函数前会留下 uncertain。
   async finishRunEffect(input: FinishRunEffectInput): Promise<FinishRunEffectResult> {
     const effectKey = requireBoundedIdentifier(
       input.effectKey,
