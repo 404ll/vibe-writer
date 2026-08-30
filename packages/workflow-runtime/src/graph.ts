@@ -773,8 +773,7 @@ export function buildWorkflowGraph(
     })
     .addEdge('export', END)
 
-  // 注入 checkpointer 后，每个已提交节点都能形成可恢复点；没有 checkpointer
-  // 时只允许不含人工中断的临时执行。
+  // 注入 checkpointer 后，每个已提交节点都能形成可恢复点；没有 checkpointer 时只允许不含人工中断的临时执行。
   const compiled = builder.compile({ checkpointer: options.checkpointer })
 
   // 条件边包含有限循环，recursionLimit 是最后一道保险，防止未来改动意外形成死循环。
