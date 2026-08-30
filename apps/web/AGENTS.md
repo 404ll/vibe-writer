@@ -18,8 +18,7 @@
 - `src/components/articles/`：文章阅读、编辑和历史版本。
 - `src/components/memory/`：Memory 管理业务组件。
 - `src/hooks/`：浏览器 hooks；SSE 订阅集中在 `useJobStream.ts`。
-- `src/api/`：浏览器 HTTP client，按资源拆分。
-- `src/lib/`：配置、路由辅助、SSE 事件常量和本地恢复指针。
+- `src/lib/`：浏览器侧工具层。`lib/api` 是调用 `app/api` 的 HTTP client；另有配置、路由辅助、SSE 常量和本地恢复指针。
 - `src/types/`：前端共享视图类型。
 - `src/server/`：Route Handler / RSC 用的服务端模块，按 `database`、`http`、`identity`、`jobs`、`articles`、`memory` 分子目录。
 - `src/styles/`、`src/assets/`、`src/testing/`：样式、静态资源和测试脚手架。
@@ -29,7 +28,7 @@
 
 - 保持“AI 写作工作台”体验，不把页面改成 landing page 或营销页。
 - 不做无关视觉重设计；UI 改动应服务当前任务。
-- 浏览器 API 请求优先集中在 `src/api/`，Server Component 查询放在 `src/server/`；不要在组件里复制复杂 fetch 逻辑。
+- 浏览器 API 请求优先集中在 `src/lib/api/`，Server Component 查询放在 `src/server/`；不要在组件里复制复杂 fetch 逻辑，也不要把 client 放进 `app/api`。
 - SSE 行为优先集中在 `useJobStream.ts`；不要在多个组件里各自建立 EventSource。
 - 默认保持 Server Component；只在交互、浏览器 API、SSE 或 Mermaid 边界使用 Client Component。
 - localStorage 只保存版本化、最小化的恢复指针，不作为任务事实来源。
