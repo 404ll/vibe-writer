@@ -20,8 +20,11 @@ import {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// 创建写作任务，并带上可重放的 Idempotency-Key
 export async function POST(request: Request): Promise<Response> {
+  // 如果持久化 API 未启用，则返回 503 服务不可用
   if (!durableApiEnabled()) return durableUnavailable()
+  // 授权检查
   const authorization = await authorizeDurableHeaders(request.headers)
   if (authorization.status !== 'authorized') {
     return durableAuthorizationFailure(authorization.status)

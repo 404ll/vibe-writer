@@ -74,6 +74,7 @@ export type DurableAuthorization =
   | { status: 'authorized'; scope: AuthorizedWorkspaceScope }
   | { status: 'auth_unconfigured' | 'unauthenticated' | 'forbidden' }
 
+// 授权检查
 export async function authorizeDurableHeaders(
   headers: Pick<Headers, 'get'>,
 ): Promise<DurableAuthorization> {
