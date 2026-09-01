@@ -213,34 +213,44 @@ export class WorkerJobRunner {
         executionResult.errorMessage,
       )
     }
-    if (executionResult.status === 'awaiting_input') {
-      // Graph 已把中断写入 Checkpoint；这里再把它原子投影为业务状态：
-      // job_interrupts + outline_ready event + jobs.awaiting_input，并释放 Worker 租约。
-      const paused = await this.control.pauseClaim({
-        ...identity,
-        interruptId: executionResult.interruptId,
-        outline: executionResult.outline,
-      })
-      if (paused.status === 'cancel_requested') return this.settleCancellation(identity)
-      return paused.status === 'paused' || paused.status === 'replayed'
-        ? { status: 'awaiting_input', runId: identity.runId }
-        : { status: 'lease_lost', runId: identity.runId }
-    }
+    try {
+      if (executionResult.status === 'awaiting_input') {
+        // Graph 已把中断写入 Checkpoint；这里再把它原子投影为业务状态：
+        // job_interrupts + outline_ready event + jobs.awaiting_input，并释放 Worker 租约。
+        const paused = await this.control.pauseClaim({
+          ...identity,
+          interruptId: executionResult.interruptId,
+          outline: executionResult.outline,
+        })
+        if (paused.status === 'cancel_requested') return this.settleCancellation(identity)
+        return paused.status === 'paused' || paused.status === 'replayed'
+          ? { status: 'awaiting_input', runId: identity.runId }
+          : { status: 'lease_lost', runId: identity.runId }
+      }
 
-    // Graph 只返回导出意图。文章、done 事件以及 Job/Run 终态必须由数据库
-    // 在一个事务里提交，避免“已有文章但任务仍显示 running”。
-    const completed = await this.control.completeClaim({
-      ...identity,
-      exportIdempotencyKey: executionResult.exportIntent.idempotencyKey,
-      topic: claim.job.topic,
-      markdown: executionResult.exportIntent.markdown,
-      outputPath: null,
-      requestMemoryExtraction: this.options.requestMemoryExtraction === true,
-    })
-    if (completed.status === 'cancel_requested') return this.settleCancellation(identity)
-    return completed.status === 'committed' || completed.status === 'replayed'
-      ? { status: 'completed', runId: identity.runId }
-      : { status: 'lease_lost', runId: identity.runId }
+      // Graph 只返回导出意图。文章、done 事件以及 Job/Run 终态必须由数据库
+      // 在一个事务里提交，避免“已有文章但任务仍显示 running”。
+      const completed = await this.control.completeClaim({
+        ...identity,
+        exportIdempotencyKey: executionResult.exportIntent.idempotencyKey,
+        topic: claim.job.topic,
+        markdown: executionResult.exportIntent.markdown,
+        outputPath: null,
+        requestMemoryExtraction: this.options.requestMemoryExtraction === true,
+      })
+      if (completed.status === 'cancel_requested') return this.settleCancellation(identity)
+      return completed.status === 'committed' || completed.status === 'replayed'
+        ? { status: 'completed', runId: identity.runId }
+        : { status: 'lease_lost', runId: identity.runId }
+    } catch {
+      // Graph 已结束但业务投影失败时，仍使用当前 lease 原子写入 error 终态；
+      // 若数据库本身不可用，terminateClaim 继续抛错并交给 BullMQ 有界重试。
+      return this.settleFailure(
+        identity,
+        'result_projection_failed',
+        'Worker result projection failed.',
+      )
+    }
   }
 
   private async settleCancellation(identity: LeaseIdentity): Promise<WorkerRunResult> {

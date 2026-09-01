@@ -281,6 +281,10 @@ describe('terminal repository', () => {
         data: { outline: ['第一章', '第二章'], _seq: 0 },
       },
     })
+    await db
+      .update(jobEvents)
+      .set({ idempotencyKey: `job:${current.job.id}:awaiting:outline:v1` })
+      .where(eq(jobEvents.jobId, current.job.id))
     await expect(repository.pauseClaim(input)).resolves.toMatchObject({
       status: 'replayed',
     })

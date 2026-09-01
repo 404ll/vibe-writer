@@ -291,6 +291,35 @@ describe('WorkerJobRunner', () => {
     expect(leaseControl.completeClaim).not.toHaveBeenCalled()
   })
 
+  it('settles a terminal failure when outline projection throws', async () => {
+    const leaseControl = control({
+      pauseClaim: vi.fn(async () => {
+        throw new Error('outline event collision')
+      }),
+    })
+    const executor = {
+      execute: vi.fn(async () => ({
+        status: 'awaiting_input' as const,
+        interruptId: 'interrupt-outline-2',
+        outline: ['修改后的第一章'],
+      })),
+    }
+
+    await expect(runner(leaseControl, executor).run('job-1')).resolves.toEqual({
+      status: 'failed',
+      runId: 'run-1',
+      errorCode: 'result_projection_failed',
+    })
+    expect(leaseControl.terminateClaim).toHaveBeenCalledWith({
+      jobId: 'job-1',
+      runId: 'run-1',
+      leaseToken: 'lease-1',
+      outcome: 'failed',
+      errorCode: 'result_projection_failed',
+      errorMessage: 'Worker result projection failed.',
+    })
+  })
+
   it('settles cancelled when cancellation races with successful completion', async () => {
     const leaseControl = control({
       completeClaim: vi

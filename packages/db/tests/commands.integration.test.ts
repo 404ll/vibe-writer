@@ -133,6 +133,54 @@ describe('durable command repository', () => {
     expect(resumeOutbox).toHaveLength(1)
   })
 
+  it('persists a revised outline as a new review round', async () => {
+    const current = await awaitingJob()
+    const commands = createCommandRepository(db)
+    const jobs = createJobRepository(db)
+
+    await expect(commands.submitOutlineReply({
+      jobId: current.job.id,
+      reply: { message: '标题更幽默一些' },
+    })).resolves.toMatchObject({ status: 'queued' })
+
+    const resumed = await jobs.claimJob({
+      jobId: current.job.id,
+      workerId: 'worker-command-resume',
+      leaseDurationMs: 30_000,
+      execution,
+    })
+    if (!resumed) throw new Error('Expected resumed claim')
+
+    await expect(createTerminalRepository(db).pauseClaim({
+      jobId: current.job.id,
+      runId: resumed.run.id,
+      leaseToken: resumed.leaseToken,
+      interruptId: `interrupt-${randomUUID()}`,
+      outline: ['修改后的第一章'],
+    })).resolves.toMatchObject({
+      status: 'paused',
+      event: {
+        event: 'outline_ready',
+        data: { outline: ['修改后的第一章'], _seq: 1 },
+      },
+    })
+
+    expect(await jobs.listEventsAfter(current.job.id)).toEqual([
+      { event: 'outline_ready', data: { outline: ['第一章'], _seq: 0 } },
+      { event: 'outline_ready', data: { outline: ['修改后的第一章'], _seq: 1 } },
+    ])
+    expect(await jobs.getJob(current.job.id)).toMatchObject({
+      status: 'awaiting_input',
+      nextEventSeq: 2,
+      leaseToken: null,
+    })
+    expect((await db.select().from(schema.runs)
+      .where(eq(schema.runs.jobId, current.job.id))).map((run) => run.status)).toEqual([
+      'completed',
+      'completed',
+    ])
+  })
+
   it('rejects a reply before the job is awaiting input', async () => {
     const { job } = await createJobRepository(db).createJob({
       workspaceId: SYSTEM_WORKSPACE_ID,

@@ -79,5 +79,6 @@
 | 0073 | 2026-08-26 | Done | Durable Workflow 进度事件接线 | [记录](./iterations/0073-durable-workflow-progress-events.md) |
 | 0074 | 2026-08-30 | Done | 整理 `apps/web/src` 模块目录 | [记录](./iterations/0074-web-src-module-layout.md) |
 | 0075 | 2026-08-30 | Done | 写作入口发送稳定 Job Idempotency-Key | [记录](./iterations/0075-web-job-idempotency-key.md) |
+| 0076 | 2026-09-01 | Done | 大纲修改恢复幂等与失败收敛 | [记录](./iterations/0076-outline-revision-resume-idempotency.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。
