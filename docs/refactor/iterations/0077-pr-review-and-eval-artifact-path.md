@@ -1,6 +1,6 @@
 # Iteration 0077：PR Review 与 Eval Artifact 路径修正
 
-> 状态：In progress
+> 状态：Done
 > 日期：2026-09-01
 
 ## 目标
@@ -25,7 +25,7 @@
 - `pnpm typecheck:db`：通过；
 - 使用绝对 `EVAL_CI_ARTIFACT_DIR` 运行 `pnpm eval:ci:artifact`：通过，目标目录生成 `eval-summary.json`；
 - `pnpm check:docs`、`git diff --check`：通过；
-- GitHub-hosted artifact upload：待本分支 push 后验证。
+- GitHub Actions run `33481099743`：通过，`Build content-free Eval artifact` 与 `Retain Eval artifact` 均成功。
 
 ## 剩余风险
 
