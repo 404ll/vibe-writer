@@ -163,6 +163,18 @@ try {
   await request(`/api/durable/jobs/${jobId}/reply`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message: '请修改大纲' }),
+  })
+  await eventually(async () => {
+    const response = await request(`/api/durable/jobs/${jobId}/events`)
+    const body = await response.json()
+    return body.events.filter((event) => event.event === 'outline_ready').length === 2
+      ? true
+      : undefined
+  })
+  await request(`/api/durable/jobs/${jobId}/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ message: '确认', outline: ['本地切流验证'] }),
   })
 
@@ -218,7 +230,7 @@ try {
     jobId,
     articleId,
     providerRequestCount: provider.requestCount(),
-    eventTypes: ['outline_ready', 'done'],
+    eventTypes: ['outline_ready', 'outline_ready', 'done'],
     articleRevisions: [0, 1, 2],
   }) + '\n')
 } catch (error) {

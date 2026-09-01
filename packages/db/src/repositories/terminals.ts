@@ -544,7 +544,10 @@ export class TerminalRepository<TQueryResult extends PgQueryResultHKT> {
     if (outline.length < 1 || outline.length > 6 || outline.some((item) => !item)) {
       throw new Error('outline must contain 1-6 non-empty chapters')
     }
-    const idempotencyKey = `job:${input.jobId}:awaiting:outline:v1`
+    // 一次 Job 可以多次要求用户确认大纲。interruptId 在同一轮 checkpoint replay
+    // 中稳定、在下一轮修改后变化，因此既能重放当前暂停，又不会与上一轮冲突。
+    const idempotencyKey = `job:${input.jobId}:awaiting:outline:${interruptId}:v2`
+    const legacyIdempotencyKey = `job:${input.jobId}:awaiting:outline:v1`
     const eventData = { outline }
 
     // LangGraph Checkpoint 保存“从哪里继续”；本事务保存用户可见的业务事实：
@@ -570,16 +573,32 @@ export class TerminalRepository<TQueryResult extends PgQueryResultHKT> {
             ),
           )
           .limit(1)
-        const [eventRow] = await tx
+        let [eventRow] = await tx
           .select()
           .from(jobEvents)
           .where(
             and(
               eq(jobEvents.jobId, input.jobId),
+              eq(jobEvents.runId, input.runId),
               eq(jobEvents.idempotencyKey, idempotencyKey),
             ),
           )
           .limit(1)
+        // 兼容部署前已经持久化的第一轮 outline_ready；新暂停一律写 v2 key。
+        if (!eventRow) {
+          const [legacyEventRow] = await tx
+            .select()
+            .from(jobEvents)
+            .where(
+              and(
+                eq(jobEvents.jobId, input.jobId),
+                eq(jobEvents.runId, input.runId),
+                eq(jobEvents.idempotencyKey, legacyIdempotencyKey),
+              ),
+            )
+            .limit(1)
+          eventRow = legacyEventRow
+        }
         const [interrupt] = await tx
           .select()
           .from(jobInterrupts)

@@ -17,7 +17,7 @@ describe('createJob client', () => {
   })
 
   it('posts the job body with a stable Idempotency-Key and clears the pending key on success', async () => {
-    const fetchMock = vi.fn(async () => Response.json({ job_id: jobId }))
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () => Response.json({ job_id: jobId }))
     vi.stubGlobal('fetch', fetchMock)
 
     const request = {
