@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
-import { count, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -281,10 +281,18 @@ describe('terminal repository', () => {
         data: { outline: ['第一章', '第二章'], _seq: 0 },
       },
     })
+    const [outlineEvent] = await db
+      .select({ id: jobEvents.id })
+      .from(jobEvents)
+      .where(and(
+        eq(jobEvents.jobId, current.job.id),
+        eq(jobEvents.eventType, 'outline_ready'),
+      ))
+    if (!outlineEvent) throw new Error('Expected outline event')
     await db
       .update(jobEvents)
       .set({ idempotencyKey: `job:${current.job.id}:awaiting:outline:v1` })
-      .where(eq(jobEvents.jobId, current.job.id))
+      .where(eq(jobEvents.id, outlineEvent.id))
     await expect(repository.pauseClaim(input)).resolves.toMatchObject({
       status: 'replayed',
     })

@@ -27,6 +27,7 @@ jobs:
           EVAL_CI_CODE_REVISION: ${{ github.sha }}
           EVAL_CI_RUN_ID: ${{ github.run_id }}
           EVAL_CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVAL_CI_ARTIFACT_DIR: ${{ github.workspace }}/output/eval-ci
       - name: Retain Eval artifact
         if: always()
         uses: actions/upload-artifact@v4

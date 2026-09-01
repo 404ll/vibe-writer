@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
-import { count, eq } from 'drizzle-orm'
+import { asc, count, eq } from 'drizzle-orm'
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -175,7 +175,8 @@ describe('durable command repository', () => {
       leaseToken: null,
     })
     expect((await db.select().from(schema.runs)
-      .where(eq(schema.runs.jobId, current.job.id))).map((run) => run.status)).toEqual([
+      .where(eq(schema.runs.jobId, current.job.id))
+      .orderBy(asc(schema.runs.attempt))).map((run) => run.status)).toEqual([
       'completed',
       'completed',
     ])
