@@ -1,11 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SSEEventType } from '@/types'
 import { WritingWorkspace } from './WritingWorkspace'
 
 const mocks = vi.hoisted(() => ({
   createJob: vi.fn(),
   getArticles: vi.fn(),
   writeActiveJobId: vi.fn(),
+  streamEvent: null as null | ((type: SSEEventType, data: Record<string, unknown>) => void),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -13,7 +15,12 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/hooks/useJobStream', () => ({
-  useJobStream: vi.fn(),
+  useJobStream: vi.fn((
+    _jobId: string | null,
+    onEvent: (type: SSEEventType, data: Record<string, unknown>) => void,
+  ) => {
+    mocks.streamEvent = onEvent
+  }),
 }))
 
 vi.mock('@/lib/storage/jobStorage', () => ({
@@ -56,5 +63,26 @@ describe('WritingWorkspace job create', () => {
       })
     })
     expect(mocks.writeActiveJobId).toHaveBeenCalledWith('job-created-1')
+  })
+
+  it('shows durable web extraction progress without rendering page content', async () => {
+    render(<WritingWorkspace />)
+    fireEvent.change(screen.getByLabelText('写作主题'), { target: { value: '自由研究' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }))
+    await waitFor(() => expect(mocks.streamEvent).not.toBeNull())
+
+    act(() => {
+      mocks.streamEvent?.('extracting', {
+        title: '研究章节', url: 'https://example.com/source', index: 1,
+      })
+      mocks.streamEvent?.('extract_done', {
+        title: '研究章节', url: 'https://example.com/source', index: 1,
+        source_title: '公开来源', chars: 1200, status: 'ready',
+      })
+    })
+
+    expect(screen.getByText('正在读取网页：研究章节「https://example.com/source」')).toBeInTheDocument()
+    expect(screen.getByText('网页读取完成：公开来源（1200 字）')).toBeInTheDocument()
+    expect(screen.queryByText(/网页中的完整正文/u)).not.toBeInTheDocument()
   })
 })

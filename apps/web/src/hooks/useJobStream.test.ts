@@ -131,6 +131,8 @@ describe('useJobStream', () => {
       'opinions_ready',
       'searching',
       'search_done',
+      'extracting',
+      'extract_done',
       'writing_chapter',
       'reviewing_chapter',
       'chapter_done',

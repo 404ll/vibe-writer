@@ -2,6 +2,7 @@ import type { ConnectionOptions } from 'bullmq'
 
 export type WorkerRole = 'all' | 'dispatcher' | 'consumer'
 export type WorkerConsumerAccessMode = 'cross-workspace' | 'single-workspace'
+export type WebSearchProviderName = 'disabled' | 'tavily' | 'brave' | 'searxng'
 
 export type WorkerDatabaseConfig = {
   url: string
@@ -22,6 +23,14 @@ export type ProductionWorkerConfig = {
   modelId?: string
   tavilyApiKey?: string
   tavilyBaseUrl?: string
+  braveSearchApiKey?: string
+  braveSearchBaseUrl?: string
+  searxngUrl?: string
+  webSearchProvider: WebSearchProviderName
+  webExtractEnabled: boolean
+  webExtractTimeoutMs: number
+  webExtractMaxResponseBytes: number
+  webExtractMaxTextChars: number
   codeRevision: string
   workerId: string
   queueName: string
@@ -52,6 +61,28 @@ export type MemoryRetentionMaintenanceConfig = {
   }
 }
 
+/** Run snapshot 只记录可复现实质行为的配置，不记录 endpoint 或 credential。 */
+export function webResearchToolVersions(config: Pick<
+  ProductionWorkerConfig,
+  | 'webSearchProvider'
+  | 'webExtractEnabled'
+  | 'webExtractTimeoutMs'
+  | 'webExtractMaxResponseBytes'
+  | 'webExtractMaxTextChars'
+>): Record<string, string> {
+  return {
+    search: `${config.webSearchProvider}-search-v1`,
+    webExtract: config.webExtractEnabled
+      ? [
+          'readability-v1',
+          `timeout-${config.webExtractTimeoutMs}`,
+          `bytes-${config.webExtractMaxResponseBytes}`,
+          `chars-${config.webExtractMaxTextChars}`,
+        ].join(':')
+      : 'disabled-v1',
+  }
+}
+
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim()
   if (!value) throw new Error(`${name} is required`)
@@ -74,6 +105,40 @@ function optionalPort(env: NodeJS.ProcessEnv, name: string): number | undefined 
     throw new Error(`${name} must be an integer between 1 and 65535`)
   }
   return value
+}
+
+function booleanValue(env: NodeJS.ProcessEnv, name: string, fallback: boolean): boolean {
+  const raw = env[name]?.trim()
+  if (!raw) return fallback
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  throw new Error(`${name} must equal true or false`)
+}
+
+function webSearchProvider(env: NodeJS.ProcessEnv): WebSearchProviderName {
+  const configured = env.WEB_SEARCH_PROVIDER?.trim()
+  if (configured && !['disabled', 'tavily', 'brave', 'searxng'].includes(configured)) {
+    throw new Error('WEB_SEARCH_PROVIDER must be disabled, tavily, brave, or searxng')
+  }
+  const provider = (configured || (
+    env.TAVILY_API_KEY?.trim()
+      ? 'tavily'
+      : env.BRAVE_SEARCH_API_KEY?.trim()
+        ? 'brave'
+        : env.SEARXNG_URL?.trim()
+          ? 'searxng'
+          : 'disabled'
+  )) as WebSearchProviderName
+  if (provider === 'tavily' && !env.TAVILY_API_KEY?.trim()) {
+    throw new Error('TAVILY_API_KEY is required when WEB_SEARCH_PROVIDER=tavily')
+  }
+  if (provider === 'brave' && !env.BRAVE_SEARCH_API_KEY?.trim()) {
+    throw new Error('BRAVE_SEARCH_API_KEY is required when WEB_SEARCH_PROVIDER=brave')
+  }
+  if (provider === 'searxng' && !env.SEARXNG_URL?.trim()) {
+    throw new Error('SEARXNG_URL is required when WEB_SEARCH_PROVIDER=searxng')
+  }
+  return provider
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
@@ -124,6 +189,14 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
   const heartbeatIntervalMs = positiveInt(env, 'WORKER_HEARTBEAT_INTERVAL_MS', 15_000)
   const healthPort = optionalPort(env, 'WORKER_HEALTH_PORT')
   const anthropicThinkingMode = env.ANTHROPIC_THINKING_MODE?.trim()
+  const selectedSearchProvider = consumer ? webSearchProvider(env) : 'disabled'
+  const webExtractEnabled = consumer && booleanValue(env, 'WEB_EXTRACT_ENABLED', true)
+  const webExtractTimeoutMs = positiveInt(env, 'WEB_EXTRACT_TIMEOUT_MS', 15_000)
+  const webExtractMaxResponseBytes = positiveInt(env, 'WEB_EXTRACT_MAX_RESPONSE_BYTES', 1_000_000)
+  const webExtractMaxTextChars = positiveInt(env, 'WEB_EXTRACT_MAX_TEXT_CHARS', 20_000)
+  if (webExtractTimeoutMs > 60_000) throw new Error('WEB_EXTRACT_TIMEOUT_MS cannot exceed 60000')
+  if (webExtractMaxResponseBytes > 5_000_000) throw new Error('WEB_EXTRACT_MAX_RESPONSE_BYTES cannot exceed 5000000')
+  if (webExtractMaxTextChars > 100_000) throw new Error('WEB_EXTRACT_MAX_TEXT_CHARS cannot exceed 100000')
   if (anthropicThinkingMode && !['enabled', 'disabled'].includes(anthropicThinkingMode)) {
     throw new Error('ANTHROPIC_THINKING_MODE must be enabled or disabled')
   }
@@ -169,6 +242,18 @@ export function loadProductionWorkerConfig(env: NodeJS.ProcessEnv): ProductionWo
     } : {}),
     ...(env.TAVILY_API_KEY?.trim() ? { tavilyApiKey: env.TAVILY_API_KEY.trim() } : {}),
     ...(env.TAVILY_BASE_URL?.trim() ? { tavilyBaseUrl: env.TAVILY_BASE_URL.trim() } : {}),
+    ...(env.BRAVE_SEARCH_API_KEY?.trim()
+      ? { braveSearchApiKey: env.BRAVE_SEARCH_API_KEY.trim() }
+      : {}),
+    ...(env.BRAVE_SEARCH_BASE_URL?.trim()
+      ? { braveSearchBaseUrl: env.BRAVE_SEARCH_BASE_URL.trim() }
+      : {}),
+    ...(env.SEARXNG_URL?.trim() ? { searxngUrl: env.SEARXNG_URL.trim() } : {}),
+    webSearchProvider: selectedSearchProvider,
+    webExtractEnabled,
+    webExtractTimeoutMs,
+    webExtractMaxResponseBytes,
+    webExtractMaxTextChars,
     codeRevision: required(env, 'CODE_REVISION'),
     workerId: required(env, 'WORKER_ID'),
     queueName: env.WRITE_QUEUE_NAME?.trim() || 'vibe-writer-write',

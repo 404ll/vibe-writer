@@ -45,3 +45,22 @@ export const SearchProviderResponseSchema = z.object({
 export type SearchRequest = z.infer<typeof SearchRequestSchema>
 export type SearchDocument = z.infer<typeof SearchDocumentSchema>
 export type SearchProviderResponse = z.infer<typeof SearchProviderResponseSchema>
+
+/** 模型选择 URL 后交给本地 extractor 的最小请求；只允许公开 HTTP(S) 页面。 */
+export const WebExtractRequestSchema = z.object({
+  url: z.url().max(2_048),
+})
+
+/** 网页正文提取结果。正文只进入当前工具上下文，不进入进度事件。 */
+export const WebExtractProviderResponseSchema = z.object({
+  provider: z.string().min(1),
+  url: z.url().max(2_048),
+  finalUrl: z.url().max(2_048),
+  title: z.string().max(500).optional(),
+  contentType: z.string().min(1).max(100),
+  content: z.string().max(100_000),
+  truncated: z.boolean(),
+})
+
+export type WebExtractRequest = z.infer<typeof WebExtractRequestSchema>
+export type WebExtractProviderResponse = z.infer<typeof WebExtractProviderResponseSchema>

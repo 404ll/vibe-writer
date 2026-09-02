@@ -11,6 +11,7 @@
     "./research": "./src/research.ts",
     "./tool-loop": "./src/tool-loop.ts",
     "./versions": "./src/versions.ts",
+    "./web-extract": "./src/web-extract.ts",
     "./writer": "./src/writer.ts"
   },
   "scripts": {

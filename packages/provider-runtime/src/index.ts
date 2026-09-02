@@ -1,3 +1,6 @@
 export * from './anthropic'
+export * from './brave'
+export * from './safe-web-extract'
+export * from './searxng'
 export * from './tavily'
 export * from './request-lookup'

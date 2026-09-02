@@ -125,6 +125,8 @@ ResearchService orchestrator
   → ready | empty | unavailable | failed
 ```
 
+自由研究继续由 Writer 自主选择工具，不把 Coverage 的搜索建议变成强制节点。搜索与网页读取分层：Tavily、Brave Search 或 SearXNG 只通过 `SearchProvider` 返回标准来源；模型选中 URL 后可调用 `extract_webpage`，由 `WebPageExtractor` 的本地 Readability adapter 提取正文。任意 URL 在每次请求与重定向前经过公网 DNS/IP 校验，实际连接钉在已验证地址，并受协议/端口、content-type、timeout、响应字节与正文长度约束。提取正文明确标为外部不可信内容，只进入当次工具上下文，不进入 `job_events`、effect journal 或 trace。
+
 Agent core 只认识 `SearchProvider` 和结构化来源。Worker adapter 负责 Tavily/其他供应商的鉴权、timeout、retry、字段校验和 trace。当前以来源 URL 作为稳定引用；内部 source id 要等来源/RAG 数据表落地后分配。Writer search tool 已消费结构化 status：给模型的 compact result 保留 URL/来源序号，执行记录保留 provider/request id 与 source metadata；unavailable/failed 被标为错误且不能当作研究证据。查询策略使用注入 clock 与日期上下界，保证 eval 能以固定 as-of date 重放。
 
 ### Writer 与工具循环边界
@@ -136,6 +138,7 @@ WriterService
     → ToolModel port
     → strict registered tools
       → search (3 calls / chapter) → ResearchService
+      → extract_webpage (3 calls / chapter) → WebExtractService
       → generate_diagram
   → ready | inconclusive
 ```
@@ -144,7 +147,7 @@ WriterService
 
 `ToolBudgetUsage` 必须进入未来 graph state/checkpoint，重写时传回 Writer，才能把 3 次 search 和 8 次 dispatch 上限真正约束在整章而不是单次 attempt。超限 attempted call 仍产生 error result，但不执行外部 handler。模型调用的 provider/model/stop reason/usage/request id 作为 metadata-only 记录返回；best-effort observer 也不携带工具正文。完整 transcript 和 execution content 默认不持久化，未来 trace/eval 只在显式采样、去标识化与保留策略下保存原文。
 
-Anthropic adapter 已实现真实 `TextModel`/`ToolModel` wire mapping，Tavily adapter 已实现 `SearchProvider`；graph cancellation signal 与 style 会贯穿 service 到 adapter。Iteration 0017 已在 Worker composition 把这些调用接入 fenced `run_effects`，Iteration 0021 增加同事务 bounded provider trace；但 node/HTTP/queue distributed trace、vendor export和收费 live smoke尚未完成，因此供应商真实可用性和质量仍未证明。
+Anthropic adapter 已实现真实 `TextModel`/`ToolModel` wire mapping；Tavily、Brave Search 与 SearXNG adapter 已实现 `SearchProvider`，本地 Readability adapter 已实现 `WebPageExtractor`；graph cancellation signal 与 style 会贯穿 service 到 adapter。Iteration 0017 已在 Worker composition 把外部调用接入 fenced `run_effects`，Iteration 0021 增加同事务 bounded provider trace；但 node/HTTP/queue distributed trace、vendor export和收费 live smoke尚未完成，因此供应商真实可用性和质量仍未证明。
 
 ### 人工确认
 

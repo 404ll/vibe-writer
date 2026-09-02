@@ -46,6 +46,8 @@ Iteration 0061根据首轮用户反馈补齐“能实际切过去使用”的本
 
 Iteration 0062按用户决策把Memory从当前产品MVP延后。既有R6实现改为归档基础：`dev:durable`不展示入口、不启用API/consumer，写作终态默认不投递Memory extraction，核心readiness也不再依赖Memory schema。未来不能仅打开feature flag恢复，必须由具体场景重新定义source、consent、context injection和质量/成本Eval。
 
+Iteration 0080在不改变R4自主Tool Calling决策的前提下扩展Research能力：搜索provider可在Tavily、Brave Search、SearXNG之间显式选择，Writer可在搜索后自主选择公开URL并通过本地Readability提取正文。提取边界拒绝私网/特殊地址并限制重定向、时长、响应大小、正文长度和content-type；搜索/提取失败作为结构化工具结果回到Agent，不伪造来源，也不强制每章联网。
+
 ## R1：契约与行为基线
 
 ### Iteration 0001：共享 contracts

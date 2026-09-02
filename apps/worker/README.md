@@ -76,7 +76,13 @@ pnpm start:worker
 - `DATABASE_WRITE_DISPATCHER_URL` / `WRITE_DISPATCHER_DATABASE_ROLE`
 - `DATABASE_WRITE_CONSUMER_URL` / `WRITE_CONSUMER_DATABASE_ROLE`
 - `REDIS_URL`
-- 消费者所需的 `ANTHROPIC_API_KEY`、`MODEL_ID`；`TAVILY_API_KEY` 可选
+- 消费者所需的 `ANTHROPIC_API_KEY`、`MODEL_ID`；搜索可通过
+  `WEB_SEARCH_PROVIDER=tavily|brave|searxng|disabled` 显式选择。未设置时按
+  `TAVILY_API_KEY`、`BRAVE_SEARCH_API_KEY`、`SEARXNG_URL` 的顺序自动选择；
+  没有可用配置则不注册 search 工具。
+- `WEB_EXTRACT_ENABLED` 默认开启本地 Readability 网页正文提取；任意模型提供的 URL
+  都经过公开 HTTP(S)、DNS/IP、重定向、content-type、timeout、响应字节数和正文长度限制。
+  该工具不执行 JavaScript、不携带登录态，也不替代完整浏览器自动化。
 
 使用默认开启推理的DeepSeek V4 Anthropic兼容接口时，设置`ANTHROPIC_THINKING_MODE=disabled`。该值会进入每次模型请求，并编码进Run的`modelProfile.profile`，避免推理token耗尽Writer或Reviewer的结构化输出预算。
 

@@ -26,39 +26,60 @@
       }
     },
     {
+      "event": "extracting",
+      "data": {
+        "title": "运行时边界",
+        "url": "https://example.com/durable-agent",
+        "index": 1,
+        "_seq": 7
+      }
+    },
+    {
+      "event": "extract_done",
+      "data": {
+        "title": "运行时边界",
+        "url": "https://example.com/durable-agent",
+        "index": 1,
+        "source_title": "Durable Agent",
+        "chars": 1200,
+        "status": "ready",
+        "_seq": 8
+      }
+    },
+    {
       "event": "writing_chapter",
-      "data": { "title": "运行时边界", "token": "章节正文", "_seq": 7 }
+      "data": { "title": "运行时边界", "token": "章节正文", "_seq": 9 }
     },
     {
       "event": "reviewing_chapter",
-      "data": { "title": "运行时边界", "_seq": 8 }
+      "data": { "title": "运行时边界", "_seq": 10 }
     },
     {
       "event": "chapter_done",
       "data": {
         "title": "运行时边界",
         "review": { "passed": true, "feedback": "" },
-        "_seq": 9
+        "_seq": 11
       }
     },
-    { "event": "stage_update", "data": { "stage": "review", "_seq": 10 } },
-    { "event": "reviewing_full", "data": { "_seq": 11 } },
+    { "event": "stage_update", "data": { "stage": "review", "_seq": 12 } },
+    { "event": "reviewing_full", "data": { "_seq": 13 } },
     {
       "event": "review_done",
       "data": {
         "results": [
           { "title": "运行时边界", "passed": true, "feedback": "" }
         ],
-        "_seq": 12
+        "_seq": 14
       }
     },
-    { "event": "stage_update", "data": { "stage": "export", "_seq": 13 } },
+    { "event": "stage_update", "data": { "stage": "export", "_seq": 15 } },
     {
       "event": "done",
       "data": {
         "output_path": "output/agent.md",
         "article_id": "article-contract-fixture",
-        "_seq": 14
+        "_seq": 16
       }
     }
   ]

@@ -57,6 +57,25 @@ export const JobEventSchema = z.discriminatedUnion('event', [
     }),
   }),
   z.object({
+    event: z.literal('extracting'),
+    data: sequenced({
+      ...title,
+      url: z.url().max(2_048),
+      index: z.number().int().positive(),
+    }),
+  }),
+  z.object({
+    event: z.literal('extract_done'),
+    data: sequenced({
+      ...title,
+      url: z.url().max(2_048),
+      index: z.number().int().positive(),
+      source_title: z.string().max(300).optional(),
+      chars: z.number().int().nonnegative(),
+      status: z.enum(['ready', 'failed', 'unavailable']),
+    }),
+  }),
+  z.object({
     event: z.literal('writing_chapter'),
     data: sequenced({ ...title, token: z.string() }),
   }),

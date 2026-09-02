@@ -38,7 +38,7 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
     () => new Set(),
   )
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
-  const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>>({})
+  const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'extracting' | 'writing' | 'reviewing' | 'done'>>({})
   // 滑动窗口写作预览：记录最新活跃章节和累积 token
   const [writingState, setWritingState] = useState<{ title: string; buffer: string } | null>(null)
 
@@ -108,6 +108,26 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
         addActivity(
           'success',
           `搜索完成：${data.title as string}${query ? `「${query}」` : ''}${detail}`,
+        )
+        break
+      }
+      case 'extracting': {
+        const title = data.title as string
+        const url = data.url as string
+        addActivity('running', `正在读取网页：${title}「${url}」`)
+        setChapterStatus((prev) => ({ ...prev, [title]: 'extracting' }))
+        break
+      }
+      case 'extract_done': {
+        const title = data.title as string
+        const sourceTitle = data.source_title as string | undefined
+        const chars = data.chars as number
+        const status = data.status as 'ready' | 'failed' | 'unavailable'
+        addActivity(
+          status === 'ready' ? 'success' : 'info',
+          status === 'ready'
+            ? `网页读取完成：${sourceTitle ?? title}（${chars} 字）`
+            : `网页读取未完成：${title}，将换来源或基于已有资料继续`,
         )
         break
       }

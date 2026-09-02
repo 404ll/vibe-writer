@@ -49,15 +49,26 @@ export type WorkflowProgressEvent = {
 /** Worker 注入的持久化端口；Workflow Runtime 不知道 PostgreSQL 或 SSE。 */
 export type WorkflowProgressSink = (progress: WorkflowProgressEvent) => Promise<void>
 
-/** Writer 内部真实搜索调用的最小进度，不暴露搜索供应商实现。 */
-export type WorkflowSearchProgress =
-  | { phase: 'started'; query: string; index: number }
+/** Writer 内部真实联网工具调用的最小进度，不携带网页正文或供应商密钥。 */
+export type WorkflowResearchProgress =
+  | { tool: 'search'; phase: 'started'; query: string; index: number }
   | {
+      tool: 'search'
       phase: 'finished'
       query: string
       index: number
       preview: string
       chars: number
+    }
+  | { tool: 'extract_webpage'; phase: 'started'; url: string; index: number }
+  | {
+      tool: 'extract_webpage'
+      phase: 'finished'
+      url: string
+      index: number
+      sourceTitle?: string
+      chars: number
+      status: 'ready' | 'failed' | 'unavailable'
     }
 
 // Graph 依赖的领域服务端口。节点只知道“规划、写作、审核”这些能力，
@@ -100,7 +111,7 @@ export type WorkflowServices = {
     style?: string
     signal?: AbortSignal
     effectScope?: string
-    onSearchProgress?: (progress: WorkflowSearchProgress) => Promise<void>
+    onResearchProgress?: (progress: WorkflowResearchProgress) => Promise<void>
   }): Promise<WriterResult>
   /** 对当前章节做轻量审核，结果决定是否回到 write。 */
   reviewChapter(input: {
