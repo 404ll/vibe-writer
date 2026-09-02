@@ -6,8 +6,11 @@ import { WritingWorkspace } from './WritingWorkspace'
 const mocks = vi.hoisted(() => ({
   createJob: vi.fn(),
   getArticles: vi.fn(),
+  useJobStream: vi.fn<(
+    jobId: string | null,
+    onEvent: (type: SSEEventType, data: Record<string, unknown>) => void,
+  ) => void>(),
   writeActiveJobId: vi.fn(),
-  streamEvent: null as null | ((type: SSEEventType, data: Record<string, unknown>) => void),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -15,12 +18,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/hooks/useJobStream', () => ({
-  useJobStream: vi.fn((
-    _jobId: string | null,
-    onEvent: (type: SSEEventType, data: Record<string, unknown>) => void,
-  ) => {
-    mocks.streamEvent = onEvent
-  }),
+  useJobStream: mocks.useJobStream,
 }))
 
 vi.mock('@/lib/storage/jobStorage', () => ({
@@ -69,13 +67,18 @@ describe('WritingWorkspace job create', () => {
     render(<WritingWorkspace />)
     fireEvent.change(screen.getByLabelText('写作主题'), { target: { value: '自由研究' } })
     fireEvent.click(screen.getByRole('button', { name: '开始写作' }))
-    await waitFor(() => expect(mocks.streamEvent).not.toBeNull())
+    await waitFor(() => {
+      expect(mocks.useJobStream).toHaveBeenCalledWith('job-created-1', expect.any(Function))
+    })
+    const streamCall = mocks.useJobStream.mock.calls.find(([jobId]) => jobId === 'job-created-1')
+    const onEvent = streamCall?.[1]
+    expect(onEvent).toBeTypeOf('function')
 
     act(() => {
-      mocks.streamEvent?.('extracting', {
+      onEvent?.('extracting', {
         title: '研究章节', url: 'https://example.com/source', index: 1,
       })
-      mocks.streamEvent?.('extract_done', {
+      onEvent?.('extract_done', {
         title: '研究章节', url: 'https://example.com/source', index: 1,
         source_title: '公开来源', chars: 1200, status: 'ready',
       })
@@ -84,5 +87,25 @@ describe('WritingWorkspace job create', () => {
     expect(screen.getByText('正在读取网页：研究章节「https://example.com/source」')).toBeInTheDocument()
     expect(screen.getByText('网页读取完成：公开来源（1200 字）')).toBeInTheDocument()
     expect(screen.queryByText(/网页中的完整正文/u)).not.toBeInTheDocument()
+  })
+
+  it('shows persisted planning events in the realtime activity log', async () => {
+    render(<WritingWorkspace />)
+
+    fireEvent.change(screen.getByLabelText('写作主题'), { target: { value: '前端为什么总是死' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }))
+
+    await waitFor(() => {
+      expect(mocks.useJobStream).toHaveBeenCalledWith('job-created-1', expect.any(Function))
+    })
+    const streamCall = mocks.useJobStream.mock.calls.find(([jobId]) => jobId === 'job-created-1')
+    const onEvent = streamCall?.[1]
+    expect(onEvent).toBeTypeOf('function')
+
+    act(() => onEvent?.('stage_update', { stage: 'plan', _seq: 0 }))
+    expect(screen.getByRole('log')).toHaveTextContent('正在规划文章大纲…')
+
+    act(() => onEvent?.('outline_ready', { outline: ['第一章'], _seq: 1 }))
+    expect(screen.getByRole('log')).toHaveTextContent('大纲已生成，等待确认')
   })
 })
