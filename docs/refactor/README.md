@@ -23,6 +23,7 @@
 ## 当前状态
 
 - MVP已完成：Next.js Web/API、TypeScript Agent/Workflow、PostgreSQL/BullMQ durable写作主链路、恢复与失败语义及版本化Eval均有代码与回归证据；Memory不计入当前MVP验收。
+- 当前写作主链是全文 Writer session + 隔离 Reviewer 的有界 evaluator-optimizer；详见 [ADR-0072](./decisions/0072-full-article-writer-reviewer-workflow.md) 与 [Iteration 0081](./iterations/0081-writer-reviewer-full-article-workflow.md)。
 - 当前发布目标是受Vercel Authentication保护的个人Preview；Web/API上Vercel，Worker在独立常驻Node环境。公开Production与正式多用户Auth仍未完成。
 - 已完成：[0001 共享 contracts 基建](./iterations/0001-contracts-foundation.md)。
 - 已完成：[0002 迁移 fixture 与版本 manifest](./iterations/0002-migration-fixtures.md)。

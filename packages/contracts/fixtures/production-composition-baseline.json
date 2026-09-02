@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dataset_id": "production-composition-baseline-v2",
+  "dataset_id": "production-composition-baseline-v3",
   "cases": [
     {
       "id": "happy-durable-terminal",
@@ -12,24 +12,20 @@
         "articleCount": 1,
         "articleRevision": 0,
         "canonicalMarkdown": "# 稳定写作\n\n## 第一章\n第一章正文-v1",
-        "eventTypes": ["done"],
+        "eventTypes": ["stage_update", "stage_update", "writing_chapter", "writing_chapter", "stage_update", "reviewing_full", "review_done", "stage_update", "done"],
         "outboxStatuses": ["published"],
         "effectKeys": [
-          "model:chapter:0:coverage:attempt:1",
-          "model:chapter:0:review:attempt:1",
-          "model:chapter:0:write:attempt:1:request:1",
-          "model:full-review:attempt:1",
+          "model:article-review:round:1:attempt:1",
+          "model:article:cycle:1:attempt:1:request:1",
           "model:plan:attempt:1"
         ],
         "traceOperations": [
-          "coverage-planner.plan",
           "planner.plan",
-          "reviewer.chapter",
-          "reviewer.full",
-          "writer.chapter"
+          "reviewer-agent.review",
+          "writer-agent.compose"
         ],
         "traceIdCount": 1,
-        "providerRequestCount": 5
+        "providerRequestCount": 3
       }
     },
     {
@@ -42,24 +38,20 @@
         "articleCount": 1,
         "articleRevision": 0,
         "canonicalMarkdown": "# 人工确认\n\n## 编辑章\n编辑章正文-v1",
-        "eventTypes": ["outline_ready", "done"],
+        "eventTypes": ["stage_update", "outline_ready", "stage_update", "writing_chapter", "writing_chapter", "stage_update", "reviewing_full", "review_done", "stage_update", "done"],
         "outboxStatuses": ["published", "published"],
         "effectKeys": [
-          "model:chapter:0:coverage:attempt:1",
-          "model:chapter:0:review:attempt:1",
-          "model:chapter:0:write:attempt:1:request:1",
-          "model:full-review:attempt:1",
+          "model:article-review:round:1:attempt:1",
+          "model:article:cycle:1:attempt:1:request:1",
           "model:plan:attempt:1"
         ],
         "traceOperations": [
-          "coverage-planner.plan",
           "planner.plan",
-          "reviewer.chapter",
-          "reviewer.full",
-          "writer.chapter"
+          "reviewer-agent.review",
+          "writer-agent.compose"
         ],
         "traceIdCount": 2,
-        "providerRequestCount": 5
+        "providerRequestCount": 3
       }
     }
   ]

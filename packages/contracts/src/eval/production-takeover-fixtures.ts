@@ -7,14 +7,24 @@ export const ProductionTakeoverObservationSchema = z.object({
   articleCount: z.literal(1),
   articleRevision: z.literal(0),
   canonicalMarkdown: z.string().min(1),
-  eventTypes: z.array(z.literal('done')).length(1),
+  eventTypes: z.tuple([
+    z.literal('stage_update'),
+    z.literal('stage_update'),
+    z.literal('writing_chapter'),
+    z.literal('writing_chapter'),
+    z.literal('stage_update'),
+    z.literal('reviewing_full'),
+    z.literal('review_done'),
+    z.literal('stage_update'),
+    z.literal('done'),
+  ]),
   outboxStatuses: z.array(z.literal('published')).length(1),
-  effectStatusCounts: z.object({ succeeded: z.literal(5), uncertain: z.literal(1) }),
+  effectStatusCounts: z.object({ succeeded: z.literal(3), uncertain: z.literal(1) }),
   effectErrorCodes: z.array(z.literal('lease_takeover')).length(1),
-  traceStatusCounts: z.object({ succeeded: z.literal(5), uncertain: z.literal(1) }),
+  traceStatusCounts: z.object({ succeeded: z.literal(3), uncertain: z.literal(1) }),
   traceErrorCodes: z.array(z.literal('lease_takeover')).length(1),
   traceIdCount: z.literal(2),
-  providerRequestCount: z.literal(5),
+  providerRequestCount: z.literal(3),
   staleEffectFinishResult: z.literal('lease_lost'),
   staleTerminalResult: z.literal('lease_lost'),
 })
@@ -28,7 +38,7 @@ const ProductionTakeoverCaseSchema = z.object({
 
 export const ProductionTakeoverFixtureSchema = z.object({
   schema_version: z.literal(1),
-  dataset_id: z.literal('production-takeover-baseline-v1'),
+  dataset_id: z.literal('production-takeover-baseline-v2'),
   cases: z.array(ProductionTakeoverCaseSchema).length(1),
 })
 

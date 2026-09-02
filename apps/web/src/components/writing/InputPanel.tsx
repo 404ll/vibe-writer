@@ -6,7 +6,7 @@ const PRESET_STYLES = ['技术博客', '科普', '教程', '自定义'] as const
 type PresetStyle = typeof PRESET_STYLES[number] | ''
 
 interface Props {
-  onSubmit: (topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) => void
+  onSubmit: (topic: string, intervention: InterventionConfig, style: string, targetWords: number | null) => Promise<void>
   disabled: boolean
 }
 
@@ -16,11 +16,21 @@ export function InputPanel({ onSubmit, disabled }: Props) {
   const [selectedStyle, setSelectedStyle] = useState<PresetStyle>('')
   const [customStyle, setCustomStyle] = useState('')
   const [targetWords, setTargetWords] = useState<number | null>(null)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!topic.trim()) return
     const style = selectedStyle === '自定义' ? customStyle.trim() : selectedStyle
-    onSubmit(topic, { on_outline: onOutline }, style, targetWords)
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSubmit(topic.trim(), { on_outline: onOutline }, style, targetWords)
+    } catch {
+      setError('任务创建失败，请检查后重试。')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -43,19 +53,24 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             placeholder="输入写作主题，例如：RAG 检索增强生成…"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleSubmit()
+            }}
             autoComplete="off"
-            disabled={disabled}
+            disabled={disabled || submitting}
+            maxLength={500}
           />
           <button
             type="button"
             className="btn-primary topic-submit"
-            onClick={handleSubmit}
-            disabled={disabled || !topic.trim()}
+            onClick={() => void handleSubmit()}
+            disabled={disabled || submitting || !topic.trim()}
           >
-            开始写作
+            {submitting ? '创建中…' : '开始写作'}
           </button>
         </div>
+
+        {error && <p role="alert">{error}</p>}
 
         <div className="terminal-divider" />
 
@@ -122,7 +137,8 @@ export function InputPanel({ onSubmit, disabled }: Props) {
             placeholder="描述你想要的写作风格，例如：幽默风趣，多用类比…"
             value={customStyle}
             onChange={(e) => setCustomStyle(e.target.value)}
-            disabled={disabled}
+            disabled={disabled || submitting}
+            maxLength={500}
           />
         )}
       </div>

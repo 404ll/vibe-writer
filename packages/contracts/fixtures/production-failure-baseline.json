@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dataset_id": "production-failure-baseline-v1",
+  "dataset_id": "production-failure-baseline-v2",
   "cases": [
     {
       "id": "provider-unavailable-terminal-failure",
@@ -13,7 +13,7 @@
         "runStatuses": ["failed"],
         "runErrorCodes": ["workflow_service_exception"],
         "articleCount": 0,
-        "eventTypes": ["error"],
+        "eventTypes": ["stage_update", "error"],
         "outboxStatuses": ["published"],
         "effectStatuses": ["failed", "failed"],
         "effectErrorCodes": ["provider_unavailable", "provider_unavailable"],

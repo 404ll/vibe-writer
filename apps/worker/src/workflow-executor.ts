@@ -8,12 +8,12 @@ import {
   type CheckpointAttemptControl,
 } from '@vibe-writer/checkpoint-runtime'
 import {
-  buildWorkflowGraph,
-  createWorkflowState,
-  resumeOutline,
-  WorkflowStateSchema,
+  buildWriterReviewerWorkflowGraph,
+  createWriterReviewerWorkflowState,
+  resumeWriterReviewerOutline,
+  WriterReviewerWorkflowStateSchema,
   type WorkflowProgressEvent,
-  type WorkflowServices,
+  type WriterReviewerServices,
 } from '@vibe-writer/workflow-runtime'
 import type { ReplyRequest } from '@vibe-writer/contracts/jobs'
 import type {
@@ -49,7 +49,7 @@ export type WorkflowEventControl = {
 
 export type WorkflowServicesFactory = (
   context: WorkerExecutionContext,
-) => WorkflowServices
+) => WriterReviewerServices
 
 // 进度落库失败或租约丢失时伪装成 AbortError，让 Runner 按取消/失主处理，而不是当成模型异常重试。
 class WorkflowProgressProjectionError extends Error {
@@ -83,6 +83,35 @@ function toolsetVersion(toolVersions: Record<string, string>): string {
   return version
 }
 
+function executionConfigFor(context: WorkerExecutionContext) {
+  return {
+    id: context.run.id,
+    graphVersion: context.run.graphVersion,
+    promptSetVersion: context.run.promptVersion,
+    modelProfileId: context.run.modelProfile.profile,
+    toolsetVersion: toolsetVersion(context.run.toolVersions),
+    codeRevision: context.run.codeRevision,
+  }
+}
+
+type SemanticExecutionManifest = {
+  graphVersion: string
+  promptSetVersion: string
+  modelProfileId: string
+  toolsetVersion: string
+}
+
+function sameExecutionManifest(
+  stored: SemanticExecutionManifest,
+  current: SemanticExecutionManifest,
+): boolean {
+  // run id 每次 claim 都会变化，code revision 只用于审计；语义版本决定能否续跑。
+  return stored.graphVersion === current.graphVersion
+    && stored.promptSetVersion === current.promptSetVersion
+    && stored.modelProfileId === current.modelProfileId
+    && stored.toolsetVersion === current.toolsetVersion
+}
+
 /** 只认大纲审核这一种 interrupt；形状不对就当无效，避免把未知暂停点当成人工确认。 */
 function interruptOutline(
   interrupt: { id?: string; value?: unknown } | undefined,
@@ -107,7 +136,7 @@ function interruptOutline(
  */
 export class DurableWorkflowExecutor implements WorkerExecutor {
   constructor(
-    private readonly services: WorkflowServices | WorkflowServicesFactory,
+    private readonly services: WriterReviewerServices | WorkflowServicesFactory,
     private readonly checkpoints: WorkflowCheckpointFactory,
     private readonly commands?: WorkflowCommandSource,
     private readonly events?: WorkflowEventControl,
@@ -147,18 +176,37 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
           )
         }
       : undefined
-    const graph = buildWorkflowGraph(services, {
+    const graph = buildWriterReviewerWorkflowGraph(services, {
       checkpointer: session.checkpointer,
       signal: context.signal,
       ...(persistProgress ? { progress: persistProgress } : {}),
     })
     const config = { ...session.config, signal: context.signal }
+    const currentExecutionConfig = executionConfigFor(context)
+    if (session.resumeFromCheckpoint) {
+      const checkpoint = await graph.getState(config)
+      const stored = WriterReviewerWorkflowStateSchema.safeParse(checkpoint.values)
+      if (!stored.success) {
+        return {
+          status: 'failed',
+          errorCode: 'invalid_workflow_checkpoint',
+          errorMessage: 'Checkpoint state does not match the current workflow contract.',
+        }
+      }
+      if (!sameExecutionManifest(stored.data.executionConfig, currentExecutionConfig)) {
+        return {
+          status: 'failed',
+          errorCode: 'checkpoint_execution_config_mismatch',
+          errorMessage: 'Checkpoint execution versions differ from the active Worker.',
+        }
+      }
+    }
     // 接管或重试必须重放已提交的 LangGraph 检查点，而不是从头调用模型。
     // 新任务则把本次运行绑定的状态图、提示词、模型、工具和代码版本写进初始状态。
     let rawResult = session.resumeFromCheckpoint
       ? await graph.replay(config)
       : await graph.invoke(
-          createWorkflowState({
+          createWriterReviewerWorkflowState({
             jobId: context.job.id,
             topic: context.job.topic,
             style: context.job.style,
@@ -166,14 +214,7 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
               ? { targetWords: context.job.targetWords }
               : {}),
             interventionOnOutline: context.job.intervention.on_outline,
-            executionConfig: {
-              id: context.run.id,
-              graphVersion: context.run.graphVersion,
-              promptSetVersion: context.run.promptVersion,
-              modelProfileId: context.run.modelProfile.profile,
-              toolsetVersion: toolsetVersion(context.run.toolVersions),
-              codeRevision: context.run.codeRevision,
-            },
+            executionConfig: currentExecutionConfig,
           }),
           config,
         )
@@ -190,7 +231,7 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
           context.jobId,
           pending.interruptId,
         )
-        if (reply) rawResult = await graph.invoke(resumeOutline(reply), config)
+        if (reply) rawResult = await graph.invoke(resumeWriterReviewerOutline(reply), config)
       }
     }
     if (context.signal.aborted) throw new DOMException('Operation aborted.', 'AbortError')
@@ -208,7 +249,7 @@ export class DurableWorkflowExecutor implements WorkerExecutor {
           }
     }
 
-    const parsed = WorkflowStateSchema.safeParse(rawResult)
+    const parsed = WriterReviewerWorkflowStateSchema.safeParse(rawResult)
     if (!parsed.success) {
       return {
         status: 'failed',

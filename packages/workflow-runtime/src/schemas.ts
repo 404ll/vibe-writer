@@ -14,7 +14,7 @@ import {
 export const WorkflowGraphState = new StateSchema(WorkflowStateSchema.shape)
 
 // 大纲是整条工作流的公共输入：无论模型生成还是人工修改，都限制为 1-6 个非空标题。
-export const OutlineSchema = z.array(z.string().trim().min(1)).min(1).max(6)
+export const OutlineSchema = z.array(z.string().trim().min(1).max(500)).min(1).max(6)
 
 // outline_review 节点恢复时允许两类命令：确认当前大纲，或者携带反馈要求修改。
 export const OutlineCommandSchema = z.discriminatedUnion('action', [
@@ -24,7 +24,7 @@ export const OutlineCommandSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('revise'),
-    message: z.string().trim().min(1),
+    message: z.string().trim().min(1).max(2_000),
     outline: OutlineSchema.optional(),
   }),
 ])

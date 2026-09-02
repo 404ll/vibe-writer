@@ -2,34 +2,20 @@ import type { StageStatus } from '@/types'
 
 const STAGES: { key: StageStatus; label: string; icon: string }[] = [
   { key: 'plan',   label: '规划大纲', icon: '◎' },
-  { key: 'write',  label: '撰写章节', icon: '✦' },
+  { key: 'write',  label: '创作全文', icon: '✦' },
   { key: 'review', label: '审稿',     icon: '◈' },
   { key: 'export', label: '导出文章', icon: '⬡' },
 ]
 
 const STAGE_ORDER: StageStatus[] = ['plan', 'write', 'review', 'export', 'done']
 
-const CH_STATUS_LABEL: Record<string, string> = {
-  forming_opinion: '论点中',
-  searching:       '搜索中',
-  writing:         '写作中',
-  reviewing:       '审稿中',
-  done:            '✓',
-}
-
 interface Props {
   currentStage: StageStatus | null
-  completedChapters: number
-  totalChapters: number
-  chapterStatus?: Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>
   outline?: string[]
 }
 
 export function StagePanel({
   currentStage,
-  completedChapters,
-  totalChapters,
-  chapterStatus = {},
   outline = [],
 }: Props) {
   const currentIndex = currentStage ? STAGE_ORDER.indexOf(currentStage) : -1
@@ -71,11 +57,6 @@ export function StagePanel({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className={labelClass}>
                   {label}
-                  {isWrite && totalChapters > 0 && (
-                    <span style={{ opacity: 0.72, marginLeft: '3px' }}>
-                      {completedChapters}/{totalChapters}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -83,30 +64,10 @@ export function StagePanel({
             {isWrite && active && outline.length > 0 && (
               <div className="chapter-steps">
                 {outline.map((title) => {
-                  const status = chapterStatus[title]
-                  const isDone = status === 'done'
-                  const isActive = !!status && !isDone
-                  const stepClass = isActive ? 'chapter-step chapter-step--active' : 'chapter-step'
-                  const dotClass = [
-                    'chapter-dot',
-                    isActive ? 'chapter-dot--active' : '',
-                    isDone ? 'chapter-dot--done' : '',
-                  ].filter(Boolean).join(' ')
-                  const titleClass = [
-                    'chapter-title',
-                    isActive ? 'chapter-title--active' : '',
-                    isDone ? 'chapter-title--done' : '',
-                  ].filter(Boolean).join(' ')
-
                   return (
-                    <div key={title} className={stepClass}>
-                      <div className={dotClass} />
-                      <span className={titleClass}>{title}</span>
-                      {status && (
-                        <span className="chapter-status">
-                          {CH_STATUS_LABEL[status] ?? status}
-                        </span>
-                      )}
+                    <div key={title} className="chapter-step">
+                      <div className="chapter-dot" />
+                      <span className="chapter-title">{title}</span>
                     </div>
                   )
                 })}

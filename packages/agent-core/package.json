@@ -8,10 +8,13 @@
     "./coverage": "./src/coverage.ts",
     "./planner": "./src/planner.ts",
     "./reviewer": "./src/reviewer.ts",
+    "./reviewer-agent": "./src/reviewer-agent.ts",
     "./research": "./src/research.ts",
     "./tool-loop": "./src/tool-loop.ts",
     "./versions": "./src/versions.ts",
-    "./writer": "./src/writer.ts"
+    "./writer": "./src/writer.ts",
+    "./writer-agent": "./src/writer-agent.ts",
+    "./writing-artifacts": "./src/writing-artifacts.ts"
   },
   "scripts": {
     "test": "vitest run",

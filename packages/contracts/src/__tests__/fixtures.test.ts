@@ -211,8 +211,12 @@ describe('migration fixtures', () => {
       expect(productionCase.expected.canonicalMarkdown).toBe(
         workflowCase?.expected.canonicalMarkdown,
       )
-      expect(productionCase.expected.effectKeys).toHaveLength(5)
-      expect(productionCase.expected.traceOperations).toHaveLength(5)
+      expect(productionCase.expected.effectKeys).toHaveLength(3)
+      expect(productionCase.expected.traceOperations).toEqual([
+        'planner.plan',
+        'reviewer-agent.review',
+        'writer-agent.compose',
+      ])
     }
 
     const duplicate = structuredClone(production)
@@ -228,7 +232,7 @@ describe('migration fixtures', () => {
     expect(fixture.cases[0]?.expected).toMatchObject({
       jobStatus: 'cancelled',
       articleCount: 0,
-      eventTypes: ['cancelled'],
+      eventTypes: ['stage_update', 'cancelled'],
     })
   })
 
@@ -242,6 +246,7 @@ describe('migration fixtures', () => {
       effectStatuses: ['failed', 'failed'],
       traceStatuses: ['failed', 'failed'],
       articleCount: 0,
+      eventTypes: ['stage_update', 'error'],
     })
   })
 
@@ -253,7 +258,7 @@ describe('migration fixtures', () => {
     expect(fixture.cases[0]?.expected).toMatchObject({
       jobStatus: 'completed',
       runStatuses: ['failed', 'completed'],
-      effectStatusCounts: { succeeded: 5, uncertain: 1 },
+      effectStatusCounts: { succeeded: 3, uncertain: 1 },
       staleTerminalResult: 'lease_lost',
     })
   })

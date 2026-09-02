@@ -13,6 +13,7 @@ import {
   OUTLINE_SYSTEM,
 } from './prompts'
 import { PROMPT_VERSIONS } from './versions'
+import type { EditorialDecision, WritingBrief } from './writing-artifacts'
 
 /** 只接受「数字编号 + 标题」行，丢掉解释性前后文，防止模型寒暄变成章节。 */
 export function parseOutline(raw: string): string[] {
@@ -42,18 +43,28 @@ export class PlannerService {
   constructor(private readonly model: TextModel) {}
 
   /** 首次规划。`effectScope` 只传给模型 metadata，供外层 fenced 账本关联，不改变大纲语义。 */
-  async plan(input: { topic: string; targetWords?: number; signal?: AbortSignal; effectScope?: string }) {
+  async plan(input: {
+    topic?: string
+    targetWords?: number
+    brief?: WritingBrief
+    signal?: AbortSignal
+    effectScope?: string
+  }) {
+    const topic = input.brief?.topic ?? input.topic ?? ''
+    const targetWords = input.brief?.targetWords ?? input.targetWords
     const response = await this.model.generate({
       operation: 'planner.plan',
       promptVersion: PROMPT_VERSIONS.planner,
       system: OUTLINE_SYSTEM,
-      user: buildOutlineUserPrompt(input.topic, input.targetWords),
+      user: input.brief
+        ? buildOutlineUserPrompt(input.brief)
+        : buildOutlineUserPrompt(topic, targetWords ?? undefined),
       maxTokens: 2048,
       signal: input.signal,
       metadata: input.effectScope ? { effectScope: input.effectScope } : undefined,
     })
 
-    return trimOutlineForBudget(parseOutline(response.text), input.targetWords)
+    return trimOutlineForBudget(parseOutline(response.text), targetWords ?? undefined)
   }
 
   /** 按用户反馈改大纲；输出仍是完整大纲，不是 diff。 */
@@ -64,16 +75,24 @@ export class PlannerService {
     targetWords?: number
     signal?: AbortSignal
     effectScope?: string
+    brief?: WritingBrief
+    editorialDecisions?: EditorialDecision[]
   }) {
     const response = await this.model.generate({
       operation: 'planner.revise',
       promptVersion: PROMPT_VERSIONS.outlineRevision,
       system: OUTLINE_REVISION_SYSTEM,
-      user: buildOutlineRevisionUserPrompt(input),
+      user: buildOutlineRevisionUserPrompt({
+        ...input,
+        editorialDecisions: input.editorialDecisions ?? [],
+      }),
       maxTokens: 2048,
       signal: input.signal,
       metadata: input.effectScope ? { effectScope: input.effectScope } : undefined,
     })
-    return trimOutlineForBudget(parseOutline(response.text), input.targetWords)
+    return trimOutlineForBudget(
+      parseOutline(response.text),
+      input.brief?.targetWords ?? input.targetWords,
+    )
   }
 }

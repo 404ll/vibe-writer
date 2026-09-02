@@ -2,12 +2,14 @@ import { useState } from 'react'
 
 interface Props {
   outline: string[]
-  onConfirm: (reply: string, outline: string[]) => void
+  onConfirm: (reply: string, outline: string[]) => Promise<void>
 }
 
 export function ReviewPanel({ outline, onConfirm }: Props) {
   const [chapters, setChapters] = useState<string[]>(outline)
   const [reply, setReply] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   function updateChapter(i: number, value: string) {
     setChapters((prev) => prev.map((ch, idx) => (idx === i ? value : ch)))
@@ -16,6 +18,24 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
   function deleteChapter(i: number) {
     if (chapters.length <= 1) return
     setChapters((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  async function handleConfirm() {
+    const normalizedChapters = chapters.map((chapter) => chapter.trim())
+    if (normalizedChapters.some((chapter) => !chapter)) {
+      setError('章节标题不能为空。')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await onConfirm(reply.trim(), normalizedChapters)
+    } catch {
+      setError('提交失败，请检查后重试。')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -28,9 +48,12 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
           <div key={i} className="outline-row">
             <span className="outline-number">{String(i + 1).padStart(2, '0')}</span>
             <input
+              aria-label={`章节 ${i + 1}`}
               className="outline-input"
               value={ch}
               onChange={(e) => updateChapter(i, e.target.value)}
+              maxLength={500}
+              disabled={submitting}
             />
             <button
               type="button"
@@ -53,9 +76,17 @@ export function ReviewPanel({ outline, onConfirm }: Props) {
         value={reply}
         onChange={(e) => setReply(e.target.value)}
         placeholder="可选：如「在第二章后加一章讲实战案例」…"
+        maxLength={2000}
+        disabled={submitting}
       />
-      <button type="button" className="btn-primary" onClick={() => onConfirm(reply, chapters)}>
-        确认继续
+      {error && <p role="alert">{error}</p>}
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={() => void handleConfirm()}
+        disabled={submitting}
+      >
+        {submitting ? '提交中…' : '确认继续'}
       </button>
     </div>
   )

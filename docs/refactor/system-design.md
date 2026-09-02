@@ -115,7 +115,7 @@ sequenceDiagram
 Research 不把供应商 SDK response 或中文错误提示直接交给 Writer：
 
 ```text
-CoveragePlannerService → CoveragePoint[]
+WriterAgentService → search tool（模型在全文语境中决定真实 query）
 ResearchService orchestrator
   → query policy (clock + date bounds)
   → SearchProvider port
@@ -125,24 +125,26 @@ ResearchService orchestrator
   → ready | empty | unavailable | failed
 ```
 
-Agent core 只认识 `SearchProvider` 和结构化来源。Worker adapter 负责 Tavily/其他供应商的鉴权、timeout、retry、字段校验和 trace。当前以来源 URL 作为稳定引用；内部 source id 要等来源/RAG 数据表落地后分配。Writer search tool 已消费结构化 status：给模型的 compact result 保留 URL/来源序号，执行记录保留 provider/request id 与 source metadata；unavailable/failed 被标为错误且不能当作研究证据。查询策略使用注入 clock 与日期上下界，保证 eval 能以固定 as-of date 重放。
+Agent core 只认识 `SearchProvider` 和结构化来源。Worker adapter 负责 Tavily/其他供应商的鉴权、timeout、retry、字段校验和 trace。当前产品 Graph 不再预生成逐章 Coverage/Search 列表；Writer 在完整 brief 与全文大纲中按需要调用既有 search seam，并把去重 URL、标题、时间、分数和最多 2,000 字的检索证据记录到有界 `SourceNotebook`，供隔离 Reviewer 核对。给模型的 compact result 保留 URL/来源序号，unavailable/failed 被标为错误且不能当作研究证据。查询策略使用注入 clock 与日期上下界，保证 eval 能以固定 as-of date 重放。Brave/SearXNG、网页正文提取和独立 Research Agent 不属于当前实现。
 
 ### Writer 与工具循环边界
 
 ```text
-WriterService
-  → versioned chapter prompt + token budget
-  → ToolLoopRunner (8 tool rounds / 8 dispatched calls)
-    → ToolModel port
-    → strict registered tools
-      → search (3 calls / chapter) → ResearchService
-      → generate_diagram
-  → ready | inconclusive
+WritingBrief + approved outline + bounded editorial decisions
+  → WriterAgentService（同一个全文语义会话）
+    → ToolLoopRunner（8 tool rounds / 10 total calls）
+      → search（最多 6 次）→ ResearchService
+      → generate_diagram（最多 3 次）
+    → complete Markdown draft | bounded max_tokens continuation | failure
+  → fresh ReviewerAgentService
+    → deterministic structure/word checks
+    → strict ReviewReport
+  → approved/export | needs_revision/same Writer session（最多 2 轮）
 ```
 
-工具的 Zod input schema 同时用于 runtime validation 和生成 provider JSON Schema。每个 assistant tool call 必须在下一条 user message 收到同 id 的 result；未知工具、非法输入、handler/tool error 和预算耗尽都以安全的 `isError` result 返回。空白文本、非法协议、`max_tokens`、`refusal`、`pause_turn` 或轮次耗尽都不能成为成功正文。
+`WritingBrief` 从 Planner 开始携带 topic、style、目标读者、篇幅和验收标准；大纲反馈蒸馏为最多 4 条 `EditorialDecision`，不会在标题更新后丢失，也不会无限堆积原始聊天。Writer 一次负责完整文章，不再把独立章节拼接成全文。Reviewer 每轮都是隔离的新调用，只看显式 artifact、来源清单和完整草稿，不继承 Writer 的 message history，也不直接替 Writer 写正文。
 
-`ToolBudgetUsage` 必须进入未来 graph state/checkpoint，重写时传回 Writer，才能把 3 次 search 和 8 次 dispatch 上限真正约束在整章而不是单次 attempt。超限 attempted call 仍产生 error result，但不执行外部 handler。模型调用的 provider/model/stop reason/usage/request id 作为 metadata-only 记录返回；best-effort observer 也不携带工具正文。完整 transcript 和 execution content 默认不持久化，未来 trace/eval 只在显式采样、去标识化与保留策略下保存原文。
+工具的 Zod input schema 同时用于 runtime validation 和生成 provider JSON Schema。每个 assistant tool call 必须在下一条 user message 收到同 id 的 result；未知工具、非法输入、handler/tool error 和预算耗尽都以安全的 `isError` result 返回。`ToolBudgetUsage` 与 provider-neutral `WriterSession` 进入 v2 graph checkpoint，使返工和 `max_tokens` continuation 能继承已见资料与正常 tool result，同时保持 64 条消息、单块字符、来源数和工具调用硬上限。SDK对象、连接、AbortSignal、隐藏推理和供应商私有状态不进入 checkpoint。模型调用的 provider/model/stop reason/usage/request id 仍只作为 bounded metadata 记录。
 
 Anthropic adapter 已实现真实 `TextModel`/`ToolModel` wire mapping，Tavily adapter 已实现 `SearchProvider`；graph cancellation signal 与 style 会贯穿 service 到 adapter。Iteration 0017 已在 Worker composition 把这些调用接入 fenced `run_effects`，Iteration 0021 增加同事务 bounded provider trace；但 node/HTTP/queue distributed trace、vendor export和收费 live smoke尚未完成，因此供应商真实可用性和质量仍未证明。
 
@@ -150,7 +152,7 @@ Anthropic adapter 已实现真实 `TextModel`/`ToolModel` wire mapping，Tavily 
 
 大纲确认使用 LangGraph `interrupt()` 和持久化 checkpointer。Worker pause transaction 把 framework interrupt id/payload 投影到 `job_interrupts`，同时写 `outline_ready` 和 `awaiting_input`。reply API 只把单个、带 fingerprint 的 `job_commands` 写入 PostgreSQL，并在同事务把 job requeue、追加 resume outbox；它不在 HTTP 进程内调用 graph。
 
-新 run 恢复 checkpoint 后，只有 checkpoint 仍返回同一 interrupt 且存在匹配 command 时才调用 `resumeOutline()`。checkpoint 已前进时只 replay，避免 crash/takeover 后重复应用回复。初次 queue delivery 使用 `write-{jobId}`；resume 使用 `resume-{outboxEventId}`，既保证同一 outbox 重试去重，也避免 BullMQ retained completed job 吞掉第二次投递。
+新 run 恢复 checkpoint 后，只有 checkpoint 仍返回同一 interrupt 且存在匹配 command 时才调用 `resumeWriterReviewerOutline()`。checkpoint 已前进时只 replay，避免 crash/takeover 后重复应用回复。初次 queue delivery 使用 `write-{jobId}`；resume 使用 `resume-{outboxEventId}`，既保证同一 outbox 重试去重，也避免 BullMQ retained completed job 吞掉第二次投递。
 
 ### 取消
 
@@ -319,7 +321,7 @@ checkpoint 的应用 state 与 LangGraph envelope 是两层契约。应用 state
 - `code_revision`；
 - token、延迟、错误和 trace id。
 
-这些字段组成不可变的 `execution_config`/config id，并随 checkpoint 固定。Worker 根据 graph version 选择兼容 runtime 或显式迁移器；禁止旧 checkpoint 在新 prompt/model/tool 配置下静默续跑。Iteration 0008 仅提供 `prototype-unbound` 默认值用于 scripted test，生产 Worker 必须覆盖。
+这些字段组成不可变的 `execution_config`/config id，并随 checkpoint 固定。Worker 根据 graph version 选择兼容 runtime 或显式迁移器；禁止旧 checkpoint 在新 prompt/model/tool 配置下静默续跑。Iteration 0081 将产品默认 Graph 提升为 `writer-reviewer-graph-v2-2026-09-03`；v1/v2 state 和 effect 语义不同，未提供迁移器，旧 paused checkpoint 必须在部署前排空或取消，并在 v2 Worker 上 fail closed。Iteration 0008 仅提供 `prototype-unbound` 默认值用于 scripted test，生产 Worker 必须覆盖。
 
 workflow-runtime 不直接依赖 trace 或数据库；Worker composition 把 component identity 投影为 bounded run record：node、attempt、operation、版本、usage、latency、request id 和 replay identity。Iteration 0017 已把真实 provider adapter 接入 `run_effects`；Iteration 0021 又在同一 fenced transaction 中维护独立 `trace_spans`，使 provider operation、token、latency 和错误可查询。该 trace 仍只覆盖 provider effect，不是 node/HTTP/queue 的完整 distributed trace。完整 prompt/transcript/tool output 只在显式采样、去标识化、访问控制与保留策略允许时保存；provider-specific idempotency、结果恢复与 retry resolver 仍未实现，因此不能宣称 exactly-once。
 
@@ -430,6 +432,8 @@ Iteration 0027 使用独立 cancellation dataset/schema 验证 provider request 
 Iteration 0028 使用独立 failure dataset/schema 验证 loopback provider HTTP 503：Planner 的 component policy 进行一次有界重试，所以两个 effect/trace 均以 `provider_unavailable/failed` 结束，随后 workflow 以稳定的 `workflow_service_exception` 提交 failed job/run/error event。底层 provider taxonomy 用于诊断，业务 terminal code 用于稳定契约；adapter/queue 不得偷偷增加无限重试。takeover 仍需独立 case 证明 lease fencing。
 
 Iteration 0029 使用独立 takeover dataset/schema：旧 Worker 先 reserve `model:plan:attempt:1`，lease 过期后新 Worker 的 claim transaction 把旧 run 标为 `lease_expired/failed`、旧 effect/trace 标为 `lease_takeover/uncertain`，再创建 attempt 2。新 attempt 对 uncertain 稳定 key fail closed，不重复发 provider 请求；workflow 用 `plan:attempt:2` 有界恢复并完成共享 expected。旧 token 后续 finish/terminate 均为 `lease_lost`。该证据使用 DB-time expiry，不等于真实进程 crash 或 uncertain resolver。
+
+Iteration 0081 将 production composition/cancellation/failure/takeover baseline 提升为全文 Writer–Reviewer 对应的 v3/v2。happy path 固定 Planner、全文 Writer、隔离 Reviewer 三次 provider/effect/trace，以及真实 planning/composing/reviewing/export 里程碑；outline resume、运行中取消、503 有界重试和 expired-lease fencing 继续通过真实 PostgreSQL/Redis gate。
 
 Iteration 0030 已把同步 runner 扩展为独立 durable Eval execution plane：`enqueueRun` 在同一事务创建 queued run 与 `eval.run.requested` outbox；Eval dispatcher 只领取 `aggregate_type=eval_run`；BullMQ 只传 `{schemaVersion, evalRunId}`，并使用不同于写作任务的 queue name 和进程。Worker 通过数据库时间 claim/heartbeat/takeover，所有 report 写入由 lease token fencing，完整 trial/score 与 terminal run 在单一事务提交。component definition 与 execution 分离，因此 enqueue 不会偷偷执行 suite；首个 target registry 只接受当前 synthetic component identity，dataset/execution 不匹配时 fail closed。
 

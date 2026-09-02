@@ -45,7 +45,7 @@ import {
 } from '@vibe-writer/db'
 import * as schema from '@vibe-writer/db/schema'
 import { createPostgresSaver } from '@vibe-writer/checkpoint-runtime'
-import { WORKFLOW_VERSION } from '@vibe-writer/workflow-runtime'
+import { WRITER_REVIEWER_WORKFLOW_VERSION } from '@vibe-writer/workflow-runtime'
 import { asc, eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -114,19 +114,19 @@ const workflowFixture = WorkflowShadowFixtureSchema.parse(JSON.parse(readFileSyn
   'utf8',
 )))
 const productionBaseline = parseEvalBaseline(JSON.parse(readFileSync(
-  new URL('../../eval/baselines/production-composition-v2.json', import.meta.url),
+  new URL('../../eval/baselines/production-composition-v3.json', import.meta.url),
   'utf8',
 )))
 const cancellationBaseline = parseEvalBaseline(JSON.parse(readFileSync(
-  new URL('../../eval/baselines/production-cancellation-v1.json', import.meta.url),
+  new URL('../../eval/baselines/production-cancellation-v2.json', import.meta.url),
   'utf8',
 )))
 const failureBaseline = parseEvalBaseline(JSON.parse(readFileSync(
-  new URL('../../eval/baselines/production-failure-v1.json', import.meta.url),
+  new URL('../../eval/baselines/production-failure-v2.json', import.meta.url),
   'utf8',
 )))
 const takeoverBaseline = parseEvalBaseline(JSON.parse(readFileSync(
-  new URL('../../eval/baselines/production-takeover-v1.json', import.meta.url),
+  new URL('../../eval/baselines/production-takeover-v2.json', import.meta.url),
   'utf8',
 )))
 const closers: Array<() => Promise<unknown>> = []
@@ -234,23 +234,40 @@ async function fakeAnthropicServer(input: ProductionCompositionInput) {
     const system = typeof body.system === 'string' ? body.system : ''
     const tools = Array.isArray(body.tools) ? body.tools : []
     let text: string
-    if (tools.length > 0) {
+    if (system.includes('独立 Reviewer Agent')) {
+      const verdicts = input.fullReviewRounds[fullReviewSequence]
+      if (!verdicts) throw new Error('Missing scripted Reviewer round')
+      fullReviewSequence += 1
+      const approved = verdicts.every((verdict) => verdict === 'passed')
+      text = JSON.stringify(approved
+        ? {
+            version: 'review-report-v1',
+            verdict: 'approved',
+            summary: '全文可交付。',
+            globalIssues: [],
+            localIssues: [],
+          }
+        : {
+            version: 'review-report-v1',
+            verdict: 'needs_revision',
+            summary: '需要补充论证。',
+            globalIssues: ['补充关键论证。'],
+            localIssues: [],
+          })
+    } else if (tools.length > 0) {
       writerSequence += 1
-      text = `${input.expectedOutline[0]}正文-v${writerSequence}`
+      text = [
+        `# ${input.topic}`,
+        ...input.expectedOutline.flatMap((title) => [
+          '',
+          `## ${title}`,
+          `${title}正文-v${writerSequence}`,
+        ]),
+      ].join('\n')
     } else if (system.includes('技术内容策划')) {
       text = JSON.stringify({
         opinions: [`覆盖 ${input.initialOutline[0]}`],
         search_queries: [`${input.initialOutline[0]} 查询`],
-      })
-    } else if (system.includes('审阅完整文章每一章')) {
-      const verdicts = input.fullReviewRounds[fullReviewSequence]
-      if (!verdicts) throw new Error('Missing scripted full-review round')
-      fullReviewSequence += 1
-      text = JSON.stringify({
-        results: verdicts.map((verdict) => ({
-          passed: verdict === 'passed',
-          feedback: verdict === 'passed' ? '' : '补充论证',
-        })),
       })
     } else if (system.includes('审阅给定章节')) {
       text = JSON.stringify({ passed: true, feedback: '' })
@@ -440,7 +457,7 @@ async function executeProductionCancellation(input: {
   ])
   expect(JSON.stringify(effects)).not.toContain(input.topic)
   expect(JSON.stringify(spans)).not.toContain(input.topic)
-  return ProductionCancellationObservationSchema.parse({
+  const observation = {
     jobStatus: finalJob?.status,
     runStatuses: runs.map((run) => run.status),
     articleCount: articles.length,
@@ -450,7 +467,8 @@ async function executeProductionCancellation(input: {
     traceStatuses: spans.map((span) => span.status),
     providerRequestCount: provider.requests.length,
     cancellationResult,
-  })
+  }
+  return ProductionCancellationObservationSchema.parse(observation)
 }
 
 async function executeProductionFailure(input: {
@@ -522,7 +540,7 @@ async function executeProductionFailure(input: {
   ])
   expect(JSON.stringify(effects)).not.toContain(input.topic)
   expect(JSON.stringify(spans)).not.toContain(input.topic)
-  return ProductionFailureObservationSchema.parse({
+  const observation = {
     jobStatus: finalJob?.status,
     jobErrorCode: finalJob?.errorCode,
     runStatuses: runs.map((run) => run.status),
@@ -535,7 +553,8 @@ async function executeProductionFailure(input: {
     traceStatuses: spans.map((span) => span.status),
     traceErrorCodes: spans.map((span) => span.errorCode),
     providerRequestCount: provider.requests.length,
-  })
+  }
+  return ProductionFailureObservationSchema.parse(observation)
 }
 
 async function executeProductionTakeover(
@@ -567,8 +586,8 @@ async function executeProductionTakeover(
         model: 'fake-anthropic-v1',
       },
       promptVersion: PROMPT_SET_VERSION,
-      graphVersion: WORKFLOW_VERSION,
-      toolVersions: { writer: TOOLSET_VERSIONS.writer },
+      graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+      toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
       codeRevision: sourceRevision(),
     },
   })
@@ -660,7 +679,7 @@ async function executeProductionTakeover(
     succeeded: spans.filter((span) => span.status === 'succeeded').length,
     uncertain: spans.filter((span) => span.status === 'uncertain').length,
   }
-  return ProductionTakeoverObservationSchema.parse({
+  const observation = {
     jobStatus: finalJob?.status,
     runStatuses: runs.map((run) => run.status),
     runErrorCodes: runs.map((run) => run.errorCode),
@@ -677,7 +696,8 @@ async function executeProductionTakeover(
     providerRequestCount: provider.requests.length,
     staleEffectFinishResult: staleEffectFinish.status,
     staleTerminalResult: staleTerminal.status,
-  })
+  }
+  return ProductionTakeoverObservationSchema.parse(observation)
 }
 
 async function executeProductionComposition(
@@ -796,7 +816,7 @@ async function executeProductionComposition(
   expect(JSON.stringify(effects)).not.toContain('正文-v')
   expect(JSON.stringify(spans)).not.toContain('正文-v')
 
-  return ProductionCompositionObservationSchema.parse({
+  const observation = {
     jobStatus: finalJob?.status,
     runStatuses: runs.map((run) => run.status),
     articleCount: articles.length,
@@ -808,7 +828,8 @@ async function executeProductionComposition(
     traceOperations: spans.map((span) => span.operation).sort(),
     traceIdCount: new Set(spans.map((span) => span.traceId)).size,
     providerRequestCount: provider.requests.length,
-  })
+  }
+  return ProductionCompositionObservationSchema.parse(observation)
 }
 
 describe.sequential('production worker composition', () => {
@@ -878,7 +899,7 @@ describe.sequential('production worker composition', () => {
       evalCases,
       {
         key: 'typescript-durable-production-composition',
-        version: 'v2',
+        version: 'v3',
         async execute(input) {
           try {
             return await executeProductionComposition(input)
@@ -897,12 +918,12 @@ describe.sequential('production worker composition', () => {
         }),
       }],
       {
-        suite: { key: 'production-composition-regression', version: '2026-08-07-v2' },
+        suite: { key: 'production-composition-regression', version: '2026-09-03-v3' },
         execution: {
           modelProfile: 'loopback:anthropic-wire-v1',
           promptVersion: PROMPT_SET_VERSION,
-          graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+          toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
           codeRevision: sourceRevision(),
         },
       },
@@ -934,7 +955,7 @@ describe.sequential('production worker composition', () => {
       evalCases,
       {
         key: 'typescript-durable-production-cancellation',
-        version: 'v1',
+        version: 'v2',
         async execute(input) {
           try {
             return await executeProductionCancellation(input)
@@ -953,12 +974,12 @@ describe.sequential('production worker composition', () => {
         }),
       }],
       {
-        suite: { key: 'production-cancellation-regression', version: '2026-08-07-v1' },
+        suite: { key: 'production-cancellation-regression', version: '2026-09-03-v2' },
         execution: {
           modelProfile: 'loopback:blocked-anthropic-wire-v1',
           promptVersion: PROMPT_SET_VERSION,
-          graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+          toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
           codeRevision: sourceRevision(),
         },
       },
@@ -991,7 +1012,7 @@ describe.sequential('production worker composition', () => {
       evalCases,
       {
         key: 'typescript-durable-production-failure',
-        version: 'v1',
+        version: 'v2',
         async execute(input) {
           try {
             return await executeProductionFailure(input)
@@ -1010,12 +1031,12 @@ describe.sequential('production worker composition', () => {
         }),
       }],
       {
-        suite: { key: 'production-failure-regression', version: '2026-08-07-v1' },
+        suite: { key: 'production-failure-regression', version: '2026-09-03-v2' },
         execution: {
           modelProfile: 'loopback:anthropic-503-v1',
           promptVersion: PROMPT_SET_VERSION,
-          graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+          toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
           codeRevision: sourceRevision(),
         },
       },
@@ -1057,7 +1078,7 @@ describe.sequential('production worker composition', () => {
       evalCases,
       {
         key: 'typescript-durable-production-takeover',
-        version: 'v1',
+        version: 'v2',
         async execute(input) {
           try {
             return await executeProductionTakeover(input)
@@ -1076,12 +1097,12 @@ describe.sequential('production worker composition', () => {
         }),
       }],
       {
-        suite: { key: 'production-takeover-regression', version: '2026-08-07-v1' },
+        suite: { key: 'production-takeover-regression', version: '2026-09-03-v2' },
         execution: {
           modelProfile: 'loopback:anthropic-takeover-v1',
           promptVersion: PROMPT_SET_VERSION,
-          graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+          toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
           codeRevision: sourceRevision(),
         },
       },

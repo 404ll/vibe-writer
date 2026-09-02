@@ -21,7 +21,7 @@ const ProductionCancellationCaseSchema = z.object({
 
 export const ProductionCancellationFixtureSchema = z.object({
   schema_version: z.literal(1),
-  dataset_id: z.literal('production-cancellation-baseline-v1'),
+  dataset_id: z.literal('production-cancellation-baseline-v2'),
   cases: z.array(ProductionCancellationCaseSchema).length(1),
 })
 
