@@ -80,6 +80,14 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
 
     // 活动日志
     switch (type) {
+      case 'stage_update':
+        if (data.stage === 'plan') {
+          addActivity('running', '正在规划文章大纲…')
+        }
+        break
+      case 'outline_ready':
+        addActivity('success', '大纲已生成，等待确认')
+        break
       case 'generating_opinions':
         addActivity('running', `生成论点：${data.title as string}`)
         setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'forming_opinion' }))

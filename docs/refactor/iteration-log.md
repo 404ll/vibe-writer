@@ -82,5 +82,6 @@
 | 0076 | 2026-09-01 | Done | 大纲修改恢复幂等与失败收敛 | [记录](./iterations/0076-outline-revision-resume-idempotency.md) |
 | 0077 | 2026-09-01 | Done | PR Review 与 Eval Artifact 路径修正 | [记录](./iterations/0077-pr-review-and-eval-artifact-path.md) |
 | 0078 | 2026-09-01 | Done | Web Fetch Mock 构建类型修正 | [记录](./iterations/0078-web-fetch-mock-build-typecheck.md) |
+| 0079 | 2026-09-02 | Done | 规划阶段实时日志展示 | [记录](./iterations/0079-planning-activity-log.md) |
 
 状态只能使用 `Planned`、`In progress`、`Done`、`Superseded`。如果验证未运行或退出条件未满足，不得写 `Done`。
