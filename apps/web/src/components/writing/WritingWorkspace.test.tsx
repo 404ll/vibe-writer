@@ -1,10 +1,14 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WritingWorkspace } from './WritingWorkspace'
 
 const mocks = vi.hoisted(() => ({
   createJob: vi.fn(),
   getArticles: vi.fn(),
+  useJobStream: vi.fn<(
+    jobId: string | null,
+    onEvent: (type: string, data: Record<string, unknown>) => void,
+  ) => void>(),
   writeActiveJobId: vi.fn(),
 }))
 
@@ -13,7 +17,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/hooks/useJobStream', () => ({
-  useJobStream: vi.fn(),
+  useJobStream: mocks.useJobStream,
 }))
 
 vi.mock('@/lib/storage/jobStorage', () => ({
@@ -56,5 +60,25 @@ describe('WritingWorkspace job create', () => {
       })
     })
     expect(mocks.writeActiveJobId).toHaveBeenCalledWith('job-created-1')
+  })
+
+  it('shows persisted planning events in the realtime activity log', async () => {
+    render(<WritingWorkspace />)
+
+    fireEvent.change(screen.getByLabelText('写作主题'), { target: { value: '前端为什么总是死' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }))
+
+    await waitFor(() => {
+      expect(mocks.useJobStream).toHaveBeenCalledWith('job-created-1', expect.any(Function))
+    })
+    const streamCall = mocks.useJobStream.mock.calls.find(([jobId]) => jobId === 'job-created-1')
+    const onEvent = streamCall?.[1]
+    expect(onEvent).toBeTypeOf('function')
+
+    act(() => onEvent?.('stage_update', { stage: 'plan', _seq: 0 }))
+    expect(screen.getByRole('log')).toHaveTextContent('正在规划文章大纲…')
+
+    act(() => onEvent?.('outline_ready', { outline: ['第一章'], _seq: 1 }))
+    expect(screen.getByRole('log')).toHaveTextContent('大纲已生成，等待确认')
   })
 })
