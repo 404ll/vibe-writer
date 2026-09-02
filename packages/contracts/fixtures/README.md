@@ -13,9 +13,10 @@ component baseline fixture 同时保存 Python compatibility 与 TypeScript targ
 - `agent-component-baseline.json`：Planner/Reviewer 解析、预算与无效输出基线。
 - `opinion-search-baseline.json`：Coverage、查询策略与来源排序基线。
 - `writer-tool-baseline.json`：Writer tool loop 的协议、错误和轮次基线。
-- `workflow-control-baseline.json`：全文 rewrite route 与 Writer inconclusive policy 基线。
+- `workflow-control-baseline.json`：历史 v1 全文 rewrite route 与 Writer inconclusive policy 基线。
+- `production-composition-baseline.json`：v2 全文 Writer–Reviewer 的 completed 与 outline resume durable 投影。
+- `production-cancellation-baseline.json`、`production-failure-baseline.json`、`production-takeover-baseline.json`：v2 Graph 的取消、供应商失败与租约接管投影。
 - `workflow-shadow-baseline.json`：迁移期形成、现在由 TypeScript production projection 复用的无网络 workflow 场景与产品级期望投影。
-- `production-composition-baseline.json`：把 workflow expected 继续约束到 PostgreSQL、BullMQ、Worker、terminal article/event/effect/trace 的 durable projection。
 
 ## 更新规则
 

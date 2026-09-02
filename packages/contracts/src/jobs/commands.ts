@@ -23,9 +23,9 @@ export const InterventionConfigSchema = z.object({
 
 /** `POST /api/durable/jobs` 的请求体。 */
 export const CreateJobRequestSchema = z.object({
-  topic: z.string().trim().min(1),
+  topic: z.string().trim().min(1).max(500),
   intervention: InterventionConfigSchema.default({ on_outline: true }),
-  style: z.string().default(''),
+  style: z.string().trim().max(500).default(''),
   target_words: z.number().int().positive().nullable().optional(),
 })
 
@@ -39,8 +39,8 @@ export const CreateJobResponseSchema = z.object({
  * `outline` 有值表示用户提交了修改后的大纲；否则 `message` 表达确认或补充意见。
  */
 export const ReplyRequestSchema = z.object({
-  message: z.string(),
-  outline: z.array(z.string()).nullable().optional(),
+  message: z.string().max(2_000),
+  outline: z.array(z.string().trim().min(1).max(500)).min(1).max(6).nullable().optional(),
 })
 
 /** 取消等无额外返回数据的命令使用统一成功响应。 */

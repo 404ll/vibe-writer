@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { InputPanel } from './InputPanel'
@@ -32,13 +32,8 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
   const job = jobState ?? (persistedJobId ? makeEmptyJob(persistedJobId) : null)
   // 这些状态只服务当前页面展示；后端仍是任务进度和文章内容的事实来源
   const [awaitingReview, setAwaitingReview] = useState(false)
-  // 全文审核可能让同一章节进入重写并再次发出 chapter_done；用标题集合去重，
-  // 避免断线重放或重写轮次把“已完成章节数”累加到大纲总数以上。
-  const [completedChapterTitles, setCompletedChapterTitles] = useState<Set<string>>(
-    () => new Set(),
-  )
+  const outlineRevisionRef = useRef(0)
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
-  const [chapterStatus, setChapterStatus] = useState<Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>>({})
   // 滑动窗口写作预览：记录最新活跃章节和累积 token
   const [writingState, setWritingState] = useState<{ title: string; buffer: string } | null>(null)
 
@@ -74,23 +69,28 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
 
     // awaitingReview — 直接在外层处理，避免在 setJob updater 内赋值副作用
     // outline_ready 可能触发多次（LLM 修改后重推），每次都要展示确认面板
-    if (type === 'outline_ready') setAwaitingReview(true)
+    if (type === 'outline_ready') {
+      outlineRevisionRef.current += 1
+      setAwaitingReview(true)
+    }
     if (type === 'stage_update' && (data.stage === 'write')) setAwaitingReview(false)
     if (type === 'done' || type === 'cancelled') setAwaitingReview(false)
 
     // 活动日志
     switch (type) {
-      case 'stage_update':
-        if (data.stage === 'plan') {
-          addActivity('running', '正在规划文章大纲…')
-        }
+      case 'stage_update': {
+        const stage = data.stage as JobState['stage']
+        if (stage === 'plan') addActivity('running', 'Planner 正在规划文章大纲…')
+        if (stage === 'write') addActivity('running', 'Writer 正在创作完整文章…')
+        if (stage === 'review') addActivity('running', '文章草稿已就绪，交给独立 Reviewer…')
+        if (stage === 'export') addActivity('running', '审核闭环结束，正在保存文章…')
         break
+      }
       case 'outline_ready':
         addActivity('success', '大纲已生成，等待确认')
         break
       case 'generating_opinions':
         addActivity('running', `生成论点：${data.title as string}`)
-        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'forming_opinion' }))
         break
       case 'opinions_ready':
         addActivity('info', `论点就绪：${data.title as string}`)
@@ -99,9 +99,8 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
         const query = data.query as string | undefined
         const idx = data.index as number | undefined
         const qLabel = query ? `「${query}」` : ''
-        const idxLabel = idx ? ` (${idx}/3)` : ''
+        const idxLabel = idx ? ` (${idx})` : ''
         addActivity('running', `搜索中：${data.title as string}${idxLabel} ${qLabel}`.trim())
-        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'searching' }))
         break
       }
       case 'search_done': {
@@ -129,24 +128,20 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
               ? { title, buffer: prev.buffer + token }
               : { title, buffer: token }
           )
-          setChapterStatus((prev) => ({ ...prev, [title]: 'writing' }))
         }
         break
       }
       case 'reviewing_chapter':
         addActivity('running', `轻审中：${data.title as string}`)
-        setChapterStatus((prev) => ({ ...prev, [data.title as string]: 'reviewing' }))
         setWritingState((prev) => prev?.title === (data.title as string) ? null : prev)
         break
       case 'chapter_done': {
         const review = data.review as ReviewResult | undefined
         const title = data.title as string
-        setCompletedChapterTitles((prev) => new Set(prev).add(title))
-        setChapterStatus((prev) => ({ ...prev, [title]: 'done' }))
         if (review && !review.passed) {
-          addActivity('failed', `轻审未通过：${data.title as string} → 已重写`)
+          addActivity('failed', `轻审未通过：${title} → 已重写`)
         } else {
-          addActivity('success', `章节完成：${data.title as string}`)
+          addActivity('success', `章节完成：${title}`)
         }
         break
       }
@@ -158,8 +153,10 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
         const failedCount = results.filter((r) => !r.passed).length
         if (failedCount === 0) {
           addActivity('success', '全文审稿通过')
+        } else if (results.some((result) => result.feedback.startsWith('已达审核轮次上限'))) {
+          addActivity('failed', '审核两轮后仍有问题，将保存当前版本供人工检查')
         } else {
-          addActivity('info', `全文审稿：${failedCount} 章重写完成`)
+          addActivity('info', '全文审稿未通过，Writer 将按结构化反馈修订')
         }
         break
       }
@@ -198,32 +195,34 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
     })
     writeActiveJobId(job_id)
     setJob(makeEmptyJob(job_id))
-    setCompletedChapterTitles(new Set())
     setAwaitingReview(false)
     setActivityLog([])
     setWritingState(null)
-    setChapterStatus({})
   }
 
   // 用户确认或调整大纲后，把最终大纲交回后端继续写作阶段
   async function handleConfirm(reply: string, outline: string[]) {
     if (!job) return
-    setAwaitingReview(false)
-    await fetch(`${API_BASE}/jobs/${job.jobId}/reply`, {
+    const submittedRevision = outlineRevisionRef.current
+    const response = await fetch(`${API_BASE}/jobs/${job.jobId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: reply, outline }),
     })
+    if (!response.ok) {
+      throw new Error(`Outline reply failed with ${response.status}`)
+    }
+    // reply POST 与下一版 outline_ready 走不同通道：旧请求晚返回时不能覆盖
+    // SSE 已经展示的新一轮审核状态。
+    if (outlineRevisionRef.current === submittedRevision) setAwaitingReview(false)
   }
 
   function resetJobUi() {
     clearActiveJobId()
     setJob(null)
     setAwaitingReview(false)
-    setCompletedChapterTitles(new Set())
     setActivityLog([])
     setWritingState(null)
-    setChapterStatus({})
   }
 
   // 取消失败时也清理本地 UI，后续刷新不会继续挂在旧 job 上
@@ -304,9 +303,6 @@ export function WritingWorkspace({ memoryManagementEnabled = false }: {
                   {isScrollable && job && (
                     <StagePanel
                       currentStage={job.stage}
-                      completedChapters={completedChapterTitles.size}
-                      totalChapters={job.outline?.length ?? 0}
-                      chapterStatus={chapterStatus}
                       outline={job.outline ?? []}
                     />
                   )}

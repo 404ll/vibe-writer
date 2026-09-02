@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dataset_id": "production-cancellation-baseline-v1",
+  "dataset_id": "production-cancellation-baseline-v2",
   "cases": [
     {
       "id": "running-provider-call-cancelled",
@@ -10,7 +10,7 @@
         "jobStatus": "cancelled",
         "runStatuses": ["cancelled"],
         "articleCount": 0,
-        "eventTypes": ["cancelled"],
+        "eventTypes": ["stage_update", "cancelled"],
         "outboxStatuses": ["published"],
         "effectStatuses": ["uncertain"],
         "traceStatuses": ["uncertain"],

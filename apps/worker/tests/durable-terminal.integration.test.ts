@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { MemorySaver } from '@langchain/langgraph'
+import { REVIEW_REPORT_VERSION } from '@vibe-writer/agent-core'
 import {
   createCheckpointRepository,
   createCommandRepository,
@@ -10,7 +11,10 @@ import {
   SYSTEM_WORKSPACE_ID,
 } from '@vibe-writer/db'
 import * as schema from '@vibe-writer/db/schema'
-import { WORKFLOW_VERSION, type WorkflowServices } from '@vibe-writer/workflow-runtime'
+import {
+  WRITER_REVIEWER_WORKFLOW_VERSION,
+  type WriterReviewerServices,
+} from '@vibe-writer/workflow-runtime'
 import type { TextModel, ToolModel } from '@vibe-writer/model-runtime'
 import { count, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
@@ -31,39 +35,34 @@ const migrationsFolder = fileURLToPath(
 const execution = {
   modelProfile: { profile: 'scripted', provider: 'scripted', model: 'scripted-v1' },
   promptVersion: 'prompt-v1',
-  graphVersion: WORKFLOW_VERSION,
-  toolVersions: { writer: 'writer-v1' },
+  graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+  toolVersions: { writerAgent: 'writer-agent-v1' },
   codeRevision: 'durable-terminal-test',
 }
 
-function services(): WorkflowServices {
+function services(): WriterReviewerServices {
   return {
     plan: vi.fn(async () => ['第一章']),
     reviseOutline: vi.fn(async ({ outline }) => outline),
-    planCoverage: vi.fn(async ({ chapterTitle }) => ({
+    writeArticle: vi.fn(async ({ session }) => ({
       status: 'ready' as const,
-      points: [{ text: chapterTitle, searchQuery: `${chapterTitle} query` }],
-    })),
-    writeChapter: vi.fn(async ({ chapterTitle, budgetUsage }) => ({
-      status: 'ready' as const,
-      content: `${chapterTitle}正文`,
+      draft: '# Checkpoint crash recovery\n\n## 第一章\n第一章正文',
+      session,
+      sources: [],
       executions: [],
       modelCalls: [],
-      budgetUsage,
-      modelRequests: 1,
-      toolRounds: 0,
     })),
-    reviewChapter: vi.fn(async () => ({
-      verdict: 'passed' as const,
-      feedback: '',
-      source: 'model' as const,
-    })),
-    reviewFull: vi.fn(async ({ chapters }) =>
-      chapters.map(() => ({
-        verdict: 'passed' as const,
-        feedback: '',
+    reviewArticle: vi.fn(async () => ({
+      status: 'ready' as const,
+      report: {
+        version: REVIEW_REPORT_VERSION as typeof REVIEW_REPORT_VERSION,
+        verdict: 'approved' as const,
+        summary: '通过',
+        globalIssues: [],
+        localIssues: [],
+      },
         source: 'model' as const,
-      }))),
+    })),
   }
 }
 
@@ -212,7 +211,7 @@ describe('durable workflow terminal crash window', () => {
 
       await expect(runner.run(job.id)).resolves.toMatchObject({ status: 'completed' })
       expect(workflowServices.plan).toHaveBeenCalledTimes(1)
-      expect(workflowServices.writeChapter).toHaveBeenCalledTimes(1)
+      expect(workflowServices.writeArticle).toHaveBeenCalledTimes(1)
       const [articleCount] = await db
         .select({ value: count() })
         .from(schema.articles)
@@ -222,16 +221,12 @@ describe('durable workflow terminal crash window', () => {
         .from(schema.jobEvents)
         .where(eq(schema.jobEvents.jobId, job.id))
       expect(articleCount?.value).toBe(1)
-      expect(eventCount?.value).toBe(13)
+      expect(eventCount?.value).toBe(9)
       expect((await jobs.listEventsAfter(job.id)).map((event) => event.event)).toEqual([
         'stage_update',
         'stage_update',
-        'generating_opinions',
-        'opinions_ready',
         'writing_chapter',
         'writing_chapter',
-        'reviewing_chapter',
-        'chapter_done',
         'stage_update',
         'reviewing_full',
         'review_done',
@@ -308,7 +303,7 @@ describe('durable workflow terminal crash window', () => {
       })
 
       expect(workflowServices.plan).toHaveBeenCalledTimes(1)
-      expect(workflowServices.writeChapter).toHaveBeenCalledTimes(1)
+      expect(workflowServices.writeArticle).toHaveBeenCalledTimes(1)
       expect(await jobs.getJob(job.id)).toMatchObject({ status: 'completed' })
       const [articleCount] = await db
         .select({ value: count() })
@@ -319,12 +314,8 @@ describe('durable workflow terminal crash window', () => {
         'stage_update',
         'outline_ready',
         'stage_update',
-        'generating_opinions',
-        'opinions_ready',
         'writing_chapter',
         'writing_chapter',
-        'reviewing_chapter',
-        'chapter_done',
         'stage_update',
         'reviewing_full',
         'review_done',

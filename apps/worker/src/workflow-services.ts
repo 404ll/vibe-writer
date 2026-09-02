@@ -1,33 +1,38 @@
 import {
-  CoveragePlannerService,
   PlannerService,
   ResearchService,
-  ReviewerService,
-  WriterService,
+  ReviewerAgentService,
+  WriterAgentService,
   type SearchProvider,
 } from '@vibe-writer/agent-core'
 import type { TextModel, ToolModel } from '@vibe-writer/model-runtime'
-import type { WorkflowServices } from '@vibe-writer/workflow-runtime'
+import type { WriterReviewerServices } from '@vibe-writer/workflow-runtime'
 
 export type WorkflowModel = TextModel & ToolModel
 
 export function createWorkflowServices(
   model: WorkflowModel,
   searchProvider?: SearchProvider,
-): WorkflowServices {
+): WriterReviewerServices {
   const planner = new PlannerService(model)
-  const coverage = new CoveragePlannerService(model)
-  const reviewer = new ReviewerService(model)
+  const reviewer = new ReviewerAgentService(model)
   const research = searchProvider ? new ResearchService(searchProvider, model) : null
 
   return {
     plan: (input) => planner.plan(input),
-    reviseOutline: (input) => planner.revise(input),
-    planCoverage: (input) => coverage.plan(input),
-    writeChapter: (input) => {
+    reviseOutline: (input) => planner.revise({
+      topic: input.brief.topic,
+      brief: input.brief,
+      outline: input.outline,
+      feedback: input.feedback,
+      targetWords: input.brief.targetWords ?? undefined,
+      editorialDecisions: input.editorialDecisions,
+      signal: input.signal,
+      effectScope: input.effectScope,
+    }),
+    writeArticle: (input) => {
       let searchIndex = 0
-      return new WriterService(model, {
-        style: input.style,
+      return new WriterAgentService(model, {
         ...(research
           ? {
               // Writer 的 search tool 在章节生成过程中才知道真实 query。
@@ -51,7 +56,6 @@ export function createWorkflowServices(
           : {}),
       }).write(input)
     },
-    reviewChapter: (input) => reviewer.reviewChapter(input),
-    reviewFull: (input) => reviewer.reviewFull(input),
+    reviewArticle: (input) => reviewer.review(input),
   }
 }

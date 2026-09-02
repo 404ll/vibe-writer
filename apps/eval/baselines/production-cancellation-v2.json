@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "suite": {
     "key": "production-cancellation-regression",
-    "version": "2026-08-07-v1",
-    "datasetFingerprint": "sha256:20e6fb2613f46d0ee2aed173b70f8f8b0c3e848f20d17b565739ce26ab83eb60"
+    "version": "2026-09-03-v2",
+    "datasetFingerprint": "sha256:1da1e06c08749fb6bd5a5b627ff7d3b8b184d71235f6a1562790268a9a1f0987"
   },
   "target": {
     "key": "typescript-durable-production-cancellation",
-    "version": "v1"
+    "version": "v2"
   },
   "trialsPerCase": 1,
   "expectedCaseKeys": [
-    "production-cancellation-baseline-v1/running-provider-call-cancelled"
+    "production-cancellation-baseline-v2/running-provider-call-cancelled"
   ],
   "maximumTargetErrors": 0,
   "maximumEvaluatorErrors": 0,

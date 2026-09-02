@@ -23,7 +23,7 @@ const ProductionCompositionCaseSchema = z.object({
 
 export const ProductionCompositionFixtureSchema = z.object({
   schema_version: z.literal(1),
-  dataset_id: z.literal('production-composition-baseline-v2'),
+  dataset_id: z.literal('production-composition-baseline-v3'),
   cases: z.array(ProductionCompositionCaseSchema).min(1),
 }).superRefine((fixture, context) => {
   const ids = new Set<string>()

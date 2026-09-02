@@ -37,6 +37,15 @@ describe('job contracts', () => {
       ReplyRequestSchema.parse({ message: '确认', outline: ['第一章', '第二章'] }),
     ).toEqual({ message: '确认', outline: ['第一章', '第二章'] })
   })
+
+  it('rejects replies that cannot fit the durable outline checkpoint', () => {
+    expect(ReplyRequestSchema.safeParse({
+      message: '',
+      outline: Array.from({ length: 7 }, (_, index) => `第 ${index + 1} 章`),
+    }).success).toBe(false)
+    expect(ReplyRequestSchema.safeParse({ message: 'x'.repeat(2_001) }).success).toBe(false)
+    expect(ReplyRequestSchema.safeParse({ message: '', outline: [''] }).success).toBe(false)
+  })
 })
 
 describe('SSE contracts', () => {

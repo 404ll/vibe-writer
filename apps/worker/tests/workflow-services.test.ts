@@ -4,6 +4,7 @@ import type {
   ToolModelRequest,
   ToolModelResponse,
 } from '@vibe-writer/model-runtime'
+import { buildWritingBrief, emptyWriterSession } from '@vibe-writer/agent-core'
 import type { WorkflowSearchProgress } from '@vibe-writer/workflow-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { createWorkflowServices } from '../src/workflow-services'
@@ -26,15 +27,19 @@ describe('production workflow service composition', () => {
     const model = new Model()
     const services = createWorkflowServices(model)
     const signal = new AbortController().signal
-    await expect(services.plan({ topic: '主题', signal })).resolves.toEqual(['初始章'])
+    const brief = buildWritingBrief({ topic: '主题', style: '教程' })
+    await expect(services.plan({ brief, signal })).resolves.toEqual(['初始章'])
     await expect(services.reviseOutline({
-      topic: '主题', outline: ['初始章'], feedback: '修改', signal,
+      brief, outline: ['初始章'], feedback: '修改', editorialDecisions: [], signal,
     })).resolves.toEqual(['修订章'])
-    await expect(services.writeChapter({
-      topic: '主题', outline: '1. 初始章', chapterTitle: '初始章',
-      coveragePoints: [], reviewFeedback: '', budgetUsage: { totalCalls: 0, callsByTool: {} },
-      style: '教程', signal,
-    })).resolves.toMatchObject({ status: 'ready', content: '正文' })
+    await expect(services.writeArticle({
+      brief,
+      approvedOutline: ['初始章'],
+      editorialDecisions: [],
+      session: emptyWriterSession(),
+      reviewReport: null,
+      signal,
+    })).resolves.toMatchObject({ status: 'ready', draft: '正文' })
     expect(model.text).toHaveBeenCalledWith(expect.objectContaining({ signal }))
     expect(model.tool).toHaveBeenCalledWith(expect.objectContaining({
       signal, system: expect.stringContaining('手把手教学'),
@@ -86,18 +91,17 @@ describe('production workflow service composition', () => {
       searchProgress.push(progress)
     }
 
-    const result = await createWorkflowServices(model, search).writeChapter({
-      topic: '主题',
-      outline: '1. 初始章',
-      chapterTitle: '初始章',
-      coveragePoints: [],
-      reviewFeedback: '',
-      budgetUsage: { totalCalls: 0, callsByTool: {} },
-      effectScope: 'chapter:0:write:attempt:1',
+    const result = await createWorkflowServices(model, search).writeArticle({
+      brief: buildWritingBrief({ topic: '主题' }),
+      approvedOutline: ['初始章'],
+      editorialDecisions: [],
+      session: emptyWriterSession(),
+      reviewReport: null,
+      effectScope: 'article:cycle:1:attempt:1',
       onSearchProgress,
     })
 
-    expect(result).toMatchObject({ status: 'ready', content: '带资料的正文' })
+    expect(result).toMatchObject({ status: 'ready', draft: '带资料的正文' })
     expect(searchProgress).toEqual([
       { phase: 'started', query: '可靠事件流', index: 1 },
       {

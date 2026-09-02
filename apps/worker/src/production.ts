@@ -13,7 +13,7 @@ import {
   assertCurrentWriteRuntimeRole,
 } from '@vibe-writer/db'
 import { AnthropicModel, TavilySearchProvider } from '@vibe-writer/provider-runtime'
-import { WORKFLOW_VERSION } from '@vibe-writer/workflow-runtime'
+import { WRITER_REVIEWER_WORKFLOW_VERSION } from '@vibe-writer/workflow-runtime'
 import { BullMqWritePublisher, BullMqWriteWorker } from './bullmq-adapter'
 import { loadProductionWorkerConfig, type ProductionWorkerConfig } from './config'
 import { createWorkerLeaseControl } from './control'
@@ -126,8 +126,8 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
             model: config.modelId!,
           },
           promptVersion: PROMPT_SET_VERSION,
-          graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          graphVersion: WRITER_REVIEWER_WORKFLOW_VERSION,
+          toolVersions: { writerAgent: TOOLSET_VERSIONS.writerAgent },
           codeRevision: config.codeRevision,
         },
       },

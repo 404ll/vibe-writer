@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dataset_id": "production-takeover-baseline-v1",
+  "dataset_id": "production-takeover-baseline-v2",
   "cases": [
     {
       "id": "expired-lease-fenced-takeover",
@@ -13,14 +13,14 @@
         "articleCount": 1,
         "articleRevision": 0,
         "canonicalMarkdown": "# 稳定写作\n\n## 第一章\n第一章正文-v1",
-        "eventTypes": ["done"],
+        "eventTypes": ["stage_update", "stage_update", "writing_chapter", "writing_chapter", "stage_update", "reviewing_full", "review_done", "stage_update", "done"],
         "outboxStatuses": ["published"],
-        "effectStatusCounts": { "succeeded": 5, "uncertain": 1 },
+        "effectStatusCounts": { "succeeded": 3, "uncertain": 1 },
         "effectErrorCodes": ["lease_takeover"],
-        "traceStatusCounts": { "succeeded": 5, "uncertain": 1 },
+        "traceStatusCounts": { "succeeded": 3, "uncertain": 1 },
         "traceErrorCodes": ["lease_takeover"],
         "traceIdCount": 2,
-        "providerRequestCount": 5,
+        "providerRequestCount": 3,
         "staleEffectFinishResult": "lease_lost",
         "staleTerminalResult": "lease_lost"
       }

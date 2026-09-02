@@ -6,7 +6,7 @@ export const ProductionFailureObservationSchema = z.object({
   runStatuses: z.array(z.literal('failed')).length(1),
   runErrorCodes: z.array(z.literal('workflow_service_exception')).length(1),
   articleCount: z.literal(0),
-  eventTypes: z.array(z.literal('error')).length(1),
+  eventTypes: z.tuple([z.literal('stage_update'), z.literal('error')]),
   outboxStatuses: z.array(z.literal('published')).length(1),
   effectStatuses: z.array(z.literal('failed')).length(2),
   effectErrorCodes: z.array(z.literal('provider_unavailable')).length(2),
@@ -25,7 +25,7 @@ const ProductionFailureCaseSchema = z.object({
 
 export const ProductionFailureFixtureSchema = z.object({
   schema_version: z.literal(1),
-  dataset_id: z.literal('production-failure-baseline-v1'),
+  dataset_id: z.literal('production-failure-baseline-v2'),
   cases: z.array(ProductionFailureCaseSchema).length(1),
 })
 

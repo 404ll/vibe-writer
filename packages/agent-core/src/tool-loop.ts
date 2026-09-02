@@ -135,6 +135,11 @@ export type ToolLoopRunInput = {
   toolsetVersion: string
   system: string
   user: string
+  /**
+   * 同一个 Writer 在审稿返工时继续使用的正常对话。这里只允许 provider-neutral
+   * message/tool block；SDK 对象、隐藏推理和连接句柄不能进入 checkpoint。
+   */
+  initialMessages?: ToolModelMessage[]
   maxTokens: number
   tools: RegisteredTool[]
   /** 模型发起 tool_use 的轮数上限；与 maxTotalCalls 独立，防止空转。 */
@@ -208,12 +213,21 @@ export class ToolLoopRunner {
     }
 
     const transcript: ToolModelMessage[] = [
+      ...structuredClone(input.initialMessages ?? []),
       { role: 'user', content: [{ type: 'text', text: input.user }] },
     ]
     const executions: ToolExecutionRecord[] = []
     const modelCalls: ToolModelCallRecord[] = []
     const callsByTool = new Map<string, number>(Object.entries(initialUsage.callsByTool))
     const seenToolCallIds = new Set<string>()
+    // 返工/续写会带回已 checkpoint 的 transcript；新一轮也不能复用旧 tool_call id，
+    // 否则一个 tool_result 可能在同一 provider conversation 中对应两个调用。
+    for (const message of input.initialMessages ?? []) {
+      if (message.role !== 'assistant') continue
+      for (const block of message.content) {
+        if (block.type === 'tool_call') seenToolCallIds.add(block.id)
+      }
+    }
     let modelRequests = 0
     let toolRounds = 0
     let totalCalls = initialUsage.totalCalls
@@ -263,12 +277,54 @@ export class ToolLoopRunner {
       const responseBlocks = structuredClone(response.blocks)
       transcript.push({ role: 'assistant', content: responseBlocks })
 
+      if (responseBlocks.length === 0) {
+        // 空 assistant message 不是可恢复的 provider-neutral conversation turn；
+        // checkpoint 若保存它，WriterSession 的结构校验会掩盖真实的模型停止原因。
+        transcript.pop()
+        return {
+          ...resultBase(),
+          status: 'inconclusive',
+          reason: response.stopReason === 'end_turn'
+            ? 'empty_final_text'
+            : response.stopReason === 'tool_use'
+              ? 'invalid_model_response'
+              : inconclusiveReason(response.stopReason),
+          partialText: '',
+        }
+      }
+
       const toolCalls = responseBlocks.filter((block) => block.type === 'tool_call')
       const responseText = textFromToolBlocks(responseBlocks)
 
+      if (toolCalls.length === 0 && !responseText.trim()) {
+        // `[text: ""]` 与零 blocks 一样不能成为有意义的恢复点。
+        transcript.pop()
+        return {
+          ...resultBase(),
+          status: 'inconclusive',
+          reason: response.stopReason === 'end_turn'
+            ? 'empty_final_text'
+            : response.stopReason === 'tool_use'
+              ? 'invalid_model_response'
+              : inconclusiveReason(response.stopReason),
+          partialText: '',
+        }
+      }
+
       // 只有 end_turn 且无 tool_call 才可能是完成；夹带 tool_call 或其它 stopReason 一律 inconclusive。
       if (response.stopReason !== 'tool_use') {
-        if (toolCalls.length > 0 || response.stopReason !== 'end_turn') {
+        if (toolCalls.length > 0) {
+          // 未执行的 tool_call 不能进入可恢复 transcript；否则下一次普通 user turn
+          // 会违反 provider 要求的 tool_result 配对协议。
+          transcript.pop()
+          return {
+            ...resultBase(),
+            status: 'inconclusive',
+            reason: 'invalid_model_response',
+            partialText: '',
+          }
+        }
+        if (response.stopReason !== 'end_turn') {
           return {
             ...resultBase(),
             status: 'inconclusive',
@@ -276,18 +332,11 @@ export class ToolLoopRunner {
             partialText: responseText,
           }
         }
-        if (!responseText.trim()) {
-          return {
-            ...resultBase(),
-            status: 'inconclusive',
-            reason: 'empty_final_text',
-            partialText: '',
-          }
-        }
         return { ...resultBase(), status: 'completed', text: responseText }
       }
 
       if (toolCalls.length === 0) {
+        transcript.pop()
         return {
           ...resultBase(),
           status: 'inconclusive',
@@ -304,6 +353,7 @@ export class ToolLoopRunner {
         })
       ) {
         // 空 id 或跨轮重复 id 无法配对 tool_result，继续执行会污染后续协议。
+        transcript.pop()
         return {
           ...resultBase(),
           status: 'inconclusive',
@@ -314,6 +364,7 @@ export class ToolLoopRunner {
       for (const call of toolCalls) seenToolCallIds.add(call.id)
 
       if (toolRounds >= maxToolRounds) {
+        transcript.pop()
         return {
           ...resultBase(),
           status: 'inconclusive',
