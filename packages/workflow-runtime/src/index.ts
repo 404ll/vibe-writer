@@ -5,6 +5,6 @@ export { WorkflowGraphState } from './schemas'
 export type {
   WorkflowProgressEvent,
   WorkflowProgressSink,
-  WorkflowSearchProgress,
+  WorkflowResearchProgress,
   WorkflowServices,
 } from './types'

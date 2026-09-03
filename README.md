@@ -123,5 +123,8 @@ Vercel 网页与接口：
 - `REDIS_URL`
 - `ANTHROPIC_API_KEY`
 - `TAVILY_API_KEY`（可选）
+- `WEB_SEARCH_PROVIDER=disabled|tavily|brave|searxng`（可选；未设置时按已提供配置自动选择）
+- `BRAVE_SEARCH_API_KEY` 或 `SEARXNG_URL`（选择对应搜索供应商时使用）
+- `WEB_EXTRACT_ENABLED=true|false`（默认开启本地 Readability 网页正文提取）
 
 更多设计、架构决策记录、迭代和验证证据统一在 [`docs/refactor`](./docs/refactor/README.md)。

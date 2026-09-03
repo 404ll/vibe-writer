@@ -12,10 +12,20 @@ import {
   createTerminalRepository,
   assertCurrentWriteRuntimeRole,
 } from '@vibe-writer/db'
-import { AnthropicModel, TavilySearchProvider } from '@vibe-writer/provider-runtime'
+import {
+  AnthropicModel,
+  BraveSearchProvider,
+  SafeReadabilityWebExtractor,
+  SearXngSearchProvider,
+  TavilySearchProvider,
+} from '@vibe-writer/provider-runtime'
 import { WORKFLOW_VERSION } from '@vibe-writer/workflow-runtime'
 import { BullMqWritePublisher, BullMqWriteWorker } from './bullmq-adapter'
-import { loadProductionWorkerConfig, type ProductionWorkerConfig } from './config'
+import {
+  loadProductionWorkerConfig,
+  webResearchToolVersions,
+  type ProductionWorkerConfig,
+} from './config'
 import { createWorkerLeaseControl } from './control'
 import { OutboxDispatcher } from './outbox-dispatcher'
 import { WorkerProcessRuntime } from './process-runtime'
@@ -28,6 +38,7 @@ import { createWorkflowServices } from './workflow-services'
 import {
   EffectJournalModel,
   EffectJournalSearchProvider,
+  EffectJournalWebPageExtractor,
 } from './effect-journal'
 import { WorkerHealthServer } from './health-server'
 
@@ -82,10 +93,24 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
         ? { thinkingMode: config.anthropicThinkingMode }
         : {}),
     })
-    const search = config.tavilyApiKey
+    const search = config.webSearchProvider === 'tavily'
       ? new TavilySearchProvider({
-          apiKey: config.tavilyApiKey,
+          apiKey: config.tavilyApiKey!,
           ...(config.tavilyBaseUrl ? { baseUrl: config.tavilyBaseUrl } : {}),
+        })
+      : config.webSearchProvider === 'brave'
+        ? new BraveSearchProvider({
+            apiKey: config.braveSearchApiKey!,
+            ...(config.braveSearchBaseUrl ? { baseUrl: config.braveSearchBaseUrl } : {}),
+          })
+        : config.webSearchProvider === 'searxng'
+          ? new SearXngSearchProvider({ baseUrl: config.searxngUrl! })
+          : undefined
+    const webExtractor = config.webExtractEnabled
+      ? new SafeReadabilityWebExtractor({
+          timeoutMs: config.webExtractTimeoutMs,
+          maxResponseBytes: config.webExtractMaxResponseBytes,
+          maxTextChars: config.webExtractMaxTextChars,
         })
       : undefined
     const jobs = createJobRepository(consumerDatabase!.db)
@@ -104,6 +129,9 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
             new EffectJournalModel(model, jobs, identity),
             search
               ? new EffectJournalSearchProvider(search, jobs, identity)
+              : undefined,
+            webExtractor
+              ? new EffectJournalWebPageExtractor(webExtractor, jobs, identity)
               : undefined,
           )
         },
@@ -127,7 +155,10 @@ export function createProductionWorkerRuntime(config: ProductionWorkerConfig) {
           },
           promptVersion: PROMPT_SET_VERSION,
           graphVersion: WORKFLOW_VERSION,
-          toolVersions: { writer: TOOLSET_VERSIONS.writer },
+          toolVersions: {
+            writer: TOOLSET_VERSIONS.writer,
+            ...webResearchToolVersions(config),
+          },
           codeRevision: config.codeRevision,
         },
       },

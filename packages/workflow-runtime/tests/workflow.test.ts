@@ -243,6 +243,50 @@ describe('LangGraph workflow adapter', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 
+  it('projects search and extraction as distinct replayable progress events', async () => {
+    const projected: WorkflowProgressEvent[] = []
+    const services = scriptedServices({
+      writeChapter: vi.fn(async (input) => {
+        await input.onResearchProgress?.({
+          tool: 'search', phase: 'started', query: 'durable agents', index: 1,
+        })
+        await input.onResearchProgress?.({
+          tool: 'search', phase: 'finished', query: 'durable agents', index: 1,
+          preview: 'summary', chars: 7,
+        })
+        await input.onResearchProgress?.({
+          tool: 'extract_webpage', phase: 'started',
+          url: 'https://example.com/source', index: 1,
+        })
+        await input.onResearchProgress?.({
+          tool: 'extract_webpage', phase: 'finished',
+          url: 'https://example.com/source', index: 1,
+          sourceTitle: 'Source', chars: 1200, status: 'ready',
+        })
+        return readyWriter('正文', input.budgetUsage)
+      }),
+    })
+    await buildWorkflowGraph(services, {
+      progress: async (entry) => { projected.push(entry) },
+    }).invoke(createWorkflowState({
+      jobId: 'job-research-progress', topic: '研究', interventionOnOutline: false,
+    }))
+
+    const researchEvents = projected.filter((entry) => [
+      'searching', 'search_done', 'extracting', 'extract_done',
+    ].includes(entry.event.event))
+    expect(researchEvents.map((entry) => entry.event.event)).toEqual([
+      'searching', 'search_done', 'extracting', 'extract_done',
+    ])
+    expect(researchEvents.map((entry) => entry.idempotencyKey)).toEqual([
+      'workflow:chapter:0:write:attempt:1:search:1:started',
+      'workflow:chapter:0:write:attempt:1:search:1:finished',
+      'workflow:chapter:0:write:attempt:1:extract:1:started',
+      'workflow:chapter:0:write:attempt:1:extract:1:finished',
+    ])
+    expect(JSON.stringify(researchEvents)).not.toContain('正文')
+  })
+
   it('completes the maximum six-chapter outline without caller recursion tuning', async () => {
     const services = scriptedServices({
       plan: vi.fn(async () => ['一', '二', '三', '四', '五', '六']),

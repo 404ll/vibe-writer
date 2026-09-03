@@ -4,7 +4,7 @@ import type {
   ToolModelRequest,
   ToolModelResponse,
 } from '@vibe-writer/model-runtime'
-import type { WorkflowSearchProgress } from '@vibe-writer/workflow-runtime'
+import type { WorkflowResearchProgress } from '@vibe-writer/workflow-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { createWorkflowServices } from '../src/workflow-services'
 
@@ -81,8 +81,8 @@ describe('production workflow service composition', () => {
         ],
       })),
     }
-    const searchProgress: WorkflowSearchProgress[] = []
-    const onSearchProgress = async (progress: WorkflowSearchProgress) => {
+    const searchProgress: WorkflowResearchProgress[] = []
+    const onResearchProgress = async (progress: WorkflowResearchProgress) => {
       searchProgress.push(progress)
     }
 
@@ -94,13 +94,14 @@ describe('production workflow service composition', () => {
       reviewFeedback: '',
       budgetUsage: { totalCalls: 0, callsByTool: {} },
       effectScope: 'chapter:0:write:attempt:1',
-      onSearchProgress,
+      onResearchProgress,
     })
 
     expect(result).toMatchObject({ status: 'ready', content: '带资料的正文' })
     expect(searchProgress).toEqual([
-      { phase: 'started', query: '可靠事件流', index: 1 },
+      { tool: 'search', phase: 'started', query: '可靠事件流', index: 1 },
       {
+        tool: 'search',
         phase: 'finished',
         query: '可靠事件流',
         index: 1,
@@ -108,5 +109,49 @@ describe('production workflow service composition', () => {
         chars: 6,
       },
     ])
+  })
+
+  it('reports bounded extraction progress without putting page content in events', async () => {
+    const model = new Model()
+    model.tool
+      .mockResolvedValueOnce({
+        blocks: [{
+          type: 'tool_call',
+          id: 'extract-1',
+          name: 'extract_webpage',
+          input: { url: 'https://example.com/source' },
+        }],
+        stopReason: 'tool_use', provider: 'scripted', model: 'scripted',
+      })
+      .mockResolvedValueOnce({
+        blocks: [{ type: 'text', text: '核实后的正文' }],
+        stopReason: 'end_turn', provider: 'scripted', model: 'scripted',
+      })
+    const extractor = {
+      extract: vi.fn(async ({ url }: { url: string }) => ({
+        provider: 'readability', url, finalUrl: url, title: '来源标题',
+        contentType: 'text/html', content: '不应写进进度事件的完整正文', truncated: false,
+      })),
+    }
+    const progress: WorkflowResearchProgress[] = []
+    const result = await createWorkflowServices(model, undefined, extractor).writeChapter({
+      topic: '主题', outline: '1. 初始章', chapterTitle: '初始章',
+      coveragePoints: [], reviewFeedback: '', budgetUsage: { totalCalls: 0, callsByTool: {} },
+      onResearchProgress: async (event) => { progress.push(event) },
+    })
+
+    expect(result).toMatchObject({ status: 'ready', content: '核实后的正文' })
+    expect(progress).toEqual([
+      {
+        tool: 'extract_webpage', phase: 'started',
+        url: 'https://example.com/source', index: 1,
+      },
+      {
+        tool: 'extract_webpage', phase: 'finished',
+        url: 'https://example.com/source', index: 1,
+        sourceTitle: '来源标题', chars: 13, status: 'ready',
+      },
+    ])
+    expect(JSON.stringify(progress)).not.toContain('完整正文')
   })
 })

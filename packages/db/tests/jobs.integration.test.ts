@@ -418,6 +418,35 @@ describe('job repository', () => {
 })
 
 describe('event ordering and replay', () => {
+  it('persists bounded web extraction progress for SSE replay', async () => {
+    const { job, identity } = await createClaimedJob('event-web-extract')
+    const repo = repository()
+    await repo.appendRunEvent({
+      ...identity,
+      idempotencyKey: 'chapter:0:extract:1:started',
+      event: {
+        event: 'extracting',
+        data: { title: '研究', url: 'https://example.com/source', index: 1 },
+      },
+    })
+    await repo.appendRunEvent({
+      ...identity,
+      idempotencyKey: 'chapter:0:extract:1:finished',
+      event: {
+        event: 'extract_done',
+        data: {
+          title: '研究', url: 'https://example.com/source', index: 1,
+          source_title: 'Source', chars: 1200, status: 'ready',
+        },
+      },
+    })
+
+    await expect(repo.listEventsAfter(job.id, -1)).resolves.toMatchObject([
+      { event: 'extracting', data: { index: 1, _seq: 0 } },
+      { event: 'extract_done', data: { status: 'ready', chars: 1200, _seq: 1 } },
+    ])
+  })
+
   it('allocates unique contiguous seq values and replays after a cursor', async () => {
     const { job, identity } = await createClaimedJob('event-order')
     const repo = repository()

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { loadProductionWorkerConfig } from '../src/config'
+import { loadProductionWorkerConfig, webResearchToolVersions } from '../src/config'
 import { WorkerProcessRuntime } from '../src/process-runtime'
 
 const baseEnv = {
@@ -22,6 +22,60 @@ describe('production worker config', () => {
     expect(loadProductionWorkerConfig({
       ...baseEnv, ANTHROPIC_THINKING_MODE: 'disabled',
     }).anthropicThinkingMode).toBe('disabled')
+  })
+
+  it('selects one explicit web search provider and keeps extraction limits bounded', () => {
+    expect(loadProductionWorkerConfig({
+      ...baseEnv,
+      TAVILY_API_KEY: 'search-secret',
+    })).toMatchObject({
+      webSearchProvider: 'tavily',
+      webExtractEnabled: true,
+      webExtractTimeoutMs: 15_000,
+      webExtractMaxResponseBytes: 1_000_000,
+      webExtractMaxTextChars: 20_000,
+    })
+    expect(loadProductionWorkerConfig({
+      ...baseEnv,
+      WEB_SEARCH_PROVIDER: 'searxng',
+      SEARXNG_URL: 'http://search.internal:8080',
+      WEB_EXTRACT_ENABLED: 'false',
+    })).toMatchObject({
+      webSearchProvider: 'searxng',
+      searxngUrl: 'http://search.internal:8080',
+      webExtractEnabled: false,
+    })
+    expect(() => loadProductionWorkerConfig({
+      ...baseEnv,
+      WEB_SEARCH_PROVIDER: 'brave',
+    })).toThrow('BRAVE_SEARCH_API_KEY')
+    expect(() => loadProductionWorkerConfig({
+      ...baseEnv,
+      WEB_EXTRACT_MAX_RESPONSE_BYTES: '5000001',
+    })).toThrow('WEB_EXTRACT_MAX_RESPONSE_BYTES')
+  })
+
+  it('keeps search disabled when no provider is configured', () => {
+    expect(loadProductionWorkerConfig(baseEnv)).toMatchObject({
+      webSearchProvider: 'disabled',
+      webExtractEnabled: true,
+    })
+  })
+
+  it('projects provider selection and extraction budgets into the durable run snapshot', () => {
+    const config = loadProductionWorkerConfig({
+      ...baseEnv,
+      WEB_SEARCH_PROVIDER: 'brave',
+      BRAVE_SEARCH_API_KEY: 'search-secret',
+      WEB_EXTRACT_TIMEOUT_MS: '12000',
+      WEB_EXTRACT_MAX_RESPONSE_BYTES: '750000',
+      WEB_EXTRACT_MAX_TEXT_CHARS: '18000',
+    })
+
+    expect(webResearchToolVersions(config)).toEqual({
+      search: 'brave-search-v1',
+      webExtract: 'readability-v1:timeout-12000:bytes-750000:chars-18000',
+    })
   })
 
   it('supports an independently scaled dispatcher without model credentials', () => {

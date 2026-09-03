@@ -357,30 +357,64 @@ export function buildWorkflowGraph(
             style: state.style,
             signal: options.signal,
             effectScope: `chapter:${state.currentChapterIndex}:write:attempt:${writeAttempt}`,
-            onSearchProgress: async (progress) => {
-              const searchScope = `${scope}:search:${progress.index}`
+            onResearchProgress: async (progress) => {
+              if (progress.tool === 'search') {
+                const searchScope = `${scope}:search:${progress.index}`
+                await emitProgress(
+                  progress.phase === 'started'
+                    ? {
+                        idempotencyKey: `${searchScope}:started`,
+                        event: {
+                          event: 'searching',
+                          data: {
+                            title: chapter.title,
+                            query: progress.query,
+                            index: progress.index,
+                          },
+                        },
+                      }
+                    : {
+                        idempotencyKey: `${searchScope}:finished`,
+                        event: {
+                          event: 'search_done',
+                          data: {
+                            title: chapter.title,
+                            query: progress.query,
+                            preview: progress.preview,
+                            chars: progress.chars,
+                          },
+                        },
+                      },
+                )
+                return
+              }
+              const extractScope = `${scope}:extract:${progress.index}`
               await emitProgress(
                 progress.phase === 'started'
                   ? {
-                      idempotencyKey: `${searchScope}:started`,
+                      idempotencyKey: `${extractScope}:started`,
                       event: {
-                        event: 'searching',
+                        event: 'extracting',
                         data: {
                           title: chapter.title,
-                          query: progress.query,
+                          url: progress.url,
                           index: progress.index,
                         },
                       },
                     }
                   : {
-                      idempotencyKey: `${searchScope}:finished`,
+                      idempotencyKey: `${extractScope}:finished`,
                       event: {
-                        event: 'search_done',
+                        event: 'extract_done',
                         data: {
                           title: chapter.title,
-                          query: progress.query,
-                          preview: progress.preview,
+                          url: progress.url,
+                          index: progress.index,
+                          ...(progress.sourceTitle
+                            ? { source_title: progress.sourceTitle }
+                            : {}),
                           chars: progress.chars,
+                          status: progress.status,
                         },
                       },
                     },

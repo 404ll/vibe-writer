@@ -1,4 +1,4 @@
-import type { SearchProvider } from '@vibe-writer/agent-core'
+import type { SearchProvider, WebPageExtractor } from '@vibe-writer/agent-core'
 import type {
   FinishRunEffectInput,
   ReserveRunEffectInput,
@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   EffectJournalModel,
   EffectJournalSearchProvider,
+  EffectJournalWebPageExtractor,
 } from '../src/effect-journal'
 
 const identity = { jobId: 'job-1', runId: 'run-1', leaseToken: 'lease-1' }
@@ -151,6 +152,28 @@ describe('fenced provider effect journal', () => {
     const finish = control.finishRunEffect.mock.calls[0]![0]
     expect(finish.resultMetadata).toMatchObject({
       provider: 'tavily', requestId: 'search-1', documentCount: 1,
+    })
+    expect(JSON.stringify(finish)).not.toContain('private')
+    expect(JSON.stringify(finish)).not.toContain('example.com')
+  })
+
+  it('journals web extraction metadata without the URL or page text', async () => {
+    const control = journal()
+    const provider: WebPageExtractor = {
+      extract: vi.fn(async ({ url }) => ({
+        provider: 'readability', url, finalUrl: url, title: 'Private title',
+        contentType: 'text/html', content: 'private page text', truncated: false,
+      })),
+    }
+    const extract = new EffectJournalWebPageExtractor(provider, control, identity)
+    await extract.extract({
+      url: 'https://example.com/private',
+      effectScope: 'chapter:0:write:attempt:1:tool:extract_webpage:round:2:call:2',
+    })
+    const finish = control.finishRunEffect.mock.calls[0]![0]
+    expect(finish.resultMetadata).toMatchObject({
+      provider: 'readability', contentType: 'text/html', contentLength: 17,
+      truncated: false,
     })
     expect(JSON.stringify(finish)).not.toContain('private')
     expect(JSON.stringify(finish)).not.toContain('example.com')

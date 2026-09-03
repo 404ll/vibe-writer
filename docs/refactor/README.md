@@ -89,6 +89,7 @@
 - 最近完成：[0063 Python 退役与 Vercel Preview 边界](./iterations/0063-python-retirement-and-vercel-preview.md)，删除可执行双栈与SQLite fallback，验证Vercel monorepo build并固定外部Worker边界。
 - 进行中：[0064 Vercel、Neon 与外部 Worker 部署](./iterations/0064-vercel-neon-worker-deployment.md)，Neon Free schema、checkpoint、三套最小权限角色与固定workspace已就绪；等待Vercel secret写入、Preview和服务器Worker验收。
 - 最近完成：[0065 核心代码认知注释与分层说明文件](./iterations/0065-core-code-commentary-and-readmes.md)，沿持久化写作主链补充设计意图注释，并把入口与包内文档改为职责、数据流、恢复语义和阅读顺序导向；新读者走查可仅凭说明文件复述事实来源、异步投递、执行权和恢复路径。
+- 最近完成：[0080 自由联网研究与安全网页提取](./iterations/0080-free-web-research-and-safe-extraction.md)，保留 Writer 自主 Tool Calling，新增 Tavily/Brave/SearXNG 选择、本地 Readability 正文提取、安全预算、fenced effect、可重放事件与 Web 活动日志；真实账号/配额与旧 production event fixture 仍单独标记为未验证。
 
 ## 维护规则
 

@@ -18,5 +18,5 @@ export const PROMPT_VERSIONS = {
 } as const
 
 export const TOOLSET_VERSIONS = {
-  writer: 'writer-tools-v1-target-2026-08-07',
+  writer: 'writer-tools-v2-web-research-2026-09-03',
 } as const

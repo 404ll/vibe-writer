@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SSEEventType } from '@/types'
 import { WritingWorkspace } from './WritingWorkspace'
 
 const mocks = vi.hoisted(() => ({
@@ -7,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   getArticles: vi.fn(),
   useJobStream: vi.fn<(
     jobId: string | null,
-    onEvent: (type: string, data: Record<string, unknown>) => void,
+    onEvent: (type: SSEEventType, data: Record<string, unknown>) => void,
   ) => void>(),
   writeActiveJobId: vi.fn(),
 }))
@@ -60,6 +61,32 @@ describe('WritingWorkspace job create', () => {
       })
     })
     expect(mocks.writeActiveJobId).toHaveBeenCalledWith('job-created-1')
+  })
+
+  it('shows durable web extraction progress without rendering page content', async () => {
+    render(<WritingWorkspace />)
+    fireEvent.change(screen.getByLabelText('写作主题'), { target: { value: '自由研究' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始写作' }))
+    await waitFor(() => {
+      expect(mocks.useJobStream).toHaveBeenCalledWith('job-created-1', expect.any(Function))
+    })
+    const streamCall = mocks.useJobStream.mock.calls.find(([jobId]) => jobId === 'job-created-1')
+    const onEvent = streamCall?.[1]
+    expect(onEvent).toBeTypeOf('function')
+
+    act(() => {
+      onEvent?.('extracting', {
+        title: '研究章节', url: 'https://example.com/source', index: 1,
+      })
+      onEvent?.('extract_done', {
+        title: '研究章节', url: 'https://example.com/source', index: 1,
+        source_title: '公开来源', chars: 1200, status: 'ready',
+      })
+    })
+
+    expect(screen.getByText('正在读取网页：研究章节「https://example.com/source」')).toBeInTheDocument()
+    expect(screen.getByText('网页读取完成：公开来源（1200 字）')).toBeInTheDocument()
+    expect(screen.queryByText(/网页中的完整正文/u)).not.toBeInTheDocument()
   })
 
   it('shows persisted planning events in the realtime activity log', async () => {

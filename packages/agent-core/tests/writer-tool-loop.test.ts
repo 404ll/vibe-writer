@@ -18,6 +18,8 @@ import {
 import {
   DIAGRAM_TOOL_DEFINITION,
   DiagramToolInputSchema,
+  EXTRACT_WEB_PAGE_TOOL_DEFINITION,
+  ExtractWebPageToolInputSchema,
   maxTokensForChapter,
   renderResearchToolResult,
   SEARCH_TOOL_DEFINITION,
@@ -643,9 +645,17 @@ describe('WriterService', () => {
       required: ['diagram_type', 'mermaid_code'],
       additionalProperties: false,
     })
+    expect(EXTRACT_WEB_PAGE_TOOL_DEFINITION.inputSchema).toMatchObject({
+      type: 'object',
+      required: ['url'],
+      additionalProperties: false,
+    })
     expect(SearchToolInputSchema.safeParse({ query: '可验证查询', extra: true }).success).toBe(
       false,
     )
+    expect(
+      ExtractWebPageToolInputSchema.safeParse({ url: 'https://example.com', extra: true }).success,
+    ).toBe(false)
     expect(
       DiagramToolInputSchema.safeParse({
         diagram_type: 'flowchart',
@@ -676,7 +686,11 @@ describe('WriterService', () => {
       promptVersion: PROMPT_VERSIONS.writer,
       toolsetVersion: TOOLSET_VERSIONS.writer,
       maxTokens: 660,
-      metadata: { chapterTitle: '工具循环', searchEnabled: false },
+      metadata: {
+        chapterTitle: '工具循环',
+        searchEnabled: false,
+        webExtractEnabled: false,
+      },
     })
     expect(model.requests[0]?.tools.map((tool) => tool.name)).toEqual(['generate_diagram'])
     expect(model.requests[0]?.system).toContain('面向普通读者')
@@ -751,6 +765,55 @@ describe('WriterService', () => {
         },
       ],
     })
+  })
+
+  it('lets the model freely search, select a URL, extract it, and continue writing', async () => {
+    const model = new ScriptedToolModel([
+      response('tool_use', [{
+        type: 'tool_call', id: 'search-1', name: 'search', input: { query: 'Agent 工程' },
+      }]),
+      response('tool_use', [{
+        type: 'tool_call', id: 'extract-1', name: 'extract_webpage', input: { url: 'https://example.com/source' },
+      }]),
+      response('end_turn', [{ type: 'text', text: '核实来源后的正文' }]),
+    ])
+    const writer = new WriterService(model, {
+      research: async () => readyResearch(),
+      extractWebPage: async (url) => ({
+        status: 'ready',
+        provider: 'readability',
+        url,
+        finalUrl: url,
+        title: '来源标题',
+        contentType: 'text/html',
+        content: '网页中的事实内容',
+        truncated: false,
+      }),
+    })
+
+    const result = await writer.write({
+      topic: 'Agent 工程',
+      outline: '1. 研究',
+      chapterTitle: '研究',
+      budgetUsage: freshBudget(),
+    })
+
+    expect(result).toMatchObject({ status: 'ready', content: '核实来源后的正文' })
+    expect(model.requests[0]?.tools.map((tool) => tool.name)).toEqual([
+      'search', 'extract_webpage', 'generate_diagram',
+    ])
+    const extractedResult = model.requests[2]?.messages.at(-1)
+    expect(extractedResult).toMatchObject({
+      role: 'user',
+      content: [{
+        type: 'tool_result',
+        toolCallId: 'extract-1',
+        isError: false,
+        content: expect.stringContaining('<external_untrusted_content'),
+      }],
+    })
+    expect(JSON.stringify(extractedResult)).toContain('网页中的事实内容')
+    expect(JSON.stringify(extractedResult)).toContain('不可信内容')
   })
 
   it('renders Mermaid deterministically and reports empty final output as inconclusive', async () => {

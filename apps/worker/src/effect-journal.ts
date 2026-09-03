@@ -1,4 +1,9 @@
-import type { SearchProvider, SearchProviderRequest } from '@vibe-writer/agent-core'
+import type {
+  SearchProvider,
+  SearchProviderRequest,
+  WebExtractProviderRequest,
+  WebPageExtractor,
+} from '@vibe-writer/agent-core'
 import {
   fingerprintEffectRequest,
   type CanonicalJsonObject,
@@ -222,6 +227,49 @@ export class EffectJournalSearchProvider extends EffectJournalBase implements Se
         provider: response.provider,
         ...(response.requestId ? { requestId: response.requestId } : {}),
         documentCount: response.documents.length,
+        latencyMs: Math.round(performance.now() - started),
+      },
+    })
+    return response
+  }
+}
+
+/** 网页读取同样经过 lease/fencing；journal 只保存长度和类型，不保存 URL 或正文。 */
+export class EffectJournalWebPageExtractor extends EffectJournalBase implements WebPageExtractor {
+  constructor(
+    private readonly extractor: WebPageExtractor,
+    journal: EffectJournalControl,
+    identity: LeaseIdentity,
+  ) {
+    super(journal, identity)
+  }
+
+  async extract(request: WebExtractProviderRequest) {
+    const effectKey = `tool:${scope(request)}:web-extract`
+    const fingerprint = fingerprintEffectRequest({ url: request.url })
+    await this.reserve({
+      effectKey,
+      effectType: 'tool_call',
+      requestFingerprint: fingerprint,
+      trace: { operation: 'web.extract' },
+    })
+    const started = performance.now()
+    let response
+    try {
+      response = await this.extractor.extract(request)
+    } catch (error) {
+      const detail = requestError(error)
+      await this.finish({ effectKey, outcome: 'failed', errorCode: detail.code, errorMessage: detail.message })
+      throw error
+    }
+    await this.finish({
+      effectKey,
+      outcome: 'succeeded',
+      resultMetadata: {
+        provider: response.provider,
+        contentType: response.contentType,
+        contentLength: response.content.length,
+        truncated: response.truncated,
         latencyMs: Math.round(performance.now() - started),
       },
     })

@@ -3,15 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@vibe-writer/agent-core": "workspace:*",
     "@vibe-writer/contracts": "workspace:*",
     "@vibe-writer/model-runtime": "workspace:*",
+    "linkedom": "^0.18.13",
     "zod": "^4.4.3"
   },
   "devDependencies": {

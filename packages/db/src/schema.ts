@@ -555,6 +555,7 @@ export const jobEvents = pgTable(
         'done', 'cancelled', 'error',
         'stage_update', 'outline_ready',
         'generating_opinions', 'opinions_ready', 'searching', 'search_done',
+        'extracting', 'extract_done',
         'writing_chapter', 'reviewing_chapter', 'chapter_done',
         'reviewing_full', 'review_done'
       )`,

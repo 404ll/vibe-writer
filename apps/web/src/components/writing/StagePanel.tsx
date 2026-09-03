@@ -12,6 +12,7 @@ const STAGE_ORDER: StageStatus[] = ['plan', 'write', 'review', 'export', 'done']
 const CH_STATUS_LABEL: Record<string, string> = {
   forming_opinion: '论点中',
   searching:       '搜索中',
+  extracting:      '读网页',
   writing:         '写作中',
   reviewing:       '审稿中',
   done:            '✓',
@@ -21,7 +22,7 @@ interface Props {
   currentStage: StageStatus | null
   completedChapters: number
   totalChapters: number
-  chapterStatus?: Record<string, 'forming_opinion' | 'searching' | 'writing' | 'reviewing' | 'done'>
+  chapterStatus?: Record<string, 'forming_opinion' | 'searching' | 'extracting' | 'writing' | 'reviewing' | 'done'>
   outline?: string[]
 }
 
